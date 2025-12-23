@@ -279,9 +279,8 @@ class LLMAPIServer:
     ) -> dict[str, Any]:
         """Handle chat completion request with error handling."""
         try:
-            async with router:
-                response = await router.chat_completion(request)
-                return response
+            response = await router.chat_completion(request)
+            return response
         except Exception as e:
             # Re-raise HTTP exceptions
             if isinstance(e, HTTPException):
