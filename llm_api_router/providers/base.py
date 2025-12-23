@@ -205,44 +205,44 @@ class BaseProvider(ABC):
 
                 start_time = time.time()
 
-                # For streaming, we need to handle the response differently
-                # We'll return a generator that yields chunks
-                async with self.client.stream(
-                    "POST",
+                # For streaming, we need to make a streaming request
+                # Using stream=True to get a streaming response
+                response = await self.client.post(
                     self._get_endpoint(),
                     json=payload,
-                    headers={**self._get_headers(), "Accept": "text/event-stream"}
-                ) as response:
-                    duration = (time.time() - start_time) * 1000
+                    headers={**self._get_headers(), "Accept": "text/event-stream"},
+                    stream=True  # This is key for streaming
+                )
+                duration = (time.time() - start_time) * 1000
 
-                    if response.status_code == 200:
-                        self.logger.logger.debug(
-                            f"Provider {self.provider_name}: "
-                            f"Streaming request successful in {duration:.0f}ms, "
-                            f"status: {response.status_code}"
-                        )
+                if response.status_code == 200:
+                    self.logger.logger.debug(
+                        f"Provider {self.provider_name}: "
+                        f"Streaming request successful in {duration:.0f}ms, "
+                        f"status: {response.status_code}"
+                    )
 
-                        # Return a special marker indicating this is a streaming response
-                        # The router will handle this specially
-                        return {
-                            "_streaming": True,
-                            "_provider": self.provider_name,
-                            "_response": response
-                        }
-                    else:
-                        try:
-                            error_data = response.json()
-                        except json.JSONDecodeError:
-                            error_data = {"error": {"message": response.text}}
+                    # For streaming responses, we need to return the response object
+                    # The server will stream from it using aiter_bytes()
+                    return {
+                        "_streaming": True,
+                        "_provider": self.provider_name,
+                        "_response": response
+                    }
+                else:
+                    try:
+                        error_data = response.json()
+                    except json.JSONDecodeError:
+                        error_data = {"error": {"message": response.text}}
 
-                        self.logger.logger.warning(
-                            f"Provider {self.provider_name}: "
-                            f"Streaming request failed in {duration:.0f}ms, "
-                            f"status: {response.status_code}, "
-                            f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
-                        )
+                    self.logger.logger.warning(
+                        f"Provider {self.provider_name}: "
+                        f"Streaming request failed in {duration:.0f}ms, "
+                        f"status: {response.status_code}, "
+                        f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                    )
 
-                        self._handle_error(response.status_code, error_data)
+                    self._handle_error(response.status_code, error_data)
 
             except (RateLimitError, AuthenticationError) as e:
                 # Don't retry auth or rate limit errors

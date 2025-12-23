@@ -295,6 +295,7 @@ class LLMAPIServer:
 
                 # Create a streaming response that forwards the chunks
                 async def stream_generator():
+                    # Stream chunks as they come in
                     async for chunk in httpx_response.aiter_bytes():
                         yield chunk
 
