@@ -50,11 +50,13 @@ async def test_router_chat_completion_success(
         mock_openai_provider = AsyncMock()
         # Create a proper response dict (what providers now return)
         from llm_api_router.models import (
-            ChatCompletionResponse,
-            Choice,
             Message,
             Role,
             Usage,
+        )
+        from tests.test_models_moved import (
+            ChatCompletionResponse,
+            Choice,
         )
 
         # Create the raw response (OpenAI format)
@@ -103,11 +105,8 @@ async def test_router_chat_completion_success(
             provider=ProviderType.OPENAI,
         )
 
-        mock_response = {
-            "raw_response": raw_response,
-            "parsed_for_logging": parsed_response,
-        }
-        mock_openai_provider.chat_completion.return_value = mock_response
+        # Providers now return raw response dicts directly
+        mock_openai_provider.chat_completion.return_value = raw_response
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider if config.name == ProviderType.OPENAI else AsyncMock()
@@ -119,9 +118,9 @@ async def test_router_chat_completion_success(
 
         # Should use OpenAI (higher priority)
         mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
-        # Router returns the raw_response part
+        # Router returns the raw response dict
         assert response["id"] == "chatcmpl-123"
-        assert response["provider"] == ProviderType.OPENAI.value
+        # Note: provider field is not added to response anymore
 
 
 @pytest.mark.asyncio
@@ -138,10 +137,12 @@ async def test_router_fallback_on_failure(
         mock_openai_provider.chat_completion.side_effect = Exception("OpenAI error")
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
-            ChatCompletionResponse,
-            Choice,
             Message,
             Role,
+        )
+        from test_models_moved import (
+            ChatCompletionResponse,
+            Choice,
             Usage,
         )
 
@@ -182,11 +183,8 @@ async def test_router_fallback_on_failure(
             provider=ProviderType.ANTHROPIC,
         )
 
-        mock_response = {
-            "raw_response": raw_response,
-            "parsed_for_logging": parsed_response,
-        }
-        mock_anthropic_provider.chat_completion.return_value = mock_response
+        # Providers now return raw response dicts directly
+        mock_anthropic_provider.chat_completion.return_value = raw_response
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
@@ -201,9 +199,9 @@ async def test_router_fallback_on_failure(
         # Should try OpenAI first, then fall back to Anthropic
         mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
         mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
-        # Router returns the raw_response part
+        # Router returns the raw response dict
         assert response["id"] == "msg_123"
-        assert response["provider"] == ProviderType.ANTHROPIC.value
+        # Note: provider field is not added to response anymore
 
 
 @pytest.mark.asyncio
@@ -224,10 +222,12 @@ async def test_router_fallback_on_rate_limit(
         )
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
-            ChatCompletionResponse,
-            Choice,
             Message,
             Role,
+        )
+        from test_models_moved import (
+            ChatCompletionResponse,
+            Choice,
             Usage,
         )
 
@@ -270,11 +270,8 @@ async def test_router_fallback_on_rate_limit(
             provider=ProviderType.ANTHROPIC,
         )
 
-        mock_response = {
-            "raw_response": raw_response,
-            "parsed_for_logging": parsed_response,
-        }
-        mock_anthropic_provider.chat_completion.return_value = mock_response
+        # Providers now return raw response dicts directly
+        mock_anthropic_provider.chat_completion.return_value = raw_response
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
@@ -289,9 +286,9 @@ async def test_router_fallback_on_rate_limit(
         # Should try OpenAI first, then fall back to Anthropic
         mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
         mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
-        # Router returns the raw_response part
+        # Router returns the raw response dict
         assert response["id"] == "msg_456"
-        assert response["provider"] == ProviderType.ANTHROPIC.value
+        # Note: provider field is not added to response anymore
 
 
 @pytest.mark.asyncio
@@ -312,10 +309,12 @@ async def test_router_fallback_on_authentication_error(
         )
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
-            ChatCompletionResponse,
-            Choice,
             Message,
             Role,
+        )
+        from test_models_moved import (
+            ChatCompletionResponse,
+            Choice,
             Usage,
         )
 
@@ -358,11 +357,8 @@ async def test_router_fallback_on_authentication_error(
             provider=ProviderType.ANTHROPIC,
         )
 
-        mock_response = {
-            "raw_response": raw_response,
-            "parsed_for_logging": parsed_response,
-        }
-        mock_anthropic_provider.chat_completion.return_value = mock_response
+        # Providers now return raw response dicts directly
+        mock_anthropic_provider.chat_completion.return_value = raw_response
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
@@ -377,9 +373,9 @@ async def test_router_fallback_on_authentication_error(
         # Should try OpenAI first, then fall back to Anthropic
         mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
         mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
-        # Router returns the raw_response part
+        # Router returns the raw response dict
         assert response["id"] == "msg_789"
-        assert response["provider"] == ProviderType.ANTHROPIC.value
+        # Note: provider field is not added to response anymore
 
 
 @pytest.mark.asyncio

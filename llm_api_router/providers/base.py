@@ -73,6 +73,16 @@ class BaseProvider(ABC):
         if hasattr(request, "model_dump"):
             request = request.model_dump(exclude_none=True)
 
+        # Check if streaming is requested
+        stream = request.get("stream", False)
+
+        if stream:
+            return await self._chat_completion_stream(request)
+        else:
+            return await self._chat_completion_non_stream(request)
+
+    async def _chat_completion_non_stream(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Send a non-streaming chat completion request to the provider."""
         # Extract model from request
         model = request.get("model", "")
         provider_model = self._map_model(model)
@@ -87,7 +97,7 @@ class BaseProvider(ABC):
         # Log the API call
         self.logger.logger.debug(
             f"Provider {self.provider_name}: "
-            f"Sending request for model {model} -> {provider_model}, "
+            f"Sending non-streaming request for model {model} -> {provider_model}, "
             f"messages: {len(request.get('messages', []))}, "
             f"max_retries: {self.config.max_retries}"
         )
@@ -147,6 +157,113 @@ class BaseProvider(ABC):
                     )
                     raise ProviderError(
                         f"Request failed after {self.config.max_retries + 1} attempts: {str(e)}",
+                        self.config.name.value,
+                    ) from e
+
+                # Exponential backoff
+                backoff_time = 2**attempt
+                self.logger.logger.debug(
+                    f"Provider {self.provider_name}: "
+                    f"Retrying after {backoff_time}s backoff"
+                )
+                await asyncio.sleep(backoff_time)
+
+        # This should never be reached due to the raise statements above
+        raise ProviderError(
+            "Unexpected error: max retries exhausted without raising exception",
+            self.config.name.value,
+        )
+
+    async def _chat_completion_stream(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Send a streaming chat completion request to the provider."""
+        # Extract model from request
+        model = request.get("model", "")
+        provider_model = self._map_model(model)
+
+        # Build payload - start with original request and update model only
+        payload = dict(request)
+        payload["model"] = provider_model
+        payload["stream"] = True  # Ensure streaming is enabled
+
+        # Remove None values
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        # Log the API call
+        self.logger.logger.debug(
+            f"Provider {self.provider_name}: "
+            f"Sending streaming request for model {model} -> {provider_model}, "
+            f"messages: {len(request.get('messages', []))}, "
+            f"max_retries: {self.config.max_retries}"
+        )
+
+        for attempt in range(self.config.max_retries + 1):
+            try:
+                self.logger.logger.debug(
+                    f"Provider {self.provider_name}: "
+                    f"Attempt {attempt + 1}/{self.config.max_retries + 1}"
+                )
+
+                start_time = time.time()
+
+                # For streaming, we need to handle the response differently
+                # We'll return a generator that yields chunks
+                async with self.client.stream(
+                    "POST",
+                    self._get_endpoint(),
+                    json=payload,
+                    headers={**self._get_headers(), "Accept": "text/event-stream"}
+                ) as response:
+                    duration = (time.time() - start_time) * 1000
+
+                    if response.status_code == 200:
+                        self.logger.logger.debug(
+                            f"Provider {self.provider_name}: "
+                            f"Streaming request successful in {duration:.0f}ms, "
+                            f"status: {response.status_code}"
+                        )
+
+                        # Return a special marker indicating this is a streaming response
+                        # The router will handle this specially
+                        return {
+                            "_streaming": True,
+                            "_provider": self.provider_name,
+                            "_response": response
+                        }
+                    else:
+                        try:
+                            error_data = response.json()
+                        except json.JSONDecodeError:
+                            error_data = {"error": {"message": response.text}}
+
+                        self.logger.logger.warning(
+                            f"Provider {self.provider_name}: "
+                            f"Streaming request failed in {duration:.0f}ms, "
+                            f"status: {response.status_code}, "
+                            f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                        )
+
+                        self._handle_error(response.status_code, error_data)
+
+            except (RateLimitError, AuthenticationError) as e:
+                # Don't retry auth or rate limit errors
+                self.logger.logger.warning(
+                    f"Provider {self.provider_name}: "
+                    f"Fatal error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}"
+                )
+                raise e
+            except Exception as e:
+                self.logger.logger.warning(
+                    f"Provider {self.provider_name}: "
+                    f"Error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}"
+                )
+
+                if attempt == self.config.max_retries:
+                    self.logger.logger.error(
+                        f"Provider {self.provider_name}: "
+                        f"Max retries ({self.config.max_retries}) exceeded"
+                    )
+                    raise ProviderError(
+                        f"Streaming request failed after {self.config.max_retries + 1} attempts: {str(e)}",
                         self.config.name.value,
                     ) from e
 

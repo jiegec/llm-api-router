@@ -36,9 +36,6 @@ poetry run llm-api-router check
 # Start the server
 poetry run llm-api-router serve
 
-# Start server with custom options
-poetry run llm-api-router serve --host 0.0.0.0 --port 8080 --reload
-
 # Use specific configuration file
 poetry run llm-api-router serve --config /path/to/config.json
 ```

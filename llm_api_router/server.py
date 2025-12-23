@@ -3,7 +3,7 @@
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .config import RouterConfig, load_default_config
 from .exceptions import (
@@ -276,11 +276,41 @@ class LLMAPIServer:
         request: dict[str, Any],
         router: LLMRouter,
         expected_provider: ProviderType,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | StreamingResponse:
         """Handle chat completion request with error handling."""
         try:
             response = await router.chat_completion(request)
-            return response
+
+            # Check if this is a streaming response
+            if isinstance(response, dict) and response.get("_streaming"):
+                # This is a streaming response
+                provider_name = response.get("_provider", "unknown")
+                httpx_response = response.get("_response")
+
+                if not httpx_response:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Streaming response missing HTTP response"
+                    )
+
+                # Create a streaming response that forwards the chunks
+                async def stream_generator():
+                    async for chunk in httpx_response.aiter_bytes():
+                        yield chunk
+
+                return StreamingResponse(
+                    stream_generator(),
+                    media_type="text/event-stream",
+                    headers={
+                        "X-Provider": provider_name,
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                    }
+                )
+            else:
+                # Non-streaming response
+                return response
+
         except Exception as e:
             # Re-raise HTTP exceptions
             if isinstance(e, HTTPException):

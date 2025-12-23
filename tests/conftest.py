@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from llm_api_router.models import (
-    ChatCompletionRequest,
     Message,
     ProviderConfig,
     ProviderType,

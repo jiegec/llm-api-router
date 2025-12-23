@@ -10,8 +10,6 @@ from .exceptions import (
     RateLimitError,
 )
 from .models import (
-    ChatCompletionResponse,
-    Choice,
     Message,
     ProviderConfig,
     ProviderType,
@@ -24,11 +22,9 @@ __version__ = "0.1.0"
 __all__ = [
     "LLMRouter",
     "Message",
-    "ChatCompletionResponse",
     "ProviderConfig",
     "ProviderType",
     "Role",
-    "Choice",
     "Usage",
     "LLMError",
     "RateLimitError",

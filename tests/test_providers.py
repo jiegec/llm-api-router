@@ -6,12 +6,12 @@ import pytest
 from httpx import Response
 
 from llm_api_router.models import (
-    ChatCompletionRequest,
     Message,
     ProviderConfig,
     ProviderType,
     Role,
 )
+from tests.test_models_moved import ChatCompletionRequest
 from llm_api_router.providers import AnthropicProvider, OpenAIProvider, create_provider
 
 
@@ -63,22 +63,12 @@ async def test_openai_provider_chat_completion(
     call_args = mock_httpx_client.post.call_args
     assert call_args[0][0] == "/chat/completions"
 
-    # Verify response - now returns dict with raw_response and parsed_for_logging
+    # Verify response - providers now return raw response dicts directly
     assert isinstance(response, dict)
-    assert "raw_response" in response
-    assert "parsed_for_logging" in response
-
-    raw_response = response["raw_response"]
-    parsed_response = response["parsed_for_logging"]
-
-    assert raw_response["id"] == "chatcmpl-123"
-    assert raw_response["model"] == "gpt-4o-mini"
-    assert raw_response["provider"] == ProviderType.OPENAI.value
-
-    # Check parsed response for logging
-    assert parsed_response.id == "chatcmpl-123"
-    assert parsed_response.model == "gpt-4o-mini"
-    assert parsed_response.provider == ProviderType.OPENAI
+    # Providers return raw response dicts, not wrapped
+    assert response["id"] == "chatcmpl-123"
+    assert response["model"] == "gpt-4o-mini"
+    # Note: provider field is not added to response anymore
 
 
 @pytest.mark.asyncio
@@ -123,23 +113,13 @@ async def test_anthropic_provider_chat_completion(
     call_args = mock_httpx_client.post.call_args
     assert call_args[0][0] == "/v1/messages"
 
-    # Verify response - now returns dict with raw_response and parsed_for_logging
+    # Verify response - providers now return raw response dicts directly
     assert isinstance(response, dict)
-    assert "raw_response" in response
-    assert "parsed_for_logging" in response
-
-    raw_response = response["raw_response"]
-    parsed_response = response["parsed_for_logging"]
-
-    assert raw_response["id"] == "msg_123"
+    # Providers return raw response dicts, not wrapped
+    assert response["id"] == "msg_123"
     # Model name should be mapped from "gpt-4o-mini" to "claude-3-5-sonnet-20241022"
-    assert raw_response["model"] == "claude-3-5-sonnet-20241022"
-    assert raw_response["provider"] == ProviderType.ANTHROPIC.value
-
-    # Check parsed response for logging
-    assert parsed_response.id == "msg_123"
-    assert parsed_response.model == "claude-3-5-sonnet-20241022"
-    assert parsed_response.provider == ProviderType.ANTHROPIC
+    assert response["model"] == "claude-3-5-sonnet-20241022"
+    # Note: provider field is not added to response anymore
 
 
 @pytest.mark.asyncio
@@ -274,5 +254,5 @@ async def test_provider_retry_logic(openai_config, mock_httpx_client):
     # Should have retried once
     assert mock_httpx_client.post.call_count == 2
     assert isinstance(response, dict)
-    assert "raw_response" in response
-    assert response["raw_response"]["id"] == "chatcmpl-123"
+    # Providers return raw response dicts, not wrapped
+    assert response["id"] == "chatcmpl-123"

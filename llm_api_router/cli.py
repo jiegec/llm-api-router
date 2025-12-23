@@ -40,12 +40,6 @@ def cli():
     help="Port to bind the server to",
 )
 @click.option(
-    "--reload",
-    is_flag=True,
-    default=False,
-    help="Enable auto-reload for development",
-)
-@click.option(
     "--workers",
     "-w",
     default=1,
@@ -53,7 +47,7 @@ def cli():
     type=int,
     help="Number of worker processes",
 )
-def serve(config: Path | None, host: str, port: int, reload: bool, workers: int):
+def serve(config: Path | None, host: str, port: int, workers: int):
     """Start the LLM API Router server."""
     try:
         # Load configuration
@@ -92,7 +86,6 @@ def serve(config: Path | None, host: str, port: int, reload: bool, workers: int)
         click.echo(f"📁 Config: {config or 'default'}")
         click.echo(f"🌐 Host: {host}")
         click.echo(f"🔌 Port: {port}")
-        click.echo(f"🔄 Reload: {reload}")
         click.echo(f"👷 Workers: {workers}")
         click.echo()
 
@@ -137,7 +130,6 @@ def serve(config: Path | None, host: str, port: int, reload: bool, workers: int)
             app,
             host=host,
             port=port,
-            reload=reload,
             workers=workers,
         )
 

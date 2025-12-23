@@ -5,13 +5,10 @@ import logging
 import logging.handlers
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Union
+from typing import Any, Union
 from uuid import uuid4
 
 from .models import Usage
-
-if TYPE_CHECKING:
-    from .models import ChatCompletionResponse
 
 
 class RouterLogger:
@@ -130,42 +127,27 @@ class RouterLogger:
         self,
         request_id: str,
         endpoint: str,
-        response: Union[dict[str, Any], "ChatCompletionResponse"],
+        response: dict[str, Any],
         provider_name: str,
         duration_ms: float,
     ) -> None:
         """Log a successful response."""
-        # Extract values from response (could be dict or Pydantic model)
-        if hasattr(response, "model"):
-            model = response.model
-            response_id = response.id
-            usage = response.usage
-            has_content = bool(
-                response.choices
-                and response.choices[0].message
-                and response.choices[0].message.content
+        # Extract values from response (now always a dict)
+        model = response.get("model", "")
+        response_id = response.get("id", "")
+        usage_data = response.get("usage")
+        if usage_data:
+            usage = Usage(
+                prompt_tokens=usage_data.get("prompt_tokens", 0),
+                completion_tokens=usage_data.get("completion_tokens", 0),
+                total_tokens=usage_data.get("total_tokens", 0),
             )
-            finish_reason = (
-                response.choices[0].finish_reason if response.choices else None
-            )
-            # Convert Pydantic model to dict for full logging
-            full_response = response.dict() if hasattr(response, "dict") else response
         else:
-            model = response.get("model", "")
-            response_id = response.get("id", "")
-            usage_data = response.get("usage")
-            if usage_data:
-                usage = Usage(
-                    prompt_tokens=usage_data.get("prompt_tokens", 0),
-                    completion_tokens=usage_data.get("completion_tokens", 0),
-                    total_tokens=usage_data.get("total_tokens", 0),
-                )
-            else:
-                usage = None
-            choices = response.get("choices", [])
-            has_content = bool(choices and choices[0].get("message", {}).get("content"))
-            finish_reason = choices[0].get("finish_reason") if choices else None
-            full_response = response
+            usage = None
+        choices = response.get("choices", [])
+        has_content = bool(choices and choices[0].get("message", {}).get("content"))
+        finish_reason = choices[0].get("finish_reason") if choices else None
+        full_response = response
 
         log_entry = {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),

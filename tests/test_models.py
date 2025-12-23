@@ -3,14 +3,16 @@
 import pytest
 
 from llm_api_router.models import (
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    Choice,
     Message,
     ProviderConfig,
     ProviderType,
     Role,
     Usage,
+)
+from tests.test_models_moved import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    Choice,
 )
 
 

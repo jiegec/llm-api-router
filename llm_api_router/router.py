@@ -151,27 +151,33 @@ class LLMRouter:
                 result = await provider.chat_completion(request)
                 provider_duration = (time.time() - provider_start_time) * 1000
 
-                # Response is now just the raw response
-                response = result
+                # Check if this is a streaming response
+                if isinstance(result, dict) and result.get("_streaming"):
+                    # For streaming responses, we need to handle them specially
+                    # Return the streaming response marker
+                    return result
+                else:
+                    # Non-streaming response
+                    response = result
 
-                # Log successful response - use raw response for full logging
-                if response:
-                    self.logger.log_response(
-                        request_id=request_id,
-                        endpoint=self.endpoint,
-                        response=response,  # Use raw response instead of parsed
-                        provider_name=provider_name,
-                        duration_ms=provider_duration,
+                    # Log successful response - use raw response for full logging
+                    if response:
+                        self.logger.log_response(
+                            request_id=request_id,
+                            endpoint=self.endpoint,
+                            response=response,  # Use raw response instead of parsed
+                            provider_name=provider_name,
+                            duration_ms=provider_duration,
+                        )
+
+                    # Log total request duration
+                    total_duration = (time.time() - start_time) * 1000
+                    self.logger.logger.info(
+                        f"Request {request_id[:8]} completed in {total_duration:.0f}ms "
+                        f"using {provider_name} (attempt {attempt})"
                     )
 
-                # Log total request duration
-                total_duration = (time.time() - start_time) * 1000
-                self.logger.logger.info(
-                    f"Request {request_id[:8]} completed in {total_duration:.0f}ms "
-                    f"using {provider_name} (attempt {attempt})"
-                )
-
-                return response
+                    return response
 
             except AuthenticationError as e:
                 # Authentication errors are fatal for this provider
