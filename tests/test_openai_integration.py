@@ -243,7 +243,7 @@ def test_anthropic_endpoint_compatibility():
 
         with TestClient(app) as test_client:
             response = test_client.post(
-                "/anthropic/chat/completions",
+                "/anthropic/v1/messages",
                 json={
                     "model": "claude-3-5-sonnet-20241022",
                     "messages": [{"role": "user", "content": "Hello"}],

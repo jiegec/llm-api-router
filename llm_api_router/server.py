@@ -165,7 +165,7 @@ class LLMAPIServer:
                 request, router, ProviderType.OPENAI
             )
 
-        @self.app.post("/anthropic/chat/completions")
+        @self.app.post("/anthropic/v1/messages")
         async def anthropic_chat_completion(
             request: dict[str, Any],
             router: LLMRouter = Depends(self._get_anthropic_router),
