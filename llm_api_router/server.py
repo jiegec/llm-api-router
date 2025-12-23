@@ -1,5 +1,6 @@
 """FastAPI server for LLM API Router."""
 
+from typing import Any
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -204,7 +205,3 @@ def create_app(config: RouterConfig | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     server = LLMAPIServer(config)
     return server.app
-
-
-# For backward compatibility
-app = create_app()
