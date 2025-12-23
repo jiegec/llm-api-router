@@ -21,6 +21,33 @@ poetry install
 
 ## Running the Server
 
+### Using the CLI (Recommended)
+
+```bash
+# Show help
+poetry run llm-api-router --help
+
+# Initialize a new configuration file
+poetry run llm-api-router init
+
+# Check configuration
+poetry run llm-api-router check
+
+# Start the server
+poetry run llm-api-router serve
+
+# Start server with custom options
+poetry run llm-api-router serve --host 0.0.0.0 --port 8080 --reload
+
+# Use specific configuration file
+poetry run llm-api-router serve --config /path/to/config.json
+
+# Test the router
+poetry run llm-api-router test
+```
+
+### Using the Legacy Script
+
 ```bash
 # Basic server
 poetry run python main.py
@@ -82,19 +109,29 @@ Create a JSON configuration file (default: `llm_router_config.json`):
 }
 ```
 
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `llm-api-router --help` | Show all available commands |
+| `llm-api-router init` | Create a new configuration file with examples |
+| `llm-api-router check` | Validate configuration and show provider info |
+| `llm-api-router serve` | Start the LLM API Router server |
+| `llm-api-router test` | Test the router with a sample request |
+
 ### Running with Custom Config
 
 ```bash
 # Use default config file (llm_router_config.json)
-poetry run python main.py
+poetry run llm-api-router serve
 
 # Specify custom config file
-poetry run python main.py --config /path/to/config.json
+poetry run llm-api-router serve --config /path/to/config.json
 
 # Create config from example
-cp llm_router_config.example.json llm_router_config.json
+poetry run llm-api-router init
 # Edit llm_router_config.json with your API keys
-poetry run python main.py
+poetry run llm-api-router serve
 ```
 
 ### Programmatic Configuration
