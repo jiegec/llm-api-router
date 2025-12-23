@@ -19,7 +19,7 @@ async def test_openai_endpoint():
         payload = {
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Hello, how are you?"}
+                {"role": "user", "content": "Hello, how are you?"},
             ],
             "model": "gpt-4o-mini",
             "max_tokens": 100,
@@ -28,9 +28,7 @@ async def test_openai_endpoint():
 
         try:
             response = await client.post(
-                "/openai/chat/completions",
-                json=payload,
-                timeout=30.0
+                "/openai/chat/completions", json=payload, timeout=30.0
             )
 
             if response.status_code == 200:
@@ -59,7 +57,7 @@ async def test_anthropic_endpoint():
         payload = {
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "What is the capital of France?"}
+                {"role": "user", "content": "What is the capital of France?"},
             ],
             "model": "claude-3-sonnet",
             "max_tokens": 100,
@@ -68,9 +66,7 @@ async def test_anthropic_endpoint():
 
         try:
             response = await client.post(
-                "/anthropic/chat/completions",
-                json=payload,
-                timeout=30.0
+                "/anthropic/chat/completions", json=payload, timeout=30.0
             )
 
             if response.status_code == 200:
@@ -96,7 +92,8 @@ async def test_multiple_providers():
 
     # Example of how to configure multiple providers via JSON config
     print("Create a JSON configuration file (llm_router_config.json):")
-    print("""
+    print(
+        """
 {
   "openai": [
     {
@@ -115,7 +112,8 @@ async def test_multiple_providers():
     }
   ]
 }
-""")
+"""
+    )
     print("The server will automatically load this config and provide fallback.")
 
 
@@ -125,7 +123,9 @@ async def main():
 
     # Check if server is running
     try:
-        async with httpx.AsyncClient(base_url="http://127.0.0.1:8000", timeout=2.0) as client:
+        async with httpx.AsyncClient(
+            base_url="http://127.0.0.1:8000", timeout=2.0
+        ) as client:
             await client.get("/health")
     except httpx.RequestError:
         print("Server is not running at http://127.0.0.1:8000")

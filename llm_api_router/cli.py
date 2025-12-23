@@ -101,14 +101,20 @@ def serve(config: Path | None, host: str, port: int, reload: bool, workers: int)
         if router_config.openai_providers:
             click.echo(f"  • OpenAI: {len(router_config.openai_providers)} provider(s)")
             for i, provider in enumerate(router_config.openai_providers, 1):
-                click.echo(f"    {i}. Priority {provider.priority}: {provider.base_url or 'default'}")
+                click.echo(
+                    f"    {i}. Priority {provider.priority}: {provider.base_url or 'default'}"
+                )
         else:
             click.echo("  • OpenAI: No providers configured")
 
         if router_config.anthropic_providers:
-            click.echo(f"  • Anthropic: {len(router_config.anthropic_providers)} provider(s)")
+            click.echo(
+                f"  • Anthropic: {len(router_config.anthropic_providers)} provider(s)"
+            )
             for i, provider in enumerate(router_config.anthropic_providers, 1):
-                click.echo(f"    {i}. Priority {provider.priority}: {provider.base_url or 'default'}")
+                click.echo(
+                    f"    {i}. Priority {provider.priority}: {provider.base_url or 'default'}"
+                )
         else:
             click.echo("  • Anthropic: No providers configured")
 
@@ -171,7 +177,7 @@ def init(output: Path):
                 "base_url": "https://api.openai.com/v1",
                 "timeout": 30,
                 "max_retries": 3,
-            }
+            },
         ],
         "anthropic": [
             {
@@ -181,7 +187,7 @@ def init(output: Path):
                 "timeout": 30,
                 "max_retries": 3,
             }
-        ]
+        ],
     }
 
     try:
@@ -239,7 +245,9 @@ def check(config: Path | None):
             click.echo(f"  OpenAI: {len(router_config.openai_providers)} provider(s)")
             for i, provider in enumerate(router_config.openai_providers, 1):
                 click.echo(f"    {i}. Priority {provider.priority}")
-                click.echo(f"       API Key: {'*' * 8}{provider.api_key[-4:] if len(provider.api_key) > 4 else '****'}")
+                click.echo(
+                    f"       API Key: {'*' * 8}{provider.api_key[-4:] if len(provider.api_key) > 4 else '****'}"
+                )
                 click.echo(f"       Base URL: {provider.base_url or 'default'}")
                 click.echo(f"       Timeout: {provider.timeout}s")
                 click.echo(f"       Max Retries: {provider.max_retries}")
@@ -247,10 +255,14 @@ def check(config: Path | None):
             click.echo("  OpenAI: No providers configured")
 
         if router_config.anthropic_providers:
-            click.echo(f"  Anthropic: {len(router_config.anthropic_providers)} provider(s)")
+            click.echo(
+                f"  Anthropic: {len(router_config.anthropic_providers)} provider(s)"
+            )
             for i, provider in enumerate(router_config.anthropic_providers, 1):
                 click.echo(f"    {i}. Priority {provider.priority}")
-                click.echo(f"       API Key: {'*' * 8}{provider.api_key[-4:] if len(provider.api_key) > 4 else '****'}")
+                click.echo(
+                    f"       API Key: {'*' * 8}{provider.api_key[-4:] if len(provider.api_key) > 4 else '****'}"
+                )
                 click.echo(f"       Base URL: {provider.base_url or 'default'}")
                 click.echo(f"       Timeout: {provider.timeout}s")
                 click.echo(f"       Max Retries: {provider.max_retries}")
@@ -294,14 +306,14 @@ def test(config: Path | None):
         # Test OpenAI providers
         if router_config.openai_providers:
             click.echo("\n🔍 Testing OpenAI providers...")
-            _ = LLMRouter(router_config.openai_providers)  # Create router to test initialization
+            _ = LLMRouter(
+                router_config.openai_providers
+            )  # Create router to test initialization
 
             # Create test request (not actually sent, just for testing structure)
             _ = ChatCompletionRequest(
                 model="gpt-4o-mini",
-                messages=[
-                    Message(role=Role.USER, content="Hello! This is a test.")
-                ],
+                messages=[Message(role=Role.USER, content="Hello! This is a test.")],
                 max_tokens=50,
             )
 
@@ -310,7 +322,9 @@ def test(config: Path | None):
                 # For now, we just test that the router can be created
                 click.echo("✅ OpenAI router created successfully")
                 click.echo(f"   Providers: {len(router_config.openai_providers)}")
-                click.echo(f"   Priority order: {sorted([p.priority for p in router_config.openai_providers])}")
+                click.echo(
+                    f"   Priority order: {sorted([p.priority for p in router_config.openai_providers])}"
+                )
 
             except Exception as e:
                 click.echo(f"❌ OpenAI router test failed: {e}")
@@ -318,15 +332,21 @@ def test(config: Path | None):
         # Test Anthropic providers
         if router_config.anthropic_providers:
             click.echo("\n🔍 Testing Anthropic providers...")
-            _ = LLMRouter(router_config.anthropic_providers)  # Create router to test initialization
+            _ = LLMRouter(
+                router_config.anthropic_providers
+            )  # Create router to test initialization
 
             click.echo("✅ Anthropic router created successfully")
             click.echo(f"   Providers: {len(router_config.anthropic_providers)}")
-            click.echo(f"   Priority order: {sorted([p.priority for p in router_config.anthropic_providers])}")
+            click.echo(
+                f"   Priority order: {sorted([p.priority for p in router_config.anthropic_providers])}"
+            )
 
         click.echo("\n✅ All tests passed!")
         click.echo("\n💡 Note: This only tests configuration loading.")
-        click.echo("   To test actual API calls, start the server and use the client examples.")
+        click.echo(
+            "   To test actual API calls, start the server and use the client examples."
+        )
 
     except Exception as e:
         click.echo(f"❌ Test failed: {e}", err=True)

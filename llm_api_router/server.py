@@ -15,8 +15,6 @@ from .exceptions import (
     RateLimitError,
 )
 from .models import (
-    ChatCompletionRequest,
-    ChatCompletionResponse,
     ProviderType,
 )
 from .router import LLMRouter
@@ -66,28 +64,116 @@ class LLMAPIServer:
                     "openai": "/openai/chat/completions",
                     "anthropic": "/anthropic/chat/completions",
                     "health": "/health",
-                }
+                },
             }
 
         @self.app.get("/health")
         async def health():
-            return {"status": "healthy"}
+            """Health check endpoint."""
+            return {
+                "status": "healthy",
+                "version": "0.1.0",
+                "providers": {
+                    "openai": self.openai_router is not None,
+                    "anthropic": self.anthropic_router is not None,
+                },
+            }
+
+        @self.app.get("/status")
+        async def status():
+            """Detailed status endpoint showing provider configurations."""
+            openai_providers = []
+            anthropic_providers = []
+
+            if self.openai_router:
+                openai_providers = [
+                    {
+                        "name": (
+                            provider.name.value
+                            if hasattr(provider.name, "value")
+                            else str(provider.name)
+                        ),
+                        "priority": provider.priority,
+                        "base_url": provider.base_url,
+                        "model_mapping": provider.model_mapping,
+                    }
+                    for provider in self.config.openai_providers
+                ]
+
+            if self.anthropic_router:
+                anthropic_providers = [
+                    {
+                        "name": (
+                            provider.name.value
+                            if hasattr(provider.name, "value")
+                            else str(provider.name)
+                        ),
+                        "priority": provider.priority,
+                        "base_url": provider.base_url,
+                        "model_mapping": provider.model_mapping,
+                    }
+                    for provider in self.config.anthropic_providers
+                ]
+
+            return {
+                "status": "healthy",
+                "config": {
+                    "openai": {
+                        "enabled": len(openai_providers) > 0,
+                        "provider_count": len(openai_providers),
+                        "providers": openai_providers,
+                    },
+                    "anthropic": {
+                        "enabled": len(anthropic_providers) > 0,
+                        "provider_count": len(anthropic_providers),
+                        "providers": anthropic_providers,
+                    },
+                },
+            }
+
+        @self.app.get("/metrics")
+        async def metrics():
+            """Simple metrics endpoint (placeholder for more advanced metrics)."""
+            # In a real implementation, this would track:
+            # - Total requests
+            # - Success/failure rates
+            # - Provider usage statistics
+            # - Token usage
+            # - Response times
+
+            return {
+                "metrics": {
+                    "note": "Metrics collection is a placeholder. Implement proper metrics tracking as needed.",
+                    "suggested_metrics": [
+                        "total_requests",
+                        "success_rate",
+                        "provider_usage",
+                        "average_response_time",
+                        "token_usage_by_provider",
+                        "fallback_count",
+                    ],
+                }
+            }
 
         @self.app.post("/openai/chat/completions")
         async def openai_chat_completion(
-            request: ChatCompletionRequest,
+            request: dict[str, Any],
             router: LLMRouter = Depends(self._get_openai_router),
         ):
             """OpenAI-compatible chat completion endpoint."""
-            return await self._handle_chat_completion(request, router, ProviderType.OPENAI)
+            return await self._handle_chat_completion(
+                request, router, ProviderType.OPENAI
+            )
 
         @self.app.post("/anthropic/chat/completions")
         async def anthropic_chat_completion(
-            request: ChatCompletionRequest,
+            request: dict[str, Any],
             router: LLMRouter = Depends(self._get_anthropic_router),
         ):
             """Anthropic-compatible chat completion endpoint."""
-            return await self._handle_chat_completion(request, router, ProviderType.ANTHROPIC)
+            return await self._handle_chat_completion(
+                request, router, ProviderType.ANTHROPIC
+            )
 
     def _setup_middleware(self) -> None:
         """Setup middleware for error handling."""
@@ -167,7 +253,9 @@ class LLMAPIServer:
                     status_code=500,
                     detail="No OpenAI providers configured",
                 )
-            self.openai_router = LLMRouter(self.config.openai_providers)
+            self.openai_router = LLMRouter(
+                self.config.openai_providers, endpoint="openai"
+            )
         return self.openai_router
 
     async def _get_anthropic_router(self) -> LLMRouter:
@@ -178,15 +266,17 @@ class LLMAPIServer:
                     status_code=500,
                     detail="No Anthropic providers configured",
                 )
-            self.anthropic_router = LLMRouter(self.config.anthropic_providers)
+            self.anthropic_router = LLMRouter(
+                self.config.anthropic_providers, endpoint="anthropic"
+            )
         return self.anthropic_router
 
     async def _handle_chat_completion(
         self,
-        request: ChatCompletionRequest,
+        request: dict[str, Any],
         router: LLMRouter,
         expected_provider: ProviderType,
-    ) -> ChatCompletionResponse:
+    ) -> dict[str, Any]:
         """Handle chat completion request with error handling."""
         try:
             async with router:
@@ -201,6 +291,7 @@ class LLMAPIServer:
                 status_code=500,
                 detail=f"Internal server error: {str(e)}",
             ) from e
+
 
 def create_app(config: RouterConfig | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""

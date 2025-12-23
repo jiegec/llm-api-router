@@ -2,16 +2,15 @@
 
 import asyncio
 import json
+import time
 from abc import ABC, abstractmethod
 from typing import Any
 
 from httpx import AsyncClient, Timeout
 
 from ..exceptions import AuthenticationError, LLMError, ProviderError, RateLimitError
+from ..logging import get_logger
 from ..models import (
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    Message,
     ProviderConfig,
 )
 
@@ -24,7 +23,11 @@ class BaseProvider(ABC):
         self.client = AsyncClient(
             timeout=Timeout(timeout=config.timeout),
             headers=self._get_headers(),
-            base_url=config.base_url or self._get_default_base_url()
+            base_url=config.base_url or self._get_default_base_url(),
+        )
+        self.logger = get_logger()
+        self.provider_name = (
+            config.name.value if hasattr(config.name, "value") else str(config.name)
         )
 
     def _get_headers(self) -> dict[str, str]:
@@ -39,19 +42,13 @@ class BaseProvider(ABC):
         """Get the default base URL for the provider."""
         pass
 
-    @abstractmethod
     def _map_model(self, model: str) -> str:
-        """Map generic model name to provider-specific model name."""
-        pass
+        """Map generic model name to provider-specific model name using config mapping."""
+        return self.config.model_mapping.get(model, model)
 
     @abstractmethod
-    def _format_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
-        """Format messages for the provider's API."""
-        pass
-
-    @abstractmethod
-    def _parse_response(self, response: dict[str, Any], model: str) -> ChatCompletionResponse:
-        """Parse provider response to standard format."""
+    def _parse_response(self, response: dict[str, Any], model: str) -> dict[str, Any]:
+        """Parse provider response - minimal changes, just add provider field."""
         pass
 
     @abstractmethod
@@ -70,59 +67,111 @@ class BaseProvider(ABC):
             raise RateLimitError(error_message, self.config.name.value, retry_after)
         elif status_code >= 400:
             error_type = error_data.get("error", {}).get("type", "unknown")
-            raise ProviderError(error_message, self.config.name.value, error_type, error_data)
+            raise ProviderError(
+                error_message, self.config.name.value, error_type, error_data
+            )
         else:
-            raise LLMError(f"HTTP {status_code}: {error_message}", self.config.name.value, status_code)
+            raise LLMError(
+                f"HTTP {status_code}: {error_message}",
+                self.config.name.value,
+                status_code,
+            )
 
-    async def chat_completion(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
+    async def chat_completion(self, request: dict[str, Any]) -> dict[str, Any]:
         """Send a chat completion request to the provider."""
-        provider_model = self._map_model(request.model)
-        formatted_messages = self._format_messages(request.messages)
+        # Convert request to dict if it's a Pydantic model
+        if hasattr(request, "model_dump"):
+            request = request.model_dump(exclude_none=True)
 
-        payload = {
-            "model": provider_model,
-            "messages": formatted_messages,
-            "temperature": request.temperature,
-            "max_tokens": request.max_tokens,
-            "top_p": request.top_p,
-            "frequency_penalty": request.frequency_penalty,
-            "presence_penalty": request.presence_penalty,
-            "stop": request.stop,
-            "stream": request.stream,
-        }
+        # Extract model from request
+        model = request.get("model", "")
+        provider_model = self._map_model(model)
+
+        # Build payload - start with original request and update model only
+        payload = dict(request)
+        payload["model"] = provider_model
 
         # Remove None values
         payload = {k: v for k, v in payload.items() if v is not None}
 
+        # Log the API call
+        self.logger.logger.debug(
+            f"Provider {self.provider_name}: "
+            f"Sending request for model {model} -> {provider_model}, "
+            f"messages: {len(request.get('messages', []))}, "
+            f"max_retries: {self.config.max_retries}"
+        )
+
         for attempt in range(self.config.max_retries + 1):
             try:
-                response = await self.client.post(
-                    self._get_endpoint(),
-                    json=payload
+                self.logger.logger.debug(
+                    f"Provider {self.provider_name}: "
+                    f"Attempt {attempt + 1}/{self.config.max_retries + 1}"
                 )
+
+                start_time = time.time()
+                response = await self.client.post(self._get_endpoint(), json=payload)
+                duration = (time.time() - start_time) * 1000
 
                 if response.status_code == 200:
                     response_data = response.json()
-                    return self._parse_response(response_data, request.model)
+                    self.logger.logger.debug(
+                        f"Provider {self.provider_name}: "
+                        f"Request successful in {duration:.0f}ms, "
+                        f"status: {response.status_code}"
+                    )
+                    return self._parse_response(response_data, model)
                 else:
                     try:
                         error_data = response.json()
                     except json.JSONDecodeError:
                         error_data = {"error": {"message": response.text}}
 
+                    self.logger.logger.warning(
+                        f"Provider {self.provider_name}: "
+                        f"Request failed in {duration:.0f}ms, "
+                        f"status: {response.status_code}, "
+                        f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                    )
+
                     self._handle_error(response.status_code, error_data)
 
             except (RateLimitError, AuthenticationError) as e:
                 # Don't retry auth or rate limit errors
+                self.logger.logger.warning(
+                    f"Provider {self.provider_name}: "
+                    f"Fatal error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}"
+                )
                 raise e
             except Exception as e:
+                self.logger.logger.warning(
+                    f"Provider {self.provider_name}: "
+                    f"Error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}"
+                )
+
                 if attempt == self.config.max_retries:
+                    self.logger.logger.error(
+                        f"Provider {self.provider_name}: "
+                        f"Max retries ({self.config.max_retries}) exceeded"
+                    )
                     raise ProviderError(
                         f"Request failed after {self.config.max_retries + 1} attempts: {str(e)}",
-                        self.config.name.value
+                        self.config.name.value,
                     ) from e
+
                 # Exponential backoff
-                await asyncio.sleep(2 ** attempt)
+                backoff_time = 2**attempt
+                self.logger.logger.debug(
+                    f"Provider {self.provider_name}: "
+                    f"Retrying after {backoff_time}s backoff"
+                )
+                await asyncio.sleep(backoff_time)
+
+        # This should never be reached due to the raise statements above
+        raise ProviderError(
+            "Unexpected error: max retries exhausted without raising exception",
+            self.config.name.value,
+        )
 
     async def close(self):
         """Close the HTTP client."""

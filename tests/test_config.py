@@ -18,6 +18,7 @@ def test_router_config_from_dict():
                 "base_url": "https://api.test.com",
                 "timeout": 30,
                 "max_retries": 3,
+                "model_mapping": {"gpt-4": "gpt-4-turbo"},
             }
         ],
         "anthropic": [
@@ -27,8 +28,9 @@ def test_router_config_from_dict():
                 "base_url": "https://api.anthropic.test.com",
                 "timeout": 30,
                 "max_retries": 3,
+                "model_mapping": {"claude-3": "claude-3-5-sonnet"},
             }
-        ]
+        ],
     }
 
     config = RouterConfig.from_dict(config_dict)
@@ -43,6 +45,7 @@ def test_router_config_from_dict():
     assert openai_provider.base_url == "https://api.test.com"
     assert openai_provider.timeout == 30
     assert openai_provider.max_retries == 3
+    assert openai_provider.model_mapping == {"gpt-4": "gpt-4-turbo"}
 
     anthropic_provider = config.anthropic_providers[0]
     assert anthropic_provider.name == ProviderType.ANTHROPIC
@@ -51,6 +54,7 @@ def test_router_config_from_dict():
     assert anthropic_provider.base_url == "https://api.anthropic.test.com"
     assert anthropic_provider.timeout == 30
     assert anthropic_provider.max_retries == 3
+    assert anthropic_provider.model_mapping == {"claude-3": "claude-3-5-sonnet"}
 
 
 def test_router_config_from_dict_defaults():
@@ -65,7 +69,7 @@ def test_router_config_from_dict_defaults():
             {
                 "api_key": "test-anthropic-key",
             }
-        ]
+        ],
     }
 
     config = RouterConfig.from_dict(config_dict)
@@ -93,7 +97,7 @@ def test_router_config_from_dict_single_provider():
         "anthropic": {
             "api_key": "test-anthropic-key",
             "priority": 1,
-        }
+        },
     }
 
     config = RouterConfig.from_dict(config_dict)
@@ -121,7 +125,7 @@ def test_router_config_from_dict_multiple_providers():
             {
                 "api_key": "test-openai-key-2",
                 "priority": 2,
-            }
+            },
         ],
         "anthropic": [
             {
@@ -131,8 +135,8 @@ def test_router_config_from_dict_multiple_providers():
             {
                 "api_key": "test-anthropic-key-2",
                 "priority": 2,
-            }
-        ]
+            },
+        ],
     }
 
     config = RouterConfig.from_dict(config_dict)
@@ -166,10 +170,10 @@ def test_router_config_from_json_file():
                 "api_key": "test-anthropic-key",
                 "priority": 1,
             }
-        ]
+        ],
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(config_dict, f)
         temp_file = f.name
 
@@ -192,20 +196,22 @@ def test_router_config_from_json_file():
 
 def test_router_config_from_json_string():
     """Test loading RouterConfig from JSON string."""
-    json_str = json.dumps({
-        "openai": [
-            {
-                "api_key": "test-openai-key",
-                "priority": 1,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "test-anthropic-key",
-                "priority": 1,
-            }
-        ]
-    })
+    json_str = json.dumps(
+        {
+            "openai": [
+                {
+                    "api_key": "test-openai-key",
+                    "priority": 1,
+                }
+            ],
+            "anthropic": [
+                {
+                    "api_key": "test-anthropic-key",
+                    "priority": 1,
+                }
+            ],
+        }
+    )
 
     config = RouterConfig.from_json_string(json_str)
 
@@ -223,26 +229,30 @@ def test_router_config_from_json_string():
 
 def test_router_config_to_dict():
     """Test converting RouterConfig to dictionary."""
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "test-openai-key",
-                "priority": 1,
-                "base_url": "https://api.test.com",
-                "timeout": 30,
-                "max_retries": 3,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "test-anthropic-key",
-                "priority": 1,
-                "base_url": "https://api.anthropic.test.com",
-                "timeout": 30,
-                "max_retries": 3,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "test-openai-key",
+                    "priority": 1,
+                    "base_url": "https://api.test.com",
+                    "timeout": 30,
+                    "max_retries": 3,
+                    "model_mapping": {"gpt-4": "gpt-4-turbo"},
+                }
+            ],
+            "anthropic": [
+                {
+                    "api_key": "test-anthropic-key",
+                    "priority": 1,
+                    "base_url": "https://api.anthropic.test.com",
+                    "timeout": 30,
+                    "max_retries": 3,
+                    "model_mapping": {"claude-3": "claude-3-5-sonnet"},
+                }
+            ],
+        }
+    )
 
     config_dict = config.to_dict()
 
@@ -255,6 +265,7 @@ def test_router_config_to_dict():
     assert openai_config["base_url"] == "https://api.test.com"
     assert openai_config["timeout"] == 30
     assert openai_config["max_retries"] == 3
+    assert openai_config["model_mapping"] == {"gpt-4": "gpt-4-turbo"}
 
     anthropic_config = config_dict["anthropic"][0]
     assert anthropic_config["api_key"] == "test-anthropic-key"
@@ -262,24 +273,27 @@ def test_router_config_to_dict():
     assert anthropic_config["base_url"] == "https://api.anthropic.test.com"
     assert anthropic_config["timeout"] == 30
     assert anthropic_config["max_retries"] == 3
+    assert anthropic_config["model_mapping"] == {"claude-3": "claude-3-5-sonnet"}
 
 
 def test_router_config_to_json():
     """Test converting RouterConfig to JSON string."""
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "test-openai-key",
-                "priority": 1,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "test-anthropic-key",
-                "priority": 1,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "test-openai-key",
+                    "priority": 1,
+                }
+            ],
+            "anthropic": [
+                {
+                    "api_key": "test-anthropic-key",
+                    "priority": 1,
+                }
+            ],
+        }
+    )
 
     json_str = config.to_json()
     parsed = json.loads(json_str)
@@ -294,22 +308,24 @@ def test_router_config_to_json():
 
 def test_router_config_save_to_file():
     """Test saving RouterConfig to file."""
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "test-openai-key",
-                "priority": 1,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "test-anthropic-key",
-                "priority": 1,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "test-openai-key",
+                    "priority": 1,
+                }
+            ],
+            "anthropic": [
+                {
+                    "api_key": "test-anthropic-key",
+                    "priority": 1,
+                }
+            ],
+        }
+    )
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         temp_file = f.name
 
     try:
@@ -330,28 +346,30 @@ def test_router_config_save_to_file():
 
 def test_router_config_validation():
     """Test RouterConfig validation."""
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "test-openai-key-1",
-                "priority": 1,
-            },
-            {
-                "api_key": "test-openai-key-2",
-                "priority": 2,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "test-anthropic-key-1",
-                "priority": 1,
-            },
-            {
-                "api_key": "test-anthropic-key-2",
-                "priority": 2,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "test-openai-key-1",
+                    "priority": 1,
+                },
+                {
+                    "api_key": "test-openai-key-2",
+                    "priority": 2,
+                },
+            ],
+            "anthropic": [
+                {
+                    "api_key": "test-anthropic-key-1",
+                    "priority": 1,
+                },
+                {
+                    "api_key": "test-anthropic-key-2",
+                    "priority": 2,
+                },
+            ],
+        }
+    )
 
     errors = config.validate()
     assert len(errors) == 0
@@ -360,24 +378,26 @@ def test_router_config_validation():
 
 def test_router_config_validation_duplicate_priorities():
     """Test RouterConfig validation with duplicate priorities."""
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "test-openai-key-1",
-                "priority": 1,
-            },
-            {
-                "api_key": "test-openai-key-2",
-                "priority": 1,  # Duplicate priority
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "test-anthropic-key-1",
-                "priority": 1,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "test-openai-key-1",
+                    "priority": 1,
+                },
+                {
+                    "api_key": "test-openai-key-2",
+                    "priority": 1,  # Duplicate priority
+                },
+            ],
+            "anthropic": [
+                {
+                    "api_key": "test-anthropic-key-1",
+                    "priority": 1,
+                }
+            ],
+        }
+    )
 
     errors = config.validate()
     assert len(errors) == 1

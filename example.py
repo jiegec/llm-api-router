@@ -16,24 +16,26 @@ async def example_programmatic_usage():
     print("=== Programmatic Usage Example ===")
 
     # Create configuration
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "sk-demo-openai-key-1",
-                "priority": 1,
-            },
-            {
-                "api_key": "sk-demo-openai-key-2",
-                "priority": 2,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "sk-ant-demo-anthropic-key-1",
-                "priority": 1,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "sk-demo-openai-key-1",
+                    "priority": 1,
+                },
+                {
+                    "api_key": "sk-demo-openai-key-2",
+                    "priority": 2,
+                },
+            ],
+            "anthropic": [
+                {
+                    "api_key": "sk-ant-demo-anthropic-key-1",
+                    "priority": 1,
+                }
+            ],
+        }
+    )
 
     # Create router for OpenAI providers
     _ = LLMRouter(config.openai_providers)  # Demo only
@@ -58,20 +60,22 @@ def example_server_usage():
     print("=== Server Usage Example ===")
 
     # Create configuration
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "sk-your-openai-api-key-here",
-                "priority": 1,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "sk-ant-your-anthropic-api-key-here",
-                "priority": 1,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "sk-your-openai-api-key-here",
+                    "priority": 1,
+                }
+            ],
+            "anthropic": [
+                {
+                    "api_key": "sk-ant-your-anthropic-api-key-here",
+                    "priority": 1,
+                }
+            ],
+        }
+    )
 
     # Create FastAPI app
     _ = create_app(config)  # Demo only
@@ -91,33 +95,35 @@ def example_config_file():
     """Example configuration file content."""
     print("=== Example Configuration File ===")
 
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "sk-your-primary-openai-api-key",
-                "priority": 1,
-                "base_url": "https://api.openai.com/v1",
-                "timeout": 30,
-                "max_retries": 3,
-            },
-            {
-                "api_key": "sk-your-backup-openai-api-key",
-                "priority": 2,
-                "base_url": "https://api.openai.com/v1",
-                "timeout": 30,
-                "max_retries": 3,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "sk-ant-your-primary-anthropic-api-key",
-                "priority": 1,
-                "base_url": "https://api.anthropic.com",
-                "timeout": 30,
-                "max_retries": 3,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "sk-your-primary-openai-api-key",
+                    "priority": 1,
+                    "base_url": "https://api.openai.com/v1",
+                    "timeout": 30,
+                    "max_retries": 3,
+                },
+                {
+                    "api_key": "sk-your-backup-openai-api-key",
+                    "priority": 2,
+                    "base_url": "https://api.openai.com/v1",
+                    "timeout": 30,
+                    "max_retries": 3,
+                },
+            ],
+            "anthropic": [
+                {
+                    "api_key": "sk-ant-your-primary-anthropic-api-key",
+                    "priority": 1,
+                    "base_url": "https://api.anthropic.com",
+                    "timeout": 30,
+                    "max_retries": 3,
+                }
+            ],
+        }
+    )
 
     print("Save as llm_router_config.json:")
     print(config.to_json(indent=2))

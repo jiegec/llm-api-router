@@ -5,14 +5,30 @@
       "priority": 1,
       "base_url": "https://api.openai.com/v1",
       "timeout": 30,
-      "max_retries": 3
+      "max_retries": 3,
+      "model_mapping": {
+        "gpt-4": "gpt-4",
+        "gpt-4-turbo": "gpt-4-turbo",
+        "gpt-4o": "gpt-4o",
+        "gpt-4o-mini": "gpt-4o-mini",
+        "gpt-3.5-turbo": "gpt-3.5-turbo",
+        "gpt-3.5-turbo-instruct": "gpt-3.5-turbo-instruct"
+      }
     },
     {
       "api_key": "sk-your-backup-openai-api-key-here",
       "priority": 2,
       "base_url": "https://api.openai.com/v1",
       "timeout": 30,
-      "max_retries": 3
+      "max_retries": 3,
+      "model_mapping": {
+        "gpt-4": "gpt-4",
+        "gpt-4-turbo": "gpt-4-turbo",
+        "gpt-4o": "gpt-4o",
+        "gpt-4o-mini": "gpt-4o-mini",
+        "gpt-3.5-turbo": "gpt-3.5-turbo",
+        "gpt-3.5-turbo-instruct": "gpt-3.5-turbo-instruct"
+      }
     }
   ],
   "anthropic": [
@@ -21,14 +37,28 @@
       "priority": 1,
       "base_url": "https://api.anthropic.com",
       "timeout": 30,
-      "max_retries": 3
+      "max_retries": 3,
+      "model_mapping": {
+        "claude-3-opus": "claude-3-opus-20240229",
+        "claude-3-sonnet": "claude-3-5-sonnet-20241022",
+        "claude-3-haiku": "claude-3-haiku-20240307",
+        "claude-2": "claude-2.1",
+        "claude-instant": "claude-instant-1.2"
+      }
     },
     {
       "api_key": "sk-ant-your-backup-anthropic-api-key-here",
       "priority": 2,
       "base_url": "https://api.anthropic.com",
       "timeout": 30,
-      "max_retries": 3
+      "max_retries": 3,
+      "model_mapping": {
+        "claude-3-opus": "claude-3-opus-20240229",
+        "claude-3-sonnet": "claude-3-5-sonnet-20241022",
+        "claude-3-haiku": "claude-3-haiku-20240307",
+        "claude-2": "claude-2.1",
+        "claude-instant": "claude-instant-1.2"
+      }
     }
   ]
 }

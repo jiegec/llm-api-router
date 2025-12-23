@@ -39,14 +39,16 @@ def create_mock_openai_response() -> dict:
 def test_openai_client_compatibility():
     """Test that our server is compatible with official OpenAI client format."""
     # Create test config
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "sk-test-key",
-                "priority": 1,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "sk-test-key",
+                    "priority": 1,
+                }
+            ]
+        }
+    )
 
     # Create FastAPI app
     server = LLMAPIServer(config)
@@ -70,9 +72,7 @@ def test_openai_client_compatibility():
                 "/openai/chat/completions",
                 json={
                     "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "user", "content": "Hello"}
-                    ],
+                    "messages": [{"role": "user", "content": "Hello"}],
                 },
             )
 
@@ -110,14 +110,16 @@ def test_openai_client_compatibility():
 
 def test_openai_client_headers():
     """Test that our server handles OpenAI client headers correctly."""
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "sk-test-key",
-                "priority": 1,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "sk-test-key",
+                    "priority": 1,
+                }
+            ]
+        }
+    )
 
     server = LLMAPIServer(config)
     app = server.app
@@ -138,14 +140,12 @@ def test_openai_client_headers():
                 "/openai/chat/completions",
                 json={
                     "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "user", "content": "Hello"}
-                    ],
+                    "messages": [{"role": "user", "content": "Hello"}],
                 },
                 headers={
                     "Authorization": "Bearer any-key",
                     "Content-Type": "application/json",
-                }
+                },
             )
 
             assert response.status_code == 200
@@ -154,18 +154,20 @@ def test_openai_client_headers():
 
 def test_multiple_providers_fallback_integration():
     """Test fallback with multiple providers in integration scenario."""
-    config = RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "sk-primary",
-                "priority": 1,
-            },
-            {
-                "api_key": "sk-backup",
-                "priority": 2,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "sk-primary",
+                    "priority": 1,
+                },
+                {
+                    "api_key": "sk-backup",
+                    "priority": 2,
+                },
+            ]
+        }
+    )
 
     server = LLMAPIServer(config)
     app = server.app
@@ -177,12 +179,14 @@ def test_multiple_providers_fallback_integration():
         # First call fails with rate limit
         rate_limit_response = Response(
             status_code=429,
-            content=json.dumps({
-                "error": {
-                    "message": "Rate limit exceeded",
-                    "type": "rate_limit_error",
+            content=json.dumps(
+                {
+                    "error": {
+                        "message": "Rate limit exceeded",
+                        "type": "rate_limit_error",
+                    }
                 }
-            }),
+            ),
         )
 
         # Second call succeeds
@@ -198,10 +202,8 @@ def test_multiple_providers_fallback_integration():
                 "/openai/chat/completions",
                 json={
                     "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "user", "content": "Test fallback"}
-                    ],
-                }
+                    "messages": [{"role": "user", "content": "Test fallback"}],
+                },
             )
 
             assert response.status_code == 200
@@ -214,14 +216,16 @@ def test_multiple_providers_fallback_integration():
 
 def test_anthropic_endpoint_compatibility():
     """Test that Anthropic endpoint also returns OpenAI-compatible format."""
-    config = RouterConfig.from_dict({
-        "anthropic": [
-            {
-                "api_key": "sk-ant-test",
-                "priority": 1,
-            }
-        ]
-    })
+    config = RouterConfig.from_dict(
+        {
+            "anthropic": [
+                {
+                    "api_key": "sk-ant-test",
+                    "priority": 1,
+                }
+            ]
+        }
+    )
 
     server = LLMAPIServer(config)
     app = server.app
@@ -242,9 +246,7 @@ def test_anthropic_endpoint_compatibility():
                 "/anthropic/chat/completions",
                 json={
                     "model": "claude-3-5-sonnet-20241022",
-                    "messages": [
-                        {"role": "user", "content": "Hello"}
-                    ],
+                    "messages": [{"role": "user", "content": "Hello"}],
                 },
             )
 

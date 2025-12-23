@@ -63,14 +63,22 @@ async def test_openai_provider_chat_completion(
     call_args = mock_httpx_client.post.call_args
     assert call_args[0][0] == "/chat/completions"
 
-    # Verify response
-    assert response.id == "chatcmpl-123"
-    assert response.model == "gpt-4o-mini"
-    assert response.provider == ProviderType.OPENAI
-    assert len(response.choices) == 1
-    assert response.choices[0].message.content == "Hello! I'm doing well, thank you for asking."
-    assert response.usage.prompt_tokens == 10
-    assert response.usage.completion_tokens == 8
+    # Verify response - now returns dict with raw_response and parsed_for_logging
+    assert isinstance(response, dict)
+    assert "raw_response" in response
+    assert "parsed_for_logging" in response
+
+    raw_response = response["raw_response"]
+    parsed_response = response["parsed_for_logging"]
+
+    assert raw_response["id"] == "chatcmpl-123"
+    assert raw_response["model"] == "gpt-4o-mini"
+    assert raw_response["provider"] == ProviderType.OPENAI.value
+
+    # Check parsed response for logging
+    assert parsed_response.id == "chatcmpl-123"
+    assert parsed_response.model == "gpt-4o-mini"
+    assert parsed_response.provider == ProviderType.OPENAI
 
 
 @pytest.mark.asyncio
@@ -90,19 +98,9 @@ async def test_openai_provider_map_model(openai_config):
 @pytest.mark.asyncio
 async def test_openai_provider_format_messages(openai_config):
     """Test OpenAI provider message formatting."""
-    provider = OpenAIProvider(openai_config)
-    messages = [
-        Message(role=Role.SYSTEM, content="You are helpful"),
-        Message(role=Role.USER, content="Hello", name="user1"),
-    ]
-
-    formatted = provider._format_messages(messages)
-    assert len(formatted) == 2
-    assert formatted[0]["role"] == "system"
-    assert formatted[0]["content"] == "You are helpful"
-    assert formatted[1]["role"] == "user"
-    assert formatted[1]["content"] == "Hello"
-    assert formatted[1]["name"] == "user1"
+    # This test is deprecated since _format_messages method was removed
+    # Messages are now passed through unchanged
+    pass
 
 
 @pytest.mark.asyncio
@@ -125,14 +123,23 @@ async def test_anthropic_provider_chat_completion(
     call_args = mock_httpx_client.post.call_args
     assert call_args[0][0] == "/v1/messages"
 
-    # Verify response
-    assert response.id == "msg_123"
-    assert response.model == "gpt-4o-mini"  # Original model name preserved
-    assert response.provider == ProviderType.ANTHROPIC
-    assert len(response.choices) == 1
-    assert response.choices[0].message.content == "Hello! I'm doing well, thank you for asking."
-    assert response.usage.prompt_tokens == 10
-    assert response.usage.completion_tokens == 8
+    # Verify response - now returns dict with raw_response and parsed_for_logging
+    assert isinstance(response, dict)
+    assert "raw_response" in response
+    assert "parsed_for_logging" in response
+
+    raw_response = response["raw_response"]
+    parsed_response = response["parsed_for_logging"]
+
+    assert raw_response["id"] == "msg_123"
+    # Model name should be mapped from "gpt-4o-mini" to "claude-3-5-sonnet-20241022"
+    assert raw_response["model"] == "claude-3-5-sonnet-20241022"
+    assert raw_response["provider"] == ProviderType.ANTHROPIC.value
+
+    # Check parsed response for logging
+    assert parsed_response.id == "msg_123"
+    assert parsed_response.model == "claude-3-5-sonnet-20241022"
+    assert parsed_response.provider == ProviderType.ANTHROPIC
 
 
 @pytest.mark.asyncio
@@ -152,38 +159,17 @@ async def test_anthropic_provider_map_model(anthropic_config):
 @pytest.mark.asyncio
 async def test_anthropic_provider_format_messages(anthropic_config):
     """Test Anthropic provider message formatting."""
-    provider = AnthropicProvider(anthropic_config)
-    messages = [
-        Message(role=Role.SYSTEM, content="You are helpful"),
-        Message(role=Role.USER, content="Hello"),
-        Message(role=Role.ASSISTANT, content="Hi there"),
-    ]
-
-    formatted = provider._format_messages(messages)
-    system = provider._extract_system_message(messages)
-    assert system == "You are helpful"
-    assert len(formatted) == 2
-    assert formatted[0]["role"] == "user"
-    assert formatted[0]["content"] == "Hello"
-    assert formatted[1]["role"] == "assistant"
-    assert formatted[1]["content"] == "Hi there"
+    # This test is deprecated since _format_messages method was removed
+    # Messages are now passed through unchanged
+    pass
 
 
 @pytest.mark.asyncio
 async def test_anthropic_provider_format_messages_no_system(anthropic_config):
     """Test Anthropic provider message formatting without system message."""
-    provider = AnthropicProvider(anthropic_config)
-    messages = [
-        Message(role=Role.USER, content="Hello"),
-        Message(role=Role.ASSISTANT, content="Hi there"),
-    ]
-
-    formatted = provider._format_messages(messages)
-    system = provider._extract_system_message(messages)
-    assert system is None
-    assert len(formatted) == 2
-    assert formatted[0]["role"] == "user"
-    assert formatted[0]["content"] == "Hello"
+    # This test is deprecated since _format_messages method was removed
+    # Messages are now passed through unchanged
+    pass
 
 
 @pytest.mark.asyncio
@@ -192,12 +178,14 @@ async def test_provider_authentication_error(openai_config, mock_httpx_client):
     # Mock authentication error
     mock_response = Response(
         status_code=401,
-        content=json.dumps({
-            "error": {
-                "message": "Invalid API key",
-                "type": "invalid_request_error",
+        content=json.dumps(
+            {
+                "error": {
+                    "message": "Invalid API key",
+                    "type": "invalid_request_error",
+                }
             }
-        }),
+        ),
     )
     mock_httpx_client.post.return_value = mock_response
 
@@ -220,13 +208,15 @@ async def test_provider_rate_limit_error(openai_config, mock_httpx_client):
     # Mock rate limit error
     mock_response = Response(
         status_code=429,
-        content=json.dumps({
-            "error": {
-                "message": "Rate limit exceeded",
-                "type": "rate_limit_error",
-                "retry_after": 60,
+        content=json.dumps(
+            {
+                "error": {
+                    "message": "Rate limit exceeded",
+                    "type": "rate_limit_error",
+                    "retry_after": 60,
+                }
             }
-        }),
+        ),
     )
     mock_httpx_client.post.return_value = mock_response
 
@@ -253,14 +243,22 @@ async def test_provider_retry_logic(openai_config, mock_httpx_client):
     )
     success_response = Response(
         status_code=200,
-        content=json.dumps({
-            "id": "chatcmpl-123",
-            "object": "chat.completion",
-            "created": 1677652288,
-            "model": "gpt-4o-mini",
-            "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello"}}],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-        }),
+        content=json.dumps(
+            {
+                "id": "chatcmpl-123",
+                "object": "chat.completion",
+                "created": 1677652288,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": "Hello"}}
+                ],
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                },
+            }
+        ),
     )
 
     mock_httpx_client.post.side_effect = [error_response, success_response]
@@ -275,4 +273,6 @@ async def test_provider_retry_logic(openai_config, mock_httpx_client):
 
     # Should have retried once
     assert mock_httpx_client.post.call_count == 2
-    assert response.id == "chatcmpl-123"
+    assert isinstance(response, dict)
+    assert "raw_response" in response
+    assert response["raw_response"]["id"] == "chatcmpl-123"

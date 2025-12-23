@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 class Role(str, Enum):
     """Message role enumeration."""
+
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -16,6 +17,7 @@ class Role(str, Enum):
 
 class Message(BaseModel):
     """A message in a chat conversation."""
+
     role: Role
     content: str
     name: str | None = None
@@ -25,22 +27,29 @@ class Message(BaseModel):
 
 class ProviderType(str, Enum):
     """Supported LLM provider types."""
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
 
 
 class ProviderConfig(BaseModel):
     """Configuration for an LLM provider."""
+
     name: ProviderType
     api_key: str
     priority: int = Field(ge=1, description="Lower number = higher priority")
     base_url: str | None = None
     timeout: int = Field(default=30, ge=1)
     max_retries: int = Field(default=3, ge=0)
+    model_mapping: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map generic model names to provider-specific names",
+    )
 
 
 class ChatCompletionRequest(BaseModel):
     """Request for chat completion."""
+
     messages: list[Message]
     model: str
     temperature: float | None = Field(default=0.7, ge=0.0, le=2.0)
@@ -54,6 +63,7 @@ class ChatCompletionRequest(BaseModel):
 
 class Choice(BaseModel):
     """A choice in the chat completion response."""
+
     index: int
     message: Message
     finish_reason: str | None = None
@@ -61,6 +71,7 @@ class Choice(BaseModel):
 
 class Usage(BaseModel):
     """Token usage information."""
+
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
@@ -68,6 +79,7 @@ class Usage(BaseModel):
 
 class ChatCompletionResponse(BaseModel):
     """Response from chat completion."""
+
     id: str
     object: str = "chat.completion"
     created: int

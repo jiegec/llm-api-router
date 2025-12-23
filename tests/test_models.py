@@ -30,11 +30,15 @@ def test_message_with_optional_fields():
         role=Role.ASSISTANT,
         content="Hello",
         name="assistant1",
-        tool_calls=[{"type": "function", "function": {"name": "test", "arguments": "{}"}}],
+        tool_calls=[
+            {"type": "function", "function": {"name": "test", "arguments": "{}"}}
+        ],
         tool_call_id="call_123",
     )
     assert message.name == "assistant1"
-    assert message.tool_calls == [{"type": "function", "function": {"name": "test", "arguments": "{}"}}]
+    assert message.tool_calls == [
+        {"type": "function", "function": {"name": "test", "arguments": "{}"}}
+    ]
     assert message.tool_call_id == "call_123"
 
 
@@ -47,6 +51,7 @@ def test_provider_config():
         base_url="https://api.test.com",
         timeout=30,
         max_retries=3,
+        model_mapping={"gpt-4": "gpt-4-turbo"},
     )
     assert config.name == ProviderType.OPENAI
     assert config.api_key == "test-key"
@@ -54,6 +59,7 @@ def test_provider_config():
     assert config.base_url == "https://api.test.com"
     assert config.timeout == 30
     assert config.max_retries == 3
+    assert config.model_mapping == {"gpt-4": "gpt-4-turbo"}
 
 
 def test_provider_config_defaults():

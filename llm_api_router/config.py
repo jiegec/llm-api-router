@@ -39,6 +39,7 @@ class RouterConfig:
                 base_url=provider_config.get("base_url"),
                 timeout=provider_config.get("timeout", 30),
                 max_retries=provider_config.get("max_retries", 3),
+                model_mapping=provider_config.get("model_mapping", {}),
             )
             openai_providers.append(provider)
 
@@ -56,6 +57,7 @@ class RouterConfig:
                 base_url=provider_config.get("base_url"),
                 timeout=provider_config.get("timeout", 30),
                 max_retries=provider_config.get("max_retries", 3),
+                model_mapping=provider_config.get("model_mapping", {}),
             )
             anthropic_providers.append(provider)
 
@@ -69,11 +71,15 @@ class RouterConfig:
                 config_dict = json.load(f)
             return cls.from_dict(config_dict)
         except FileNotFoundError:
-            raise ConfigurationError(f"Configuration file not found: {filepath}") from None
+            raise ConfigurationError(
+                f"Configuration file not found: {filepath}"
+            ) from None
         except json.JSONDecodeError as e:
             raise ConfigurationError(f"Invalid JSON in configuration file: {e}") from e
         except KeyError as e:
-            raise ConfigurationError(f"Missing required field in configuration: {e}") from e
+            raise ConfigurationError(
+                f"Missing required field in configuration: {e}"
+            ) from e
         except Exception as e:
             raise ConfigurationError(f"Error loading configuration: {e}") from e
 
@@ -86,7 +92,9 @@ class RouterConfig:
         except json.JSONDecodeError as e:
             raise ConfigurationError(f"Invalid JSON string: {e}") from e
         except KeyError as e:
-            raise ConfigurationError(f"Missing required field in configuration: {e}") from e
+            raise ConfigurationError(
+                f"Missing required field in configuration: {e}"
+            ) from e
         except Exception as e:
             raise ConfigurationError(f"Error loading configuration: {e}") from e
 
@@ -100,6 +108,7 @@ class RouterConfig:
                     "base_url": p.base_url,
                     "timeout": p.timeout,
                     "max_retries": p.max_retries,
+                    "model_mapping": p.model_mapping,
                 }
                 for p in self.openai_providers
             ],
@@ -110,6 +119,7 @@ class RouterConfig:
                     "base_url": p.base_url,
                     "timeout": p.timeout,
                     "max_retries": p.max_retries,
+                    "model_mapping": p.model_mapping,
                 }
                 for p in self.anthropic_providers
             ],
@@ -119,9 +129,9 @@ class RouterConfig:
         """Convert configuration to JSON string."""
         return json.dumps(self.to_dict(), indent=indent)
 
-    def save_to_file(self, filepath: str, indent: int = 2):
+    def save_to_file(self, filepath: str, indent: int = 2) -> None:
         """Save configuration to JSON file."""
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(self.to_dict(), f, indent=indent)
 
     def validate(self) -> list[str]:
@@ -167,30 +177,32 @@ def load_default_config() -> RouterConfig | None:
 
 def create_example_config() -> RouterConfig:
     """Create example configuration."""
-    return RouterConfig.from_dict({
-        "openai": [
-            {
-                "api_key": "sk-your-openai-api-key-here",
-                "priority": 1,
-                "base_url": "https://api.openai.com/v1",
-                "timeout": 30,
-                "max_retries": 3,
-            },
-            {
-                "api_key": "sk-your-backup-openai-api-key-here",
-                "priority": 2,
-                "base_url": "https://api.openai.com/v1",
-                "timeout": 30,
-                "max_retries": 3,
-            }
-        ],
-        "anthropic": [
-            {
-                "api_key": "sk-ant-your-anthropic-api-key-here",
-                "priority": 1,
-                "base_url": "https://api.anthropic.com",
-                "timeout": 30,
-                "max_retries": 3,
-            }
-        ]
-    })
+    return RouterConfig.from_dict(
+        {
+            "openai": [
+                {
+                    "api_key": "sk-your-openai-api-key-here",
+                    "priority": 1,
+                    "base_url": "https://api.openai.com/v1",
+                    "timeout": 30,
+                    "max_retries": 3,
+                },
+                {
+                    "api_key": "sk-your-backup-openai-api-key-here",
+                    "priority": 2,
+                    "base_url": "https://api.openai.com/v1",
+                    "timeout": 30,
+                    "max_retries": 3,
+                },
+            ],
+            "anthropic": [
+                {
+                    "api_key": "sk-ant-your-anthropic-api-key-here",
+                    "priority": 1,
+                    "base_url": "https://api.anthropic.com",
+                    "timeout": 30,
+                    "max_retries": 3,
+                }
+            ],
+        }
+    )

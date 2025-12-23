@@ -14,8 +14,11 @@ def main():
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
-    parser.add_argument("--config", default="llm_router_config.json",
-                       help="Path to configuration JSON file")
+    parser.add_argument(
+        "--config",
+        default="llm_router_config.json",
+        help="Path to configuration JSON file",
+    )
 
     args = parser.parse_args()
 
@@ -26,22 +29,24 @@ def main():
     except Exception as e:
         print(f"Error loading configuration: {e}")
         print("Creating example configuration...")
-        config = RouterConfig.from_dict({
-            "openai": [
-                {
-                    "api_key": "sk-demo-openai-key-1",
-                    "priority": 1,
-                    "base_url": "https://api.openai.com/v1",
-                }
-            ],
-            "anthropic": [
-                {
-                    "api_key": "sk-ant-demo-anthropic-key-1",
-                    "priority": 1,
-                    "base_url": "https://api.anthropic.com",
-                }
-            ]
-        })
+        config = RouterConfig.from_dict(
+            {
+                "openai": [
+                    {
+                        "api_key": "sk-demo-openai-key-1",
+                        "priority": 1,
+                        "base_url": "https://api.openai.com/v1",
+                    }
+                ],
+                "anthropic": [
+                    {
+                        "api_key": "sk-ant-demo-anthropic-key-1",
+                        "priority": 1,
+                        "base_url": "https://api.anthropic.com",
+                    }
+                ],
+            }
+        )
         print("Using demo configuration. Replace with real API keys in config file.")
 
     app = create_app(config)

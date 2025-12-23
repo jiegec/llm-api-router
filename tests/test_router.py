@@ -48,13 +48,69 @@ async def test_router_chat_completion_success(
     # Mock providers
     with patch("llm_api_router.router.create_provider") as mock_create:
         mock_openai_provider = AsyncMock()
-        mock_openai_provider.chat_completion.return_value = AsyncMock(
-            provider=ProviderType.OPENAI
+        # Create a proper response dict (what providers now return)
+        from llm_api_router.models import (
+            ChatCompletionResponse,
+            Choice,
+            Message,
+            Role,
+            Usage,
         )
 
+        # Create the raw response (OpenAI format)
+        raw_response = {
+            "id": "chatcmpl-123",
+            "created": 1677652288,
+            "model": "gpt-4o-mini",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "Hello! I'm doing well, thank you for asking.",
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 8,
+                "total_tokens": 18,
+            },
+            "provider": ProviderType.OPENAI.value,
+        }
+
+        # Create parsed response for logging
+        parsed_response = ChatCompletionResponse(
+            id="chatcmpl-123",
+            created=1677652288,
+            model="gpt-4o-mini",
+            choices=[
+                Choice(
+                    index=0,
+                    message=Message(
+                        role=Role.ASSISTANT,
+                        content="Hello! I'm doing well, thank you for asking.",
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            usage=Usage(
+                prompt_tokens=10,
+                completion_tokens=8,
+                total_tokens=18,
+            ),
+            provider=ProviderType.OPENAI,
+        )
+
+        mock_response = {
+            "raw_response": raw_response,
+            "parsed_for_logging": parsed_response,
+        }
+        mock_openai_provider.chat_completion.return_value = mock_response
+
         mock_create.side_effect = lambda config: (
-            mock_openai_provider if config.name == ProviderType.OPENAI
-            else AsyncMock()
+            mock_openai_provider if config.name == ProviderType.OPENAI else AsyncMock()
         )
 
         router = LLMRouter(providers=[openai_config, anthropic_config])
@@ -63,7 +119,9 @@ async def test_router_chat_completion_success(
 
         # Should use OpenAI (higher priority)
         mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
-        assert response.provider == ProviderType.OPENAI
+        # Router returns the raw_response part
+        assert response["id"] == "chatcmpl-123"
+        assert response["provider"] == ProviderType.OPENAI.value
 
 
 @pytest.mark.asyncio
@@ -78,12 +136,61 @@ async def test_router_fallback_on_failure(
 
         # OpenAI fails with a generic error
         mock_openai_provider.chat_completion.side_effect = Exception("OpenAI error")
-        mock_anthropic_provider.chat_completion.return_value = AsyncMock(
-            provider=ProviderType.ANTHROPIC
+        # Create a proper response dict for Anthropic
+        from llm_api_router.models import (
+            ChatCompletionResponse,
+            Choice,
+            Message,
+            Role,
+            Usage,
         )
 
+        # Create the raw response (Anthropic format)
+        raw_response = {
+            "id": "msg_123",
+            "model": "claude-3-haiku",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello from Anthropic!"}],
+            "stop_reason": "stop",
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 8,
+            },
+            "provider": ProviderType.ANTHROPIC.value,
+        }
+
+        # Create parsed response for logging
+        parsed_response = ChatCompletionResponse(
+            id="msg_123",
+            created=1677652288,
+            model="claude-3-haiku",
+            choices=[
+                Choice(
+                    index=0,
+                    message=Message(
+                        role=Role.ASSISTANT,
+                        content="Hello from Anthropic!",
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            usage=Usage(
+                prompt_tokens=10,
+                completion_tokens=8,
+                total_tokens=18,
+            ),
+            provider=ProviderType.ANTHROPIC,
+        )
+
+        mock_response = {
+            "raw_response": raw_response,
+            "parsed_for_logging": parsed_response,
+        }
+        mock_anthropic_provider.chat_completion.return_value = mock_response
+
         mock_create.side_effect = lambda config: (
-            mock_openai_provider if config.name == ProviderType.OPENAI
+            mock_openai_provider
+            if config.name == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 
@@ -94,7 +201,9 @@ async def test_router_fallback_on_failure(
         # Should try OpenAI first, then fall back to Anthropic
         mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
         mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
-        assert response.provider == ProviderType.ANTHROPIC
+        # Router returns the raw_response part
+        assert response["id"] == "msg_123"
+        assert response["provider"] == ProviderType.ANTHROPIC.value
 
 
 @pytest.mark.asyncio
@@ -113,12 +222,61 @@ async def test_router_fallback_on_rate_limit(
         mock_openai_provider.chat_completion.side_effect = RateLimitError(
             "Rate limited", "openai", 60
         )
-        mock_anthropic_provider.chat_completion.return_value = AsyncMock(
-            provider=ProviderType.ANTHROPIC
+        # Create a proper response dict for Anthropic
+        from llm_api_router.models import (
+            ChatCompletionResponse,
+            Choice,
+            Message,
+            Role,
+            Usage,
         )
 
+        # Create the raw response (Anthropic format)
+        raw_response = {
+            "id": "msg_456",
+            "model": "claude-3-haiku",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello from Anthropic after rate limit!"}],
+            "stop_reason": "stop",
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 8,
+            },
+            "provider": ProviderType.ANTHROPIC.value,
+        }
+
+        # Create parsed response for logging
+        parsed_response = ChatCompletionResponse(
+            id="msg_456",
+            created=1677652288,
+            model="claude-3-haiku",
+            choices=[
+                Choice(
+                    index=0,
+                    message=Message(
+                        role=Role.ASSISTANT,
+                        content="Hello from Anthropic after rate limit!",
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            usage=Usage(
+                prompt_tokens=10,
+                completion_tokens=8,
+                total_tokens=18,
+            ),
+            provider=ProviderType.ANTHROPIC,
+        )
+
+        mock_response = {
+            "raw_response": raw_response,
+            "parsed_for_logging": parsed_response,
+        }
+        mock_anthropic_provider.chat_completion.return_value = mock_response
+
         mock_create.side_effect = lambda config: (
-            mock_openai_provider if config.name == ProviderType.OPENAI
+            mock_openai_provider
+            if config.name == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 
@@ -129,7 +287,9 @@ async def test_router_fallback_on_rate_limit(
         # Should try OpenAI first, then fall back to Anthropic
         mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
         mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
-        assert response.provider == ProviderType.ANTHROPIC
+        # Router returns the raw_response part
+        assert response["id"] == "msg_456"
+        assert response["provider"] == ProviderType.ANTHROPIC.value
 
 
 @pytest.mark.asyncio
@@ -148,12 +308,61 @@ async def test_router_fallback_on_authentication_error(
         mock_openai_provider.chat_completion.side_effect = AuthenticationError(
             "Invalid API key", "openai"
         )
-        mock_anthropic_provider.chat_completion.return_value = AsyncMock(
-            provider=ProviderType.ANTHROPIC
+        # Create a proper response dict for Anthropic
+        from llm_api_router.models import (
+            ChatCompletionResponse,
+            Choice,
+            Message,
+            Role,
+            Usage,
         )
 
+        # Create the raw response (Anthropic format)
+        raw_response = {
+            "id": "msg_789",
+            "model": "claude-3-haiku",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello from Anthropic after auth error!"}],
+            "stop_reason": "stop",
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 8,
+            },
+            "provider": ProviderType.ANTHROPIC.value,
+        }
+
+        # Create parsed response for logging
+        parsed_response = ChatCompletionResponse(
+            id="msg_789",
+            created=1677652288,
+            model="claude-3-haiku",
+            choices=[
+                Choice(
+                    index=0,
+                    message=Message(
+                        role=Role.ASSISTANT,
+                        content="Hello from Anthropic after auth error!",
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            usage=Usage(
+                prompt_tokens=10,
+                completion_tokens=8,
+                total_tokens=18,
+            ),
+            provider=ProviderType.ANTHROPIC,
+        )
+
+        mock_response = {
+            "raw_response": raw_response,
+            "parsed_for_logging": parsed_response,
+        }
+        mock_anthropic_provider.chat_completion.return_value = mock_response
+
         mock_create.side_effect = lambda config: (
-            mock_openai_provider if config.name == ProviderType.OPENAI
+            mock_openai_provider
+            if config.name == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 
@@ -164,7 +373,9 @@ async def test_router_fallback_on_authentication_error(
         # Should try OpenAI first, then fall back to Anthropic
         mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
         mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
-        assert response.provider == ProviderType.ANTHROPIC
+        # Router returns the raw_response part
+        assert response["id"] == "msg_789"
+        assert response["provider"] == ProviderType.ANTHROPIC.value
 
 
 @pytest.mark.asyncio
@@ -179,10 +390,13 @@ async def test_router_all_providers_fail(
 
         # Both providers fail
         mock_openai_provider.chat_completion.side_effect = Exception("OpenAI error")
-        mock_anthropic_provider.chat_completion.side_effect = Exception("Anthropic error")
+        mock_anthropic_provider.chat_completion.side_effect = Exception(
+            "Anthropic error"
+        )
 
         mock_create.side_effect = lambda config: (
-            mock_openai_provider if config.name == ProviderType.OPENAI
+            mock_openai_provider
+            if config.name == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 

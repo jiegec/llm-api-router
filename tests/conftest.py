@@ -74,12 +74,22 @@ def sample_messages():
 @pytest.fixture
 def sample_request(sample_messages):
     """Sample chat completion request."""
-    return ChatCompletionRequest(
-        messages=sample_messages,
-        model="gpt-4o-mini",
-        max_tokens=100,
-        temperature=0.7,
-    )
+    # Convert messages to dict format
+    messages_dict = [
+        {
+            "role": msg.role.value,
+            "content": msg.content,
+            "name": msg.name,
+        }
+        for msg in sample_messages
+    ]
+
+    return {
+        "messages": messages_dict,
+        "model": "gpt-4o-mini",
+        "max_tokens": 100,
+        "temperature": 0.7,
+    }
 
 
 @pytest.fixture
@@ -89,6 +99,14 @@ def openai_config():
         name=ProviderType.OPENAI,
         api_key="test-openai-key",
         priority=1,
+        model_mapping={
+            "gpt-4": "gpt-4",
+            "gpt-4-turbo": "gpt-4-turbo",
+            "gpt-4o": "gpt-4o",
+            "gpt-4o-mini": "gpt-4o-mini",
+            "gpt-3.5-turbo": "gpt-3.5-turbo",
+            "gpt-3.5-turbo-instruct": "gpt-3.5-turbo-instruct",
+        },
     )
 
 
@@ -99,6 +117,13 @@ def anthropic_config():
         name=ProviderType.ANTHROPIC,
         api_key="test-anthropic-key",
         priority=2,
+        model_mapping={
+            "claude-3-opus": "claude-3-opus-20240229",
+            "claude-3-sonnet": "claude-3-5-sonnet-20241022",
+            "claude-3-haiku": "claude-3-haiku-20240307",
+            "claude-2": "claude-2.1",
+            "claude-instant": "claude-instant-1.2",
+        },
     )
 
 
