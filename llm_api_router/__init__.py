@@ -3,6 +3,7 @@
 from .models import Message, ChatCompletionRequest, ChatCompletionResponse, ProviderConfig
 from .router import LLMRouter
 from .exceptions import LLMError, RateLimitError, AuthenticationError, ProviderError
+from .config import load_providers_from_env, create_router_from_env
 
 __version__ = "0.1.0"
 __all__ = [
@@ -15,4 +16,6 @@ __all__ = [
     "RateLimitError",
     "AuthenticationError",
     "ProviderError",
+    "load_providers_from_env",
+    "create_router_from_env",
 ]
