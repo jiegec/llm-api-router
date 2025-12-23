@@ -103,9 +103,9 @@ def test_openai_client_compatibility():
             assert "completion_tokens" in usage
             assert "total_tokens" in usage
 
-            # Verify our custom field
-            assert "provider" in result
-            assert result["provider"] == "openai"
+            # Note: We don't add "provider" field to response
+            # Provider information is logged separately
+            # The response should match OpenAI API format exactly
 
 
 def test_openai_client_headers():
@@ -208,7 +208,7 @@ def test_multiple_providers_fallback_integration():
 
             assert response.status_code == 200
             result = response.json()
-            assert result["provider"] == "openai"
+            # Note: No "provider" field in response - matches OpenAI API format
 
             # Verify both providers were tried
             assert mock_client.post.call_count == 2
@@ -257,5 +257,4 @@ def test_anthropic_endpoint_compatibility():
             assert "id" in result
             assert "choices" in result
             assert "usage" in result
-            assert "provider" in result
-            assert result["provider"] == "anthropic"
+            # Note: No "provider" field in response - matches OpenAI API format
