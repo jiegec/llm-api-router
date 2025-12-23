@@ -105,7 +105,7 @@ def anthropic_config():
 @pytest.fixture
 def mock_httpx_client():
     """Mock httpx.AsyncClient."""
-    with patch("httpx.AsyncClient") as mock_client:
+    with patch("llm_api_router.providers.base.AsyncClient") as mock_client:
         mock_instance = AsyncMock()
         mock_client.return_value = mock_instance
         yield mock_instance

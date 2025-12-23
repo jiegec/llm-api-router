@@ -34,13 +34,13 @@ async def test_create_provider_anthropic(anthropic_config):
 @pytest.mark.asyncio
 async def test_create_provider_invalid():
     """Test creating provider with invalid type."""
-    config = ProviderConfig(
-        name="invalid",  # type: ignore
-        api_key="test",
-        priority=1,
-    )
-    with pytest.raises(ValueError, match="Unsupported provider type"):
-        create_provider(config)
+    # This should fail at the ProviderConfig validation level, not in create_provider
+    with pytest.raises(ValueError, match="Input should be 'openai' or 'anthropic'"):
+        ProviderConfig(
+            name="invalid",  # type: ignore
+            api_key="test",
+            priority=1,
+        )
 
 
 @pytest.mark.asyncio
@@ -158,8 +158,9 @@ async def test_anthropic_provider_format_messages(anthropic_config):
         Message(role=Role.USER, content="Hello"),
         Message(role=Role.ASSISTANT, content="Hi there"),
     ]
-    
-    formatted, system = provider._format_messages(messages)
+
+    formatted = provider._format_messages(messages)
+    system = provider._extract_system_message(messages)
     assert system == "You are helpful"
     assert len(formatted) == 2
     assert formatted[0]["role"] == "user"
@@ -177,7 +178,8 @@ async def test_anthropic_provider_format_messages_no_system(anthropic_config):
         Message(role=Role.ASSISTANT, content="Hi there"),
     ]
     
-    formatted, system = provider._format_messages(messages)
+    formatted = provider._format_messages(messages)
+    system = provider._extract_system_message(messages)
     assert system is None
     assert len(formatted) == 2
     assert formatted[0]["role"] == "user"
