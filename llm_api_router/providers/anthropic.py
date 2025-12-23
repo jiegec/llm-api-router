@@ -11,16 +11,11 @@ class AnthropicProvider(BaseProvider):
 
     def _get_headers(self) -> dict[str, str]:
         """Get HTTP headers for Anthropic API."""
-        headers = super()._get_headers()
-        headers.update(
-            {
-                "anthropic-version": "2023-06-01",
-                "x-api-key": self.config.api_key,
-            }
-        )
-        # Remove Bearer prefix for Anthropic
-        headers.pop("Authorization", None)
-        return headers
+        return {
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01",
+            "x-api-key": self.config.api_key,
+        }
 
     def _get_endpoint(self) -> str:
         return "/v1/messages"

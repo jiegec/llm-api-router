@@ -30,10 +30,7 @@ class BaseProvider(ABC):
 
     def _get_headers(self) -> dict[str, str]:
         """Get HTTP headers for the provider."""
-        return {
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json",
-        }
+        return {}
 
     @abstractmethod
     def _get_default_base_url(self) -> str:
