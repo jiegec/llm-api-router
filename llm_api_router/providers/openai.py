@@ -40,7 +40,7 @@ class OpenAIProvider(BaseProvider):
         formatted = []
         for msg in messages:
             formatted_msg = {
-                "role": msg.role.value,
+                "role": msg.role.value if isinstance(msg.role, Role) else msg.role,
                 "content": msg.content
             }
             if msg.name:

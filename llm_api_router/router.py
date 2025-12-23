@@ -49,7 +49,8 @@ class LLMRouter:
     
     async def _get_provider(self, config: ProviderConfig) -> BaseProvider:
         """Get or create a provider instance."""
-        provider_key = f"{config.name.value}-{config.priority}"
+        provider_name = config.name.value if isinstance(config.name, ProviderType) else config.name
+        provider_key = f"{provider_name}-{config.priority}"
         if provider_key not in self._provider_instances:
             provider = create_provider(config)
             self._provider_instances[provider_key] = provider
@@ -79,25 +80,29 @@ class LLMRouter:
                 
             except AuthenticationError as e:
                 # Authentication errors are fatal for this provider
-                errors.append((provider_config.name.value, str(e)))
+                provider_name = provider_config.name.value if isinstance(provider_config.name, ProviderType) else provider_config.name
+                errors.append((provider_name, str(e)))
                 continue
-                
+
             except RateLimitError as e:
                 # Rate limit errors - try next provider
-                errors.append((provider_config.name.value, f"Rate limited: {str(e)}"))
+                provider_name = provider_config.name.value if isinstance(provider_config.name, ProviderType) else provider_config.name
+                errors.append((provider_name, f"Rate limited: {str(e)}"))
                 if e.retry_after:
                     # Schedule retry after delay
                     asyncio.create_task(self._schedule_provider_retry(provider_config, e.retry_after))
                 continue
-                
+
             except (ProviderError, LLMError) as e:
                 # Other provider errors - try next provider
-                errors.append((provider_config.name.value, str(e)))
+                provider_name = provider_config.name.value if isinstance(provider_config.name, ProviderType) else provider_config.name
+                errors.append((provider_name, str(e)))
                 continue
-                
+
             except Exception as e:
                 # Unexpected errors - try next provider
-                errors.append((provider_config.name.value, f"Unexpected error: {str(e)}"))
+                provider_name = provider_config.name.value if isinstance(provider_config.name, ProviderType) else provider_config.name
+                errors.append((provider_name, f"Unexpected error: {str(e)}"))
                 continue
         
         # All providers failed
@@ -117,11 +122,15 @@ class LLMRouter:
     
     def get_available_providers(self) -> List[str]:
         """Get list of available provider names."""
-        return [p.name.value for p in self.providers]
-    
+        return [
+            p.name.value if isinstance(p.name, ProviderType) else p.name
+            for p in self.providers
+        ]
+
     def get_provider_priority(self, provider_name: str) -> Optional[int]:
         """Get priority of a specific provider."""
         for provider in self.providers:
-            if provider.name.value == provider_name:
+            provider_name_value = provider.name.value if isinstance(provider.name, ProviderType) else provider.name
+            if provider_name_value == provider_name:
                 return provider.priority
         return None

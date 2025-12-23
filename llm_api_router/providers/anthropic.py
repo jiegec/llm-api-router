@@ -1,7 +1,7 @@
 """Anthropic provider implementation."""
 
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from .base import BaseProvider
 from ..models import (
@@ -48,20 +48,26 @@ class AnthropicProvider(BaseProvider):
     def _format_messages(self, messages: List[Message]) -> List[Dict[str, Any]]:
         """Format messages for Anthropic API."""
         formatted = []
-        system_message = None
-        
+
         # Extract system message if present
         for msg in messages:
-            if msg.role == Role.SYSTEM:
-                system_message = msg.content
-            else:
+            role_value = msg.role.value if isinstance(msg.role, Role) else msg.role
+            if role_value != Role.SYSTEM.value:  # Skip system messages for Anthropic format
                 formatted_msg = {
-                    "role": msg.role.value,
+                    "role": role_value,
                     "content": msg.content
                 }
                 formatted.append(formatted_msg)
-        
-        return formatted, system_message
+
+        return formatted
+
+    def _extract_system_message(self, messages: List[Message]) -> Optional[str]:
+        """Extract system message from messages."""
+        for msg in messages:
+            role_value = msg.role.value if isinstance(msg.role, Role) else msg.role
+            if role_value == Role.SYSTEM.value:
+                return msg.content
+        return None
     
     def _parse_response(self, response: Dict[str, Any], model: str) -> ChatCompletionResponse:
         """Parse Anthropic response to standard format."""
@@ -106,8 +112,9 @@ class AnthropicProvider(BaseProvider):
     async def chat_completion(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         """Send a chat completion request to Anthropic."""
         provider_model = self._map_model(request.model)
-        formatted_messages, system_message = self._format_messages(request.messages)
-        
+        formatted_messages = self._format_messages(request.messages)
+        system_message = self._extract_system_message(request.messages)
+
         payload = {
             "model": provider_model,
             "messages": formatted_messages,
@@ -117,20 +124,20 @@ class AnthropicProvider(BaseProvider):
             "stop_sequences": request.stop if isinstance(request.stop, list) else [request.stop] if request.stop else None,
             "stream": request.stream,
         }
-        
+
         if system_message:
             payload["system"] = system_message
-        
+
         # Remove None values
         payload = {k: v for k, v in payload.items() if v is not None}
-        
+
         for attempt in range(self.config.max_retries + 1):
             try:
                 response = await self.client.post(
                     self._get_endpoint(),
                     json=payload
                 )
-                
+
                 if response.status_code == 200:
                     response_data = response.json()
                     return self._parse_response(response_data, request.model)
@@ -139,9 +146,9 @@ class AnthropicProvider(BaseProvider):
                         error_data = response.json()
                     except Exception:
                         error_data = {"error": {"message": response.text}}
-                    
+
                     self._handle_error(response.status_code, error_data)
-                    
+
             except (RateLimitError, AuthenticationError) as e:
                 raise e
             except Exception as e:

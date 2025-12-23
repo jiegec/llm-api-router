@@ -20,8 +20,6 @@ class Message(BaseModel):
     name: Optional[str] = None
     tool_calls: Optional[List[Dict[str, Any]]] = None
     tool_call_id: Optional[str] = None
-    
-    model_config = ConfigDict(use_enum_values=True)
 
 
 class ProviderType(str, Enum):
@@ -38,8 +36,6 @@ class ProviderConfig(BaseModel):
     base_url: Optional[str] = None
     timeout: int = Field(default=30, ge=1)
     max_retries: int = Field(default=3, ge=0)
-    
-    model_config = ConfigDict(use_enum_values=True)
 
 
 class ChatCompletionRequest(BaseModel):
