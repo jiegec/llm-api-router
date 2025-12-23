@@ -11,28 +11,6 @@ from llm_api_router.router import LLMRouter
 
 
 @pytest.mark.asyncio
-async def test_provider_streaming_request():
-    """Test that providers correctly handle streaming requests."""
-    import pytest
-    pytest.skip("Streaming tests require complex mocking; functionality verified in integration tests")
-
-    # This test is skipped because it requires complex mocking of httpx.AsyncClient.stream()
-    # which returns an async context manager. The streaming functionality has been
-    # verified through integration tests and manual testing.
-
-
-@pytest.mark.asyncio
-async def test_provider_non_streaming_request():
-    """Test that providers correctly handle non-streaming requests."""
-    import pytest
-    pytest.skip("Non-streaming provider tests require updated mocking; functionality verified")
-
-    # This test is skipped because it requires updated mocking for the new
-    # provider response format. The non-streaming functionality continues to work
-    # as before, just returning raw response dicts instead of wrapped responses.
-
-
-@pytest.mark.asyncio
 async def test_router_streaming_response():
     """Test that router correctly handles streaming responses."""
     # Create a mock provider config
@@ -144,17 +122,6 @@ async def test_router_streaming_fallback():
             print("✓ Router streaming fallback test passed")
 
 
-@pytest.mark.asyncio
-async def test_anthropic_streaming():
-    """Test Anthropic provider streaming."""
-    import pytest
-    pytest.skip("Anthropic streaming tests require complex mocking; functionality verified")
-
-    # This test is skipped because it requires complex mocking of httpx.AsyncClient.stream()
-    # which returns an async context manager. The Anthropic streaming functionality
-    # has been verified through integration tests and follows the same pattern as OpenAI.
-
-
 def test_streaming_request_model():
     """Test that ChatCompletionRequest model has stream field."""
     from tests.test_models_moved import ChatCompletionRequest
@@ -183,15 +150,12 @@ def test_streaming_request_model():
 if __name__ == "__main__":
     # Run tests
     import asyncio
-    
+
     async def run_all_tests():
-        await test_provider_streaming_request()
-        await test_provider_non_streaming_request()
         await test_router_streaming_response()
         await test_router_streaming_fallback()
-        await test_anthropic_streaming()
         test_streaming_request_model()
-        
+
         print("\n✅ All streaming tests passed!")
-    
+
     asyncio.run(run_all_tests())
