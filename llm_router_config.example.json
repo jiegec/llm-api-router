@@ -3,6 +3,7 @@
     {
       "api_key": "sk-your-primary-openai-api-key-here",
       "priority": 1,
+      "provider_name": "openai-primary",
       "base_url": "https://api.openai.com/v1",
       "timeout": 30,
       "max_retries": 3,
@@ -18,6 +19,7 @@
     {
       "api_key": "sk-your-backup-openai-api-key-here",
       "priority": 2,
+      "provider_name": "openai-backup",
       "base_url": "https://api.openai.com/v1",
       "timeout": 30,
       "max_retries": 3,
@@ -35,6 +37,7 @@
     {
       "api_key": "sk-ant-your-primary-anthropic-api-key-here",
       "priority": 1,
+      "provider_name": "anthropic-primary",
       "base_url": "https://api.anthropic.com",
       "timeout": 30,
       "max_retries": 3,
@@ -49,6 +52,7 @@
     {
       "api_key": "sk-ant-your-backup-anthropic-api-key-here",
       "priority": 2,
+      "provider_name": "anthropic-backup",
       "base_url": "https://api.anthropic.com",
       "timeout": 30,
       "max_retries": 3,

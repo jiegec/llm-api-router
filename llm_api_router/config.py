@@ -40,6 +40,7 @@ class RouterConfig:
                 timeout=provider_config.get("timeout", 30),
                 max_retries=provider_config.get("max_retries", 3),
                 model_mapping=provider_config.get("model_mapping", {}),
+                provider_name=provider_config.get("provider_name"),
             )
             openai_providers.append(provider)
 
@@ -58,6 +59,7 @@ class RouterConfig:
                 timeout=provider_config.get("timeout", 30),
                 max_retries=provider_config.get("max_retries", 3),
                 model_mapping=provider_config.get("model_mapping", {}),
+                provider_name=provider_config.get("provider_name"),
             )
             anthropic_providers.append(provider)
 
@@ -109,6 +111,7 @@ class RouterConfig:
                     "timeout": p.timeout,
                     "max_retries": p.max_retries,
                     "model_mapping": p.model_mapping,
+                    "provider_name": p.provider_name,
                 }
                 for p in self.openai_providers
             ],
@@ -120,6 +123,7 @@ class RouterConfig:
                     "timeout": p.timeout,
                     "max_retries": p.max_retries,
                     "model_mapping": p.model_mapping,
+                    "provider_name": p.provider_name,
                 }
                 for p in self.anthropic_providers
             ],
@@ -183,6 +187,7 @@ def create_example_config() -> RouterConfig:
                 {
                     "api_key": "sk-your-openai-api-key-here",
                     "priority": 1,
+                    "provider_name": "openai-primary",
                     "base_url": "https://api.openai.com/v1",
                     "timeout": 30,
                     "max_retries": 3,
@@ -190,6 +195,7 @@ def create_example_config() -> RouterConfig:
                 {
                     "api_key": "sk-your-backup-openai-api-key-here",
                     "priority": 2,
+                    "provider_name": "openai-backup",
                     "base_url": "https://api.openai.com/v1",
                     "timeout": 30,
                     "max_retries": 3,
@@ -199,6 +205,7 @@ def create_example_config() -> RouterConfig:
                 {
                     "api_key": "sk-ant-your-anthropic-api-key-here",
                     "priority": 1,
+                    "provider_name": "anthropic-primary",
                     "base_url": "https://api.anthropic.com",
                     "timeout": 30,
                     "max_retries": 3,

@@ -26,9 +26,7 @@ class BaseProvider(ABC):
             base_url=config.base_url or self._get_default_base_url(),
         )
         self.logger = get_logger()
-        self.provider_name = (
-            config.name.value if hasattr(config.name, "value") else str(config.name)
-        )
+        self.provider_name = config.display_name
 
     def _get_headers(self) -> dict[str, str]:
         """Get HTTP headers for the provider."""
@@ -45,11 +43,6 @@ class BaseProvider(ABC):
     def _map_model(self, model: str) -> str:
         """Map generic model name to provider-specific model name using config mapping."""
         return self.config.model_mapping.get(model, model)
-
-    @abstractmethod
-    def _parse_response(self, response: dict[str, Any], model: str) -> dict[str, Any]:
-        """Parse provider response - minimal changes, just add provider field."""
-        pass
 
     @abstractmethod
     def _get_endpoint(self) -> str:
@@ -120,7 +113,8 @@ class BaseProvider(ABC):
                         f"Request successful in {duration:.0f}ms, "
                         f"status: {response.status_code}"
                     )
-                    return self._parse_response(response_data, model)
+                    # Just return the raw response
+                    return response_data
                 else:
                     try:
                         error_data = response.json()

@@ -45,6 +45,18 @@ class ProviderConfig(BaseModel):
         default_factory=dict,
         description="Map generic model names to provider-specific names",
     )
+    provider_name: str | None = Field(
+        default=None,
+        description="User-defined name for the provider (e.g., 'openai-priority-1'). "
+                    "If not provided, defaults to '{provider_type}-priority-{priority}'",
+    )
+
+    @property
+    def display_name(self) -> str:
+        """Get the display name for the provider."""
+        if self.provider_name:
+            return self.provider_name
+        return f"{self.name.value}-priority-{self.priority}"
 
 
 class ChatCompletionRequest(BaseModel):

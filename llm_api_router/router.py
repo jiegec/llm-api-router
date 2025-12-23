@@ -134,11 +134,7 @@ class LLMRouter:
 
         for provider_config in self.providers:
             attempt += 1
-            provider_name = (
-                provider_config.name.value
-                if isinstance(provider_config.name, ProviderType)
-                else provider_config.name
-            )
+            provider_name = provider_config.display_name
 
             # Log request to this specific provider
             self.logger.log_request(
@@ -155,14 +151,8 @@ class LLMRouter:
                 result = await provider.chat_completion(request)
                 provider_duration = (time.time() - provider_start_time) * 1000
 
-                # Extract response and parsed data
-                if isinstance(result, dict) and "raw_response" in result:
-                    response = result["raw_response"]
-                    parsed_response = result.get("parsed_for_logging")
-                else:
-                    # Fallback for compatibility
-                    response = result
-                    parsed_response = result
+                # Response is now just the raw response
+                response = result
 
                 # Log successful response - use raw response for full logging
                 if response:
