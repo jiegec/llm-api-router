@@ -1,5 +1,7 @@
 Create a LLM api router in this repo.
-It should support both OpenAI and Anthropic API in separate endpoints.
+It should support both OpenAI and Anthropic API in separate endpoints:
+  - OpenAI: /openai/chat/completions
+  - Anthropic: /anthropic/v1/messages
 It should support the vanilla openai and anthropic python API clients.
 It should only change the model name according to the model mapping in JSON config.
 It should not change the chat completion request.
