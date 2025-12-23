@@ -23,8 +23,7 @@ class OpenAIProvider(BaseProvider):
         result = dict(response)
 
         # Ensure model field is correct
-        if "model" not in result:
-            result["model"] = model
+        result["model"] = model
 
         # Add provider field for tracking
         result["provider"] = ProviderType.OPENAI.value

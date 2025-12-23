@@ -16,7 +16,6 @@ from .exceptions import (
 )
 from .logging import get_logger
 from .models import (
-    ChatCompletionResponse,
     ProviderConfig,
     ProviderType,
 )
@@ -95,9 +94,7 @@ class LLMRouter:
             await self._exit_stack.enter_async_context(provider)
         return self._provider_instances[provider_key]
 
-    async def chat_completion(
-        self, request: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def chat_completion(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Send a chat completion request using priority-based routing.
 
@@ -167,12 +164,12 @@ class LLMRouter:
                     response = result
                     parsed_response = result
 
-                # Log successful response
-                if parsed_response:
+                # Log successful response - use raw response for full logging
+                if response:
                     self.logger.log_response(
                         request_id=request_id,
                         endpoint=self.endpoint,
-                        response=parsed_response,
+                        response=response,  # Use raw response instead of parsed
                         provider_name=provider_name,
                         duration_ms=provider_duration,
                     )

@@ -3,7 +3,6 @@
 import time
 from typing import Any
 
-from ..exceptions import AuthenticationError, ProviderError, RateLimitError
 from ..models import (
     ChatCompletionResponse,
     ProviderType,
@@ -30,7 +29,6 @@ class AnthropicProvider(BaseProvider):
         # Remove Bearer prefix for Anthropic
         headers.pop("Authorization", None)
         return headers
-
 
     def _parse_response(self, response: dict[str, Any], model: str) -> dict[str, Any]:
         """Parse Anthropic response - just add provider field."""

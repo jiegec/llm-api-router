@@ -5,7 +5,7 @@ import logging
 import logging.handlers
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 from uuid import uuid4
 
 from .models import Usage
@@ -29,6 +29,10 @@ class RouterLogger:
 
         # Generate a unique session ID for this run
         self.session_id = str(uuid4())[:8]
+
+        # Get current datetime for filename
+        self.start_time = datetime.now(timezone.utc)
+        self.datetime_str = self.start_time.strftime("%Y%m%d_%H%M%S")
 
         # Set up structured logging
         self._setup_logging(log_level)
@@ -62,15 +66,15 @@ class RouterLogger:
         # JSON formatter - just passes through the message
         json_formatter = logging.Formatter("%(message)s")
 
-        # File handler for structured JSON logs
-        log_file = self.log_dir / f"router_{self.session_id}.jsonl"
+        # File handler for structured JSON logs - include datetime in filename
+        log_file = self.log_dir / f"router_{self.datetime_str}_{self.session_id}.jsonl"
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(json_formatter)
         self.json_logger.addHandler(file_handler)
 
-        # Separate error log file
-        error_file = self.log_dir / f"router_{self.session_id}_errors.jsonl"
+        # Separate error log file - include datetime in filename
+        error_file = self.log_dir / f"router_{self.datetime_str}_{self.session_id}_errors.jsonl"
         error_handler = logging.FileHandler(error_file, encoding="utf-8")
         error_handler.setLevel(logging.WARNING)
         error_handler.setFormatter(json_formatter)
@@ -108,6 +112,7 @@ class RouterLogger:
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": stream,
+            "full_request": request,  # Log the complete request
         }
 
         # Log structured JSON to file
@@ -143,6 +148,8 @@ class RouterLogger:
             finish_reason = (
                 response.choices[0].finish_reason if response.choices else None
             )
+            # Convert Pydantic model to dict for full logging
+            full_response = response.dict() if hasattr(response, "dict") else response
         else:
             model = response.get("model", "")
             response_id = response.get("id", "")
@@ -158,6 +165,7 @@ class RouterLogger:
             choices = response.get("choices", [])
             has_content = bool(choices and choices[0].get("message", {}).get("content"))
             finish_reason = choices[0].get("finish_reason") if choices else None
+            full_response = response
 
         log_entry = {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -180,6 +188,7 @@ class RouterLogger:
             ),
             "has_content": has_content,
             "finish_reason": finish_reason,
+            "full_response": full_response,  # Log the complete response
         }
 
         self.json_logger.debug(json.dumps(log_entry))

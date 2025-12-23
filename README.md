@@ -41,22 +41,6 @@ poetry run llm-api-router serve --host 0.0.0.0 --port 8080 --reload
 
 # Use specific configuration file
 poetry run llm-api-router serve --config /path/to/config.json
-
-# Test the router
-poetry run llm-api-router test
-```
-
-### Using the Legacy Script
-
-```bash
-# Basic server
-poetry run python main.py
-
-# With custom host/port
-poetry run python main.py --host 0.0.0.0 --port 8080
-
-# With auto-reload for development
-poetry run python main.py --reload
 ```
 
 ## API Endpoints
@@ -111,60 +95,24 @@ Create a JSON configuration file (default: `llm_router_config.json`):
 
 ### CLI Commands
 
-| Command | Description |
-|---------|-------------|
-| `llm-api-router --help` | Show all available commands |
-| `llm-api-router init` | Create a new configuration file with examples |
-| `llm-api-router check` | Validate configuration and show provider info |
-| `llm-api-router serve` | Start the LLM API Router server |
-| `llm-api-router test` | Test the router with a sample request |
+| Command                 | Description                                   |
+|-------------------------|-----------------------------------------------|
+| `llm-api-router --help` | Show all available commands                   |
+| `llm-api-router init`   | Create a new configuration file with examples |
+| `llm-api-router check`  | Validate configuration and show provider info |
+| `llm-api-router serve`  | Start the LLM API Router server               |
 
-### Running with Custom Config
+## Logging
 
-```bash
-# Use default config file (llm_router_config.json)
-poetry run llm-api-router serve
+The router provides comprehensive logging of all requests and responses:
 
-# Specify custom config file
-poetry run llm-api-router serve --config /path/to/config.json
+- **Structured JSON logs**: All requests, responses, errors, and retries are logged in structured JSON format
+- **DateTime in filenames**: Log files include timestamp in filename format: `router_YYYYMMDD_HHMMSS_<session_id>.jsonl`
+- **Full request/response logging**: Complete request and response data is logged for debugging and analysis
+- **Separate error logs**: Error logs are written to separate files with `_errors.jsonl` suffix
+- **Console output**: Summary information is also logged to console for real-time monitoring
 
-# Create config from example
-poetry run llm-api-router init
-# Edit llm_router_config.json with your API keys
-poetry run llm-api-router serve
-```
-
-### Programmatic Configuration
-
-You can also configure providers programmatically:
-
-```python
-from llm_api_router.server import create_app
-from llm_api_router.config import RouterConfig
-
-# Create configuration
-config = RouterConfig.from_dict({
-    "openai": [
-        {
-            "api_key": "your-openai-key-1",
-            "priority": 1,
-        },
-        {
-            "api_key": "your-openai-key-2",
-            "priority": 2,
-        }
-    ],
-    "anthropic": [
-        {
-            "api_key": "your-anthropic-key",
-            "priority": 1,
-        }
-    ]
-})
-
-# Create app with configuration
-app = create_app(config)
-```
+Log files are stored in the `logs/` directory by default.
 
 ## Development
 

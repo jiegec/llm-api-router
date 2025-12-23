@@ -236,7 +236,9 @@ async def test_router_fallback_on_rate_limit(
             "id": "msg_456",
             "model": "claude-3-haiku",
             "role": "assistant",
-            "content": [{"type": "text", "text": "Hello from Anthropic after rate limit!"}],
+            "content": [
+                {"type": "text", "text": "Hello from Anthropic after rate limit!"}
+            ],
             "stop_reason": "stop",
             "usage": {
                 "input_tokens": 10,
@@ -322,7 +324,9 @@ async def test_router_fallback_on_authentication_error(
             "id": "msg_789",
             "model": "claude-3-haiku",
             "role": "assistant",
-            "content": [{"type": "text", "text": "Hello from Anthropic after auth error!"}],
+            "content": [
+                {"type": "text", "text": "Hello from Anthropic after auth error!"}
+            ],
             "stop_reason": "stop",
             "usage": {
                 "input_tokens": 10,
