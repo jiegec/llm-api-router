@@ -1,6 +1,7 @@
 """FastAPI server for LLM API Router."""
 
 from typing import Any
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -32,14 +33,14 @@ class LLMAPIServer:
         )
 
         # Load configuration
-        self.config = config or load_default_config()
-        if self.config is None:
+        loaded_config = config or load_default_config()
+        if loaded_config is None:
             raise ConfigurationError(
                 "No configuration provided and no default config file found. "
                 "Create a config file or pass a RouterConfig instance."
             )
-        # Type assertion for mypy
-        assert self.config is not None
+        # Type narrowing - we know loaded_config is not None here
+        self.config: RouterConfig = loaded_config
 
         # Validate configuration
         errors = self.config.validate()
