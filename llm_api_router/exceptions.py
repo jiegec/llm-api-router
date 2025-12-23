@@ -1,11 +1,11 @@
 """Exceptions for LLM API Router."""
 
-from typing import Optional, Dict, Any
+from typing import Any
 
 
 class LLMError(Exception):
     """Base exception for LLM API errors."""
-    def __init__(self, message: str, provider: Optional[str] = None, status_code: Optional[int] = None):
+    def __init__(self, message: str, provider: str | None = None, status_code: int | None = None):
         self.message = message
         self.provider = provider
         self.status_code = status_code
@@ -14,7 +14,7 @@ class LLMError(Exception):
 
 class RateLimitError(LLMError):
     """Raised when rate limit is exceeded."""
-    def __init__(self, message: str, provider: str, retry_after: Optional[int] = None):
+    def __init__(self, message: str, provider: str, retry_after: int | None = None):
         self.retry_after = retry_after
         super().__init__(f"Rate limit exceeded for {provider}: {message}", provider)
 
@@ -27,8 +27,8 @@ class AuthenticationError(LLMError):
 
 class ProviderError(LLMError):
     """Raised when a provider-specific error occurs."""
-    def __init__(self, message: str, provider: str, error_type: Optional[str] = None, 
-                 error_data: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, provider: str, error_type: str | None = None,
+                 error_data: dict[str, Any] | None = None):
         self.error_type = error_type
         self.error_data = error_data
         super().__init__(f"Provider error for {provider}: {message}", provider)

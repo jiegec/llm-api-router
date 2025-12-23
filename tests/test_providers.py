@@ -1,18 +1,18 @@
 """Test providers."""
 
-import pytest
 import json
-from unittest.mock import AsyncMock, patch
+
+import pytest
 from httpx import Response
 
 from llm_api_router.models import (
+    ChatCompletionRequest,
+    Message,
     ProviderConfig,
     ProviderType,
-    Message,
     Role,
-    ChatCompletionRequest,
 )
-from llm_api_router.providers import create_provider, OpenAIProvider, AnthropicProvider
+from llm_api_router.providers import AnthropicProvider, OpenAIProvider, create_provider
 
 
 @pytest.mark.asyncio
@@ -54,15 +54,15 @@ async def test_openai_provider_chat_completion(
         content=json.dumps(mock_openai_response),
     )
     mock_httpx_client.post.return_value = mock_response
-    
+
     provider = OpenAIProvider(openai_config)
     response = await provider.chat_completion(sample_request)
-    
+
     # Verify request
     mock_httpx_client.post.assert_called_once()
     call_args = mock_httpx_client.post.call_args
     assert call_args[0][0] == "/chat/completions"
-    
+
     # Verify response
     assert response.id == "chatcmpl-123"
     assert response.model == "gpt-4o-mini"
@@ -77,12 +77,12 @@ async def test_openai_provider_chat_completion(
 async def test_openai_provider_map_model(openai_config):
     """Test OpenAI provider model mapping."""
     provider = OpenAIProvider(openai_config)
-    
+
     # Test known models
     assert provider._map_model("gpt-4o") == "gpt-4o"
     assert provider._map_model("gpt-4o-mini") == "gpt-4o-mini"
     assert provider._map_model("gpt-3.5-turbo") == "gpt-3.5-turbo"
-    
+
     # Test unknown model (pass through)
     assert provider._map_model("unknown-model") == "unknown-model"
 
@@ -95,7 +95,7 @@ async def test_openai_provider_format_messages(openai_config):
         Message(role=Role.SYSTEM, content="You are helpful"),
         Message(role=Role.USER, content="Hello", name="user1"),
     ]
-    
+
     formatted = provider._format_messages(messages)
     assert len(formatted) == 2
     assert formatted[0]["role"] == "system"
@@ -116,15 +116,15 @@ async def test_anthropic_provider_chat_completion(
         content=json.dumps(mock_anthropic_response),
     )
     mock_httpx_client.post.return_value = mock_response
-    
+
     provider = AnthropicProvider(anthropic_config)
     response = await provider.chat_completion(sample_request)
-    
+
     # Verify request
     mock_httpx_client.post.assert_called_once()
     call_args = mock_httpx_client.post.call_args
     assert call_args[0][0] == "/v1/messages"
-    
+
     # Verify response
     assert response.id == "msg_123"
     assert response.model == "gpt-4o-mini"  # Original model name preserved
@@ -139,12 +139,12 @@ async def test_anthropic_provider_chat_completion(
 async def test_anthropic_provider_map_model(anthropic_config):
     """Test Anthropic provider model mapping."""
     provider = AnthropicProvider(anthropic_config)
-    
+
     # Test known models
     assert provider._map_model("claude-3-opus") == "claude-3-opus-20240229"
     assert provider._map_model("claude-3-sonnet") == "claude-3-5-sonnet-20241022"
     assert provider._map_model("claude-3-haiku") == "claude-3-haiku-20240307"
-    
+
     # Test unknown model (pass through)
     assert provider._map_model("unknown-model") == "unknown-model"
 
@@ -177,7 +177,7 @@ async def test_anthropic_provider_format_messages_no_system(anthropic_config):
         Message(role=Role.USER, content="Hello"),
         Message(role=Role.ASSISTANT, content="Hi there"),
     ]
-    
+
     formatted = provider._format_messages(messages)
     system = provider._extract_system_message(messages)
     assert system is None
@@ -200,16 +200,16 @@ async def test_provider_authentication_error(openai_config, mock_httpx_client):
         }),
     )
     mock_httpx_client.post.return_value = mock_response
-    
+
     provider = OpenAIProvider(openai_config)
     request = ChatCompletionRequest(
         messages=[Message(role=Role.USER, content="Hello")],
         model="gpt-4o-mini",
     )
-    
+
     with pytest.raises(Exception) as exc_info:
         await provider.chat_completion(request)
-    
+
     assert "Authentication failed" in str(exc_info.value)
     assert "openai" in str(exc_info.value)
 
@@ -229,16 +229,16 @@ async def test_provider_rate_limit_error(openai_config, mock_httpx_client):
         }),
     )
     mock_httpx_client.post.return_value = mock_response
-    
+
     provider = OpenAIProvider(openai_config)
     request = ChatCompletionRequest(
         messages=[Message(role=Role.USER, content="Hello")],
         model="gpt-4o-mini",
     )
-    
+
     with pytest.raises(Exception) as exc_info:
         await provider.chat_completion(request)
-    
+
     assert "Rate limit exceeded" in str(exc_info.value)
     assert "openai" in str(exc_info.value)
 
@@ -262,17 +262,17 @@ async def test_provider_retry_logic(openai_config, mock_httpx_client):
             "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
         }),
     )
-    
+
     mock_httpx_client.post.side_effect = [error_response, success_response]
-    
+
     provider = OpenAIProvider(openai_config)
     request = ChatCompletionRequest(
         messages=[Message(role=Role.USER, content="Hello")],
         model="gpt-4o-mini",
     )
-    
+
     response = await provider.chat_completion(request)
-    
+
     # Should have retried once
     assert mock_httpx_client.post.call_count == 2
     assert response.id == "chatcmpl-123"

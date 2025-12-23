@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Main entry point for LLM API Router server."""
 
-import uvicorn
 import argparse
-from llm_api_router.server import create_app
+
+import uvicorn
+
 from llm_api_router.config import RouterConfig
+from llm_api_router.server import create_app
 
 
 def main():

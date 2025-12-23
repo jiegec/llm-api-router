@@ -1,16 +1,16 @@
 """Test configuration and fixtures."""
 
-import pytest
 import asyncio
-from typing import Dict, Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from llm_api_router.models import (
+    ChatCompletionRequest,
+    Message,
     ProviderConfig,
     ProviderType,
-    Message,
     Role,
-    ChatCompletionRequest,
 )
 
 

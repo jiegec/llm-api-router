@@ -2,20 +2,19 @@
 """Example client for LLM API Router server."""
 
 import asyncio
+
 import httpx
-import json
-from typing import Dict, Any
 
 
 async def test_openai_endpoint():
     """Test OpenAI endpoint."""
     print("Testing OpenAI endpoint...")
-    
+
     async with httpx.AsyncClient(base_url="http://127.0.0.1:8000") as client:
         # Test health endpoint
         response = await client.get("/health")
         print(f"Health check: {response.status_code}")
-        
+
         # Test OpenAI chat completion
         payload = {
             "messages": [
@@ -26,17 +25,17 @@ async def test_openai_endpoint():
             "max_tokens": 100,
             "temperature": 0.7,
         }
-        
+
         try:
             response = await client.post(
                 "/openai/chat/completions",
                 json=payload,
                 timeout=30.0
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
-                print(f"Success! Response from OpenAI endpoint:")
+                print("Success! Response from OpenAI endpoint:")
                 print(f"  Provider: {result.get('provider')}")
                 print(f"  Model: {result.get('model')}")
                 print(f"  Content: {result['choices'][0]['message']['content']}")
@@ -44,7 +43,7 @@ async def test_openai_endpoint():
             else:
                 print(f"Error: {response.status_code}")
                 print(response.text)
-                
+
         except httpx.RequestError as e:
             print(f"Request error: {e}")
         except Exception as e:
@@ -54,7 +53,7 @@ async def test_openai_endpoint():
 async def test_anthropic_endpoint():
     """Test Anthropic endpoint."""
     print("\nTesting Anthropic endpoint...")
-    
+
     async with httpx.AsyncClient(base_url="http://127.0.0.1:8000") as client:
         # Test Anthropic chat completion
         payload = {
@@ -66,17 +65,17 @@ async def test_anthropic_endpoint():
             "max_tokens": 100,
             "temperature": 0.7,
         }
-        
+
         try:
             response = await client.post(
                 "/anthropic/chat/completions",
                 json=payload,
                 timeout=30.0
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
-                print(f"Success! Response from Anthropic endpoint:")
+                print("Success! Response from Anthropic endpoint:")
                 print(f"  Provider: {result.get('provider')}")
                 print(f"  Model: {result.get('model')}")
                 print(f"  Content: {result['choices'][0]['message']['content']}")
@@ -84,7 +83,7 @@ async def test_anthropic_endpoint():
             else:
                 print(f"Error: {response.status_code}")
                 print(response.text)
-                
+
         except httpx.RequestError as e:
             print(f"Request error: {e}")
         except Exception as e:
@@ -123,7 +122,7 @@ async def test_multiple_providers():
 async def main():
     print("LLM API Router Client Example")
     print("=" * 50)
-    
+
     # Check if server is running
     try:
         async with httpx.AsyncClient(base_url="http://127.0.0.1:8000", timeout=2.0) as client:
@@ -132,7 +131,7 @@ async def main():
         print("Server is not running at http://127.0.0.1:8000")
         print("Start it with: poetry run python main.py")
         return
-    
+
     await test_openai_endpoint()
     await test_anthropic_endpoint()
     await test_multiple_providers()

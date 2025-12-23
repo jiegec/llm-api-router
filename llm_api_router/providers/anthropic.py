@@ -1,24 +1,24 @@
 """Anthropic provider implementation."""
 
 import time
-from typing import Dict, Any, List, Optional
+from typing import Any
 
-from .base import BaseProvider
+from ..exceptions import AuthenticationError, ProviderError, RateLimitError
 from ..models import (
-    ProviderConfig,
     ChatCompletionRequest,
     ChatCompletionResponse,
-    Message,
     Choice,
-    Usage,
+    Message,
     ProviderType,
-    Role
+    Role,
+    Usage,
 )
+from .base import BaseProvider
 
 
 class AnthropicProvider(BaseProvider):
     """Anthropic API provider."""
-    
+
     MODEL_MAPPING = {
         "claude-3-opus": "claude-3-opus-20240229",
         "claude-3-sonnet": "claude-3-5-sonnet-20241022",
@@ -26,11 +26,11 @@ class AnthropicProvider(BaseProvider):
         "claude-2": "claude-2.1",
         "claude-instant": "claude-instant-1.2",
     }
-    
+
     def _get_default_base_url(self) -> str:
         return "https://api.anthropic.com"
-    
-    def _get_headers(self) -> Dict[str, str]:
+
+    def _get_headers(self) -> dict[str, str]:
         """Get HTTP headers for Anthropic API."""
         headers = super()._get_headers()
         headers.update({
@@ -40,12 +40,12 @@ class AnthropicProvider(BaseProvider):
         # Remove Bearer prefix for Anthropic
         headers.pop("Authorization", None)
         return headers
-    
+
     def _map_model(self, model: str) -> str:
         """Map generic model name to Anthropic model name."""
         return self.MODEL_MAPPING.get(model, model)
-    
-    def _format_messages(self, messages: List[Message]) -> List[Dict[str, Any]]:
+
+    def _format_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
         """Format messages for Anthropic API."""
         formatted = []
 
@@ -61,15 +61,15 @@ class AnthropicProvider(BaseProvider):
 
         return formatted
 
-    def _extract_system_message(self, messages: List[Message]) -> Optional[str]:
+    def _extract_system_message(self, messages: list[Message]) -> str | None:
         """Extract system message from messages."""
         for msg in messages:
             role_value = msg.role.value if isinstance(msg.role, Role) else msg.role
             if role_value == Role.SYSTEM.value:
                 return msg.content
         return None
-    
-    def _parse_response(self, response: Dict[str, Any], model: str) -> ChatCompletionResponse:
+
+    def _parse_response(self, response: dict[str, Any], model: str) -> ChatCompletionResponse:
         """Parse Anthropic response to standard format."""
         # Anthropic returns content as a list
         content_list = response.get("content", [])
@@ -78,25 +78,25 @@ class AnthropicProvider(BaseProvider):
             if content_item.get("type") == "text":
                 content = content_item.get("text", "")
                 break
-        
+
         message = Message(
             role=Role.ASSISTANT,
             content=content,
         )
-        
+
         choice = Choice(
             index=0,
             message=message,
             finish_reason=response.get("stop_reason"),
         )
-        
+
         usage_data = response.get("usage", {})
         usage = Usage(
             prompt_tokens=usage_data.get("input_tokens", 0),
             completion_tokens=usage_data.get("output_tokens", 0),
             total_tokens=usage_data.get("input_tokens", 0) + usage_data.get("output_tokens", 0),
         )
-        
+
         return ChatCompletionResponse(
             id=response.get("id", f"anthropic-{int(time.time())}"),
             created=int(time.time()),
@@ -105,10 +105,10 @@ class AnthropicProvider(BaseProvider):
             usage=usage,
             provider=ProviderType.ANTHROPIC,
         )
-    
+
     def _get_endpoint(self) -> str:
         return "/v1/messages"
-    
+
     async def chat_completion(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         """Send a chat completion request to Anthropic."""
         provider_model = self._map_model(request.model)
@@ -156,6 +156,6 @@ class AnthropicProvider(BaseProvider):
                     raise ProviderError(
                         f"Request failed after {self.config.max_retries + 1} attempts: {str(e)}",
                         self.config.name.value
-                    )
+                    ) from e
                 import asyncio
                 await asyncio.sleep(2 ** attempt)

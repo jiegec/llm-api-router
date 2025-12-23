@@ -1,14 +1,15 @@
 """Test models."""
 
 import pytest
+
 from llm_api_router.models import (
-    Message,
-    Role,
-    ProviderConfig,
-    ProviderType,
     ChatCompletionRequest,
     ChatCompletionResponse,
     Choice,
+    Message,
+    ProviderConfig,
+    ProviderType,
+    Role,
     Usage,
 )
 
@@ -74,7 +75,7 @@ def test_provider_config_priority_validation():
     """Test ProviderConfig priority validation."""
     # Should not raise
     ProviderConfig(name=ProviderType.OPENAI, api_key="test", priority=1)
-    
+
     # Should raise ValueError for priority < 1
     with pytest.raises(ValueError):
         ProviderConfig(name=ProviderType.OPENAI, api_key="test", priority=0)
@@ -126,7 +127,7 @@ def test_chat_completion_response():
     message = Message(role=Role.ASSISTANT, content="Hello there")
     choice = Choice(index=0, message=message, finish_reason="stop")
     usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-    
+
     response = ChatCompletionResponse(
         id="chatcmpl-123",
         created=1234567890,
@@ -135,7 +136,7 @@ def test_chat_completion_response():
         usage=usage,
         provider=ProviderType.OPENAI,
     )
-    
+
     assert response.id == "chatcmpl-123"
     assert response.created == 1234567890
     assert response.model == "gpt-4o-mini"

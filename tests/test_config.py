@@ -2,7 +2,6 @@
 
 import json
 import tempfile
-import pytest
 from pathlib import Path
 
 from llm_api_router.config import RouterConfig
@@ -31,12 +30,12 @@ def test_router_config_from_dict():
             }
         ]
     }
-    
+
     config = RouterConfig.from_dict(config_dict)
-    
+
     assert len(config.openai_providers) == 1
     assert len(config.anthropic_providers) == 1
-    
+
     openai_provider = config.openai_providers[0]
     assert openai_provider.name == ProviderType.OPENAI
     assert openai_provider.api_key == "test-openai-key-1"
@@ -44,7 +43,7 @@ def test_router_config_from_dict():
     assert openai_provider.base_url == "https://api.test.com"
     assert openai_provider.timeout == 30
     assert openai_provider.max_retries == 3
-    
+
     anthropic_provider = config.anthropic_providers[0]
     assert anthropic_provider.name == ProviderType.ANTHROPIC
     assert anthropic_provider.api_key == "test-anthropic-key-1"
@@ -68,15 +67,15 @@ def test_router_config_from_dict_defaults():
             }
         ]
     }
-    
+
     config = RouterConfig.from_dict(config_dict)
-    
+
     openai_provider = config.openai_providers[0]
     assert openai_provider.priority == 1  # Default
     assert openai_provider.base_url is None  # Default
     assert openai_provider.timeout == 30  # Default
     assert openai_provider.max_retries == 3  # Default
-    
+
     anthropic_provider = config.anthropic_providers[0]
     assert anthropic_provider.priority == 1  # Default
     assert anthropic_provider.base_url is None  # Default
@@ -96,16 +95,16 @@ def test_router_config_from_dict_single_provider():
             "priority": 1,
         }
     }
-    
+
     config = RouterConfig.from_dict(config_dict)
-    
+
     assert len(config.openai_providers) == 1
     assert len(config.anthropic_providers) == 1
-    
+
     openai_provider = config.openai_providers[0]
     assert openai_provider.name == ProviderType.OPENAI
     assert openai_provider.api_key == "test-openai-key"
-    
+
     anthropic_provider = config.anthropic_providers[0]
     assert anthropic_provider.name == ProviderType.ANTHROPIC
     assert anthropic_provider.api_key == "test-anthropic-key"
@@ -135,18 +134,18 @@ def test_router_config_from_dict_multiple_providers():
             }
         ]
     }
-    
+
     config = RouterConfig.from_dict(config_dict)
-    
+
     assert len(config.openai_providers) == 2
     assert len(config.anthropic_providers) == 2
-    
+
     # Should be sorted by priority
     assert config.openai_providers[0].priority == 1
     assert config.openai_providers[0].api_key == "test-openai-key-1"
     assert config.openai_providers[1].priority == 2
     assert config.openai_providers[1].api_key == "test-openai-key-2"
-    
+
     assert config.anthropic_providers[0].priority == 1
     assert config.anthropic_providers[0].api_key == "test-anthropic-key-1"
     assert config.anthropic_providers[1].priority == 2
@@ -169,21 +168,21 @@ def test_router_config_from_json_file():
             }
         ]
     }
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(config_dict, f)
         temp_file = f.name
-    
+
     try:
         config = RouterConfig.from_json_file(temp_file)
-        
+
         assert len(config.openai_providers) == 1
         assert len(config.anthropic_providers) == 1
-        
+
         openai_provider = config.openai_providers[0]
         assert openai_provider.name == ProviderType.OPENAI
         assert openai_provider.api_key == "test-openai-key"
-        
+
         anthropic_provider = config.anthropic_providers[0]
         assert anthropic_provider.name == ProviderType.ANTHROPIC
         assert anthropic_provider.api_key == "test-anthropic-key"
@@ -207,16 +206,16 @@ def test_router_config_from_json_string():
             }
         ]
     })
-    
+
     config = RouterConfig.from_json_string(json_str)
-    
+
     assert len(config.openai_providers) == 1
     assert len(config.anthropic_providers) == 1
-    
+
     openai_provider = config.openai_providers[0]
     assert openai_provider.name == ProviderType.OPENAI
     assert openai_provider.api_key == "test-openai-key"
-    
+
     anthropic_provider = config.anthropic_providers[0]
     assert anthropic_provider.name == ProviderType.ANTHROPIC
     assert anthropic_provider.api_key == "test-anthropic-key"
@@ -244,19 +243,19 @@ def test_router_config_to_dict():
             }
         ]
     })
-    
+
     config_dict = config.to_dict()
-    
+
     assert "openai" in config_dict
     assert "anthropic" in config_dict
-    
+
     openai_config = config_dict["openai"][0]
     assert openai_config["api_key"] == "test-openai-key"
     assert openai_config["priority"] == 1
     assert openai_config["base_url"] == "https://api.test.com"
     assert openai_config["timeout"] == 30
     assert openai_config["max_retries"] == 3
-    
+
     anthropic_config = config_dict["anthropic"][0]
     assert anthropic_config["api_key"] == "test-anthropic-key"
     assert anthropic_config["priority"] == 1
@@ -281,10 +280,10 @@ def test_router_config_to_json():
             }
         ]
     })
-    
+
     json_str = config.to_json()
     parsed = json.loads(json_str)
-    
+
     assert "openai" in parsed
     assert "anthropic" in parsed
     assert len(parsed["openai"]) == 1
@@ -309,16 +308,16 @@ def test_router_config_save_to_file():
             }
         ]
     })
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         temp_file = f.name
-    
+
     try:
         config.save_to_file(temp_file)
-        
-        with open(temp_file, 'r') as f:
+
+        with open(temp_file) as f:
             saved_config = json.load(f)
-        
+
         assert "openai" in saved_config
         assert "anthropic" in saved_config
         assert len(saved_config["openai"]) == 1
@@ -353,7 +352,7 @@ def test_router_config_validation():
             }
         ]
     })
-    
+
     errors = config.validate()
     assert len(errors) == 0
     assert config.is_valid()
@@ -379,7 +378,7 @@ def test_router_config_validation_duplicate_priorities():
             }
         ]
     })
-    
+
     errors = config.validate()
     assert len(errors) == 1
     assert "Duplicate priorities found in OpenAI providers" in errors[0]

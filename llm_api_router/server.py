@@ -1,33 +1,29 @@
 """FastAPI server for LLM API Router."""
 
-import os
-from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from .models import (
-    ProviderConfig,
-    ProviderType,
-    Message,
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-)
-from .router import LLMRouter
 from .config import RouterConfig, load_default_config
 from .exceptions import (
-    NoAvailableProviderError,
-    RateLimitError,
     AuthenticationError,
-    ProviderError,
-    LLMError,
     ConfigurationError,
+    LLMError,
+    NoAvailableProviderError,
+    ProviderError,
+    RateLimitError,
 )
+from .models import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    ProviderType,
+)
+from .router import LLMRouter
 
 
 class LLMAPIServer:
     """LLM API Server with separate endpoints for each provider type."""
 
-    def __init__(self, config: Optional[RouterConfig] = None):
+    def __init__(self, config: RouterConfig | None = None):
         self.app = FastAPI(
             title="LLM API Router",
             description="Router for OpenAI and Anthropic APIs with provider fallback",
@@ -41,6 +37,8 @@ class LLMAPIServer:
                 "No configuration provided and no default config file found. "
                 "Create a config file or pass a RouterConfig instance."
             )
+        # Type assertion for mypy
+        assert self.config is not None
 
         # Validate configuration
         errors = self.config.validate()
@@ -48,17 +46,17 @@ class LLMAPIServer:
             raise ConfigurationError(f"Configuration errors: {', '.join(errors)}")
 
         # Initialize routers for each provider type
-        self.openai_router: Optional[LLMRouter] = None
-        self.anthropic_router: Optional[LLMRouter] = None
+        self.openai_router: LLMRouter | None = None
+        self.anthropic_router: LLMRouter | None = None
 
         self._setup_routes()
         self._setup_middleware()
-    
-    def _setup_routes(self):
+
+    def _setup_routes(self) -> None:
         """Setup API routes."""
-        
+
         @self.app.get("/")
-        async def root():
+        async def root() -> dict[str, Any]:
             return {
                 "name": "LLM API Router",
                 "version": "0.1.0",
@@ -68,11 +66,11 @@ class LLMAPIServer:
                     "health": "/health",
                 }
             }
-        
+
         @self.app.get("/health")
         async def health():
             return {"status": "healthy"}
-        
+
         @self.app.post("/openai/chat/completions")
         async def openai_chat_completion(
             request: ChatCompletionRequest,
@@ -80,7 +78,7 @@ class LLMAPIServer:
         ):
             """OpenAI-compatible chat completion endpoint."""
             return await self._handle_chat_completion(request, router, ProviderType.OPENAI)
-        
+
         @self.app.post("/anthropic/chat/completions")
         async def anthropic_chat_completion(
             request: ChatCompletionRequest,
@@ -88,10 +86,10 @@ class LLMAPIServer:
         ):
             """Anthropic-compatible chat completion endpoint."""
             return await self._handle_chat_completion(request, router, ProviderType.ANTHROPIC)
-    
-    def _setup_middleware(self):
+
+    def _setup_middleware(self) -> None:
         """Setup middleware for error handling."""
-        
+
         @self.app.exception_handler(NoAvailableProviderError)
         async def no_available_provider_handler(request, exc):
             return JSONResponse(
@@ -103,13 +101,13 @@ class LLMAPIServer:
                     }
                 },
             )
-        
+
         @self.app.exception_handler(RateLimitError)
         async def rate_limit_handler(request, exc):
             headers = {}
             if exc.retry_after:
                 headers["Retry-After"] = str(exc.retry_after)
-            
+
             return JSONResponse(
                 status_code=429,
                 headers=headers,
@@ -120,7 +118,7 @@ class LLMAPIServer:
                     }
                 },
             )
-        
+
         @self.app.exception_handler(AuthenticationError)
         async def authentication_handler(request, exc):
             return JSONResponse(
@@ -132,7 +130,7 @@ class LLMAPIServer:
                     }
                 },
             )
-        
+
         @self.app.exception_handler(ProviderError)
         async def provider_error_handler(request, exc):
             return JSONResponse(
@@ -145,7 +143,7 @@ class LLMAPIServer:
                     }
                 },
             )
-        
+
         @self.app.exception_handler(LLMError)
         async def llm_error_handler(request, exc):
             return JSONResponse(
@@ -158,7 +156,7 @@ class LLMAPIServer:
                     }
                 },
             )
-    
+
     async def _get_openai_router(self) -> LLMRouter:
         """Get or create OpenAI router."""
         if self.openai_router is None:
@@ -180,7 +178,7 @@ class LLMAPIServer:
                 )
             self.anthropic_router = LLMRouter(self.config.anthropic_providers)
         return self.anthropic_router
-    
+
     async def _handle_chat_completion(
         self,
         request: ChatCompletionRequest,
@@ -200,9 +198,9 @@ class LLMAPIServer:
             raise HTTPException(
                 status_code=500,
                 detail=f"Internal server error: {str(e)}",
-            )
-    
-def create_app(config: Optional[RouterConfig] = None) -> FastAPI:
+            ) from e
+
+def create_app(config: RouterConfig | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     server = LLMAPIServer(config)
     return server.app

@@ -1,13 +1,12 @@
 """Test exceptions."""
 
-import pytest
 from llm_api_router.exceptions import (
-    LLMError,
-    RateLimitError,
     AuthenticationError,
-    ProviderError,
-    NoAvailableProviderError,
     ConfigurationError,
+    LLMError,
+    NoAvailableProviderError,
+    ProviderError,
+    RateLimitError,
 )
 
 
