@@ -81,7 +81,9 @@ class BaseProvider(ABC):
         else:
             return await self._chat_completion_non_stream(request)
 
-    async def _chat_completion_non_stream(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def _chat_completion_non_stream(
+        self, request: dict[str, Any]
+    ) -> dict[str, Any]:
         """Send a non-streaming chat completion request to the provider."""
         # Extract model from request
         model = request.get("model", "")
@@ -205,44 +207,73 @@ class BaseProvider(ABC):
 
                 start_time = time.time()
 
-                # For streaming, we need to make a streaming request
-                # Using stream=True to get a streaming response
-                response = await self.client.post(
-                    self._get_endpoint(),
-                    json=payload,
-                    headers={**self._get_headers(), "Accept": "text/event-stream"},
-                    stream=True  # This is key for streaming
-                )
-                duration = (time.time() - start_time) * 1000
-
-                if response.status_code == 200:
-                    self.logger.logger.debug(
-                        f"Provider {self.provider_name}: "
-                        f"Streaming request successful in {duration:.0f}ms, "
-                        f"status: {response.status_code}"
-                    )
-
-                    # For streaming responses, we need to return the response object
-                    # The server will stream from it using aiter_bytes()
-                    return {
-                        "_streaming": True,
-                        "_provider": self.provider_name,
-                        "_response": response
-                    }
-                else:
+                # Create a streaming generator that handles the entire lifecycle
+                async def stream_generator():
+                    """Generator that initiates streaming and yields chunks."""
+                    # This will run when the generator is consumed
                     try:
-                        error_data = response.json()
-                    except json.JSONDecodeError:
-                        error_data = {"error": {"message": response.text}}
+                        # Make streaming request
+                        async with self.client.stream(
+                            "POST",
+                            self._get_endpoint(),
+                            json=payload,
+                            headers={**self._get_headers(), "Accept": "text/event-stream"}
+                        ) as response:
+                            duration = (time.time() - start_time) * 1000
 
-                    self.logger.logger.warning(
-                        f"Provider {self.provider_name}: "
-                        f"Streaming request failed in {duration:.0f}ms, "
-                        f"status: {response.status_code}, "
-                        f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
-                    )
+                            if response.status_code == 200:
+                                self.logger.logger.debug(
+                                    f"Provider {self.provider_name}: "
+                                    f"Streaming request successful in {duration:.0f}ms, "
+                                    f"status: {response.status_code}"
+                                )
 
-                    self._handle_error(response.status_code, error_data)
+                                # Stream chunks as they arrive
+                                async for chunk in response.aiter_bytes():
+                                    yield chunk
+                            else:
+                                try:
+                                    error_data = response.json()
+                                except json.JSONDecodeError:
+                                    error_data = {"error": {"message": response.text}}
+
+                                self.logger.logger.warning(
+                                    f"Provider {self.provider_name}: "
+                                    f"Streaming request failed in {duration:.0f}ms, "
+                                    f"status: {response.status_code}, "
+                                    f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                                )
+
+                                # Yield error as SSE
+                                error_json = json.dumps({
+                                    "error": {
+                                        "message": f"Provider error: {error_data.get('error', {}).get('message', 'Unknown error')}",
+                                        "type": "provider_error",
+                                        "code": response.status_code
+                                    }
+                                })
+                                yield f"data: {error_json}\n\n".encode()
+                    except Exception as e:
+                        self.logger.logger.error(
+                            f"Provider {self.provider_name}: "
+                            f"Streaming request exception: {type(e).__name__}: {str(e)}"
+                        )
+                        # Yield error as SSE
+                        error_json = json.dumps({
+                            "error": {
+                                "message": f"Streaming error: {str(e)}",
+                                "type": "stream_error"
+                            }
+                        })
+                        yield f"data: {error_json}\n\n".encode()
+
+                # Return a streaming marker with the generator
+                # The generator will execute when consumed by the server
+                return {
+                    "_streaming": True,
+                    "_provider": self.provider_name,
+                    "_generator": stream_generator(),
+                }
 
             except (RateLimitError, AuthenticationError) as e:
                 # Don't retry auth or rate limit errors

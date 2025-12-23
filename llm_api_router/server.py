@@ -285,22 +285,17 @@ class LLMAPIServer:
             if isinstance(response, dict) and response.get("_streaming"):
                 # This is a streaming response
                 provider_name = response.get("_provider", "unknown")
-                httpx_response = response.get("_response")
+                generator = response.get("_generator")
 
-                if not httpx_response:
+                if not generator:
                     raise HTTPException(
                         status_code=500,
-                        detail="Streaming response missing HTTP response"
+                        detail="Streaming response missing generator"
                     )
 
-                # Create a streaming response that forwards the chunks
-                async def stream_generator():
-                    # Stream chunks as they come in
-                    async for chunk in httpx_response.aiter_bytes():
-                        yield chunk
-
+                # The generator already yields chunks, just use it directly
                 return StreamingResponse(
-                    stream_generator(),
+                    generator,
                     media_type="text/event-stream",
                     headers={
                         "X-Provider": provider_name,
