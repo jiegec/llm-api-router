@@ -74,46 +74,33 @@ class LLMAPIServer:
                 "status": "healthy",
                 "version": "0.1.0",
                 "providers": {
-                    "openai": self.openai_router is not None,
-                    "anthropic": self.anthropic_router is not None,
+                    "openai": len(self.config.openai_providers) > 0,
+                    "anthropic": len(self.config.anthropic_providers) > 0,
                 },
             }
 
         @self.app.get("/status")
         async def status():
             """Detailed status endpoint showing provider configurations."""
-            openai_providers = []
-            anthropic_providers = []
+            openai_providers = [
+                {
+                    "name": provider.display_name,
+                    "priority": provider.priority,
+                    "base_url": provider.base_url,
+                    "model_mapping": provider.model_mapping,
+                }
+                for provider in self.config.openai_providers
+            ]
 
-            if self.openai_router:
-                openai_providers = [
-                    {
-                        "name": (
-                            provider.name.value
-                            if hasattr(provider.name, "value")
-                            else str(provider.name)
-                        ),
-                        "priority": provider.priority,
-                        "base_url": provider.base_url,
-                        "model_mapping": provider.model_mapping,
-                    }
-                    for provider in self.config.openai_providers
-                ]
-
-            if self.anthropic_router:
-                anthropic_providers = [
-                    {
-                        "name": (
-                            provider.name.value
-                            if hasattr(provider.name, "value")
-                            else str(provider.name)
-                        ),
-                        "priority": provider.priority,
-                        "base_url": provider.base_url,
-                        "model_mapping": provider.model_mapping,
-                    }
-                    for provider in self.config.anthropic_providers
-                ]
+            anthropic_providers = [
+                {
+                    "name": provider.display_name,
+                    "priority": provider.priority,
+                    "base_url": provider.base_url,
+                    "model_mapping": provider.model_mapping,
+                }
+                for provider in self.config.anthropic_providers
+            ]
 
             return {
                 "status": "healthy",
@@ -131,29 +118,6 @@ class LLMAPIServer:
                 },
             }
 
-        @self.app.get("/metrics")
-        async def metrics():
-            """Simple metrics endpoint (placeholder for more advanced metrics)."""
-            # In a real implementation, this would track:
-            # - Total requests
-            # - Success/failure rates
-            # - Provider usage statistics
-            # - Token usage
-            # - Response times
-
-            return {
-                "metrics": {
-                    "note": "Metrics collection is a placeholder. Implement proper metrics tracking as needed.",
-                    "suggested_metrics": [
-                        "total_requests",
-                        "success_rate",
-                        "provider_usage",
-                        "average_response_time",
-                        "token_usage_by_provider",
-                        "fallback_count",
-                    ],
-                }
-            }
 
         @self.app.post("/openai/chat/completions")
         async def openai_chat_completion(
