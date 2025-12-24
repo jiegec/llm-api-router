@@ -207,72 +207,141 @@ class BaseProvider(ABC):
 
                 start_time = time.time()
 
-                # Create a streaming generator that handles the entire lifecycle
-                async def stream_generator():
-                    """Generator that initiates streaming and yields chunks."""
-                    # This will run when the generator is consumed
-                    try:
-                        # Make streaming request
-                        async with self.client.stream(
-                            "POST",
-                            self._get_endpoint(),
-                            json=payload,
-                            headers={**self._get_headers(), "Accept": "text/event-stream"}
-                        ) as response:
-                            duration = (time.time() - start_time) * 1000
+                # We need to verify the provider is available before returning
+                # a streaming generator. We'll make the request and check the
+                # initial response, then create a generator that streams.
+                import asyncio
 
-                            if response.status_code == 200:
-                                self.logger.logger.debug(
-                                    f"Provider {self.provider_name}: "
-                                    f"Streaming request successful in {duration:.0f}ms, "
-                                    f"status: {response.status_code}"
-                                )
+                # Create events for coordination
+                check_complete = asyncio.Event()
+                check_error = None
+                response_obj = None
+                first_chunk = None
+                chunk_iterator = None
 
-                                # Stream chunks as they arrive
-                                async for chunk in response.aiter_bytes():
-                                    yield chunk
-                            else:
+                async def check_streaming():
+                    """Check if streaming works by making the request and reading first chunk."""
+                    nonlocal check_error, response_obj, first_chunk, chunk_iterator
+
+                    # Make streaming request
+                    async with self.client.stream(
+                        "POST",
+                        self._get_endpoint(),
+                        json=payload,
+                        headers={
+                            **self._get_headers(),
+                            "Accept": "text/event-stream",
+                        },
+                    ) as response:
+                        response_obj = response
+                        duration = (time.time() - start_time) * 1000
+
+                        # Check response status
+                        if response.status_code != 200:
+                            # Read the error response
+                            try:
+                                response_content = await response.aread()
                                 try:
-                                    error_data = response.json()
+                                    error_data = json.loads(response_content)
                                 except json.JSONDecodeError:
-                                    error_data = {"error": {"message": response.text}}
+                                    error_data = {"error": {"message": response_content.decode('utf-8', errors='ignore')}}
+                            except Exception as read_error:
+                                error_data = {"error": {"message": f"HTTP {response.status_code}: Failed to read response"}}
 
-                                self.logger.logger.warning(
-                                    f"Provider {self.provider_name}: "
-                                    f"Streaming request failed in {duration:.0f}ms, "
-                                    f"status: {response.status_code}, "
-                                    f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
-                                )
+                            self.logger.logger.warning(
+                                f"Provider {self.provider_name}: "
+                                f"Streaming request failed in {duration:.0f}ms, "
+                                f"status: {response.status_code}, "
+                                f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                            )
 
-                                # Yield error as SSE
-                                error_json = json.dumps({
-                                    "error": {
-                                        "message": f"Provider error: {error_data.get('error', {}).get('message', 'Unknown error')}",
-                                        "type": "provider_error",
-                                        "code": response.status_code
-                                    }
-                                })
-                                yield f"data: {error_json}\n\n".encode()
-                    except Exception as e:
-                        self.logger.logger.error(
+                            # Signal check complete with error
+                            check_error = self._create_error_from_status(response.status_code, error_data)
+                            check_complete.set()
+                            return
+
+                        # Response is 200 OK
+                        self.logger.logger.debug(
                             f"Provider {self.provider_name}: "
-                            f"Streaming request exception: {type(e).__name__}: {str(e)}"
+                            f"Streaming request successful in {duration:.0f}ms, "
+                            f"status: {response.status_code}"
                         )
-                        # Yield error as SSE
-                        error_json = json.dumps({
-                            "error": {
-                                "message": f"Streaming error: {str(e)}",
-                                "type": "stream_error"
-                            }
-                        })
-                        yield f"data: {error_json}\n\n".encode()
 
-                # Return a streaming marker with the generator
-                # The generator will execute when consumed by the server
+                        # Get the chunk iterator
+                        chunk_iterator = response.aiter_bytes()
+
+                        # Try to read the first chunk to verify streaming works
+                        try:
+                            first_chunk = await chunk_iterator.__anext__()
+                        except StopAsyncIteration:
+                            # No chunks available yet, but response was successful
+                            # This might happen with some providers
+                            first_chunk = None
+                        except Exception as e:
+                            # Error reading first chunk
+                            check_error = ProviderError(
+                                f"Failed to read first chunk: {str(e)}",
+                                self.config.name.value,
+                            )
+                            check_complete.set()
+                            return
+
+                        # Signal that the check is complete and successful
+                        check_complete.set()
+
+                        # Keep the response alive by not exiting the context manager
+                        # We'll handle cleanup in the generator
+                        await asyncio.Event().wait()  # Wait forever
+
+                # Start the check in a background task
+                check_task = asyncio.create_task(check_streaming())
+
+                # Wait for the check to complete (or timeout)
+                try:
+                    await asyncio.wait_for(check_complete.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    check_task.cancel()
+                    # Try to close the response if it was opened
+                    if response_obj:
+                        await response_obj.aclose()
+                    raise ProviderError(
+                        "Streaming request timeout while checking provider availability",
+                        self.config.name.value,
+                    )
+
+                # If there was an error during checking, raise it
+                if check_error:
+                    check_task.cancel()
+                    # Try to close the response if it was opened
+                    if response_obj:
+                        await response_obj.aclose()
+                    raise check_error
+
+                # Check was successful, now create a generator that streams
+                async def streaming_generator():
+                    """Generator that streams response chunks."""
+                    nonlocal first_chunk, chunk_iterator, response_obj
+
+                    try:
+                        # First, yield the first chunk we already read
+                        if first_chunk is not None:
+                            yield first_chunk
+
+                        # Then yield the rest of the chunks from the iterator
+                        if chunk_iterator:
+                            async for chunk in chunk_iterator:
+                                yield chunk
+                    finally:
+                        # Clean up: cancel the check task and close the response
+                        check_task.cancel()
+                        if response_obj:
+                            await response_obj.aclose()
+
+                # Generator checked successfully, return it
                 return {
                     "_streaming": True,
                     "_provider": self.provider_name,
-                    "_generator": stream_generator(),
+                    "_generator": streaming_generator(),
                 }
 
             except (RateLimitError, AuthenticationError) as e:
@@ -311,6 +380,27 @@ class BaseProvider(ABC):
             "Unexpected error: max retries exhausted without raising exception",
             self.config.name.value,
         )
+
+    def _create_error_from_status(self, status_code: int, error_data: dict[str, Any]) -> Exception:
+        """Create appropriate exception from status code and error data."""
+        error_message = error_data.get("error", {}).get("message", "Unknown error")
+
+        if status_code == 401:
+            return AuthenticationError(error_message, self.config.name.value)
+        elif status_code == 429:
+            retry_after = error_data.get("error", {}).get("retry_after")
+            return RateLimitError(error_message, self.config.name.value, retry_after)
+        elif status_code >= 400:
+            error_type = error_data.get("error", {}).get("type", "unknown")
+            return ProviderError(
+                error_message, self.config.name.value, error_type, error_data
+            )
+        else:
+            return LLMError(
+                f"HTTP {status_code}: {error_message}",
+                self.config.name.value,
+                status_code,
+            )
 
     async def close(self):
         """Close the HTTP client."""
