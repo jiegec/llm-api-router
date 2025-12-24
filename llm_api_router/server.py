@@ -133,7 +133,7 @@ def _create_stats_tracking_generator(
 
             # Log the streaming response
             # Try to reconstruct a response dict from accumulated chunks for logging
-            response_dict = {}
+            response_dict: dict[str, Any] = {}
             accumulated_content = ""
             accumulated_reasoning_content = ""
             accumulated_tool_calls: list[dict[str, Any]] = []
@@ -161,7 +161,9 @@ def _create_stats_tracking_generator(
                                     response_dict = {
                                         "id": data.get("id", ""),
                                         "object": data.get("object", "chat.completion"),
-                                        "created": data.get("created", int(time.time())),
+                                        "created": data.get(
+                                            "created", int(time.time())
+                                        ),
                                         "model": data.get("model", ""),
                                         "choices": [],
                                     }
@@ -176,44 +178,85 @@ def _create_stats_tracking_generator(
                                                 accumulated_content += delta["content"]
                                             # Accumulate reasoning content (for reasoning models)
                                             if "reasoning_content" in delta:
-                                                accumulated_reasoning_content += delta["reasoning_content"]
+                                                accumulated_reasoning_content += delta[
+                                                    "reasoning_content"
+                                                ]
                                             # Accumulate tool calls
                                             if "tool_calls" in delta:
                                                 for tool_call in delta["tool_calls"]:
-                                                    tool_call_idx = tool_call.get("index", 0)
+                                                    tool_call_idx = tool_call.get(
+                                                        "index", 0
+                                                    )
                                                     # Extend accumulated_tool_calls list if needed
-                                                    while len(accumulated_tool_calls) <= tool_call_idx:
-                                                        accumulated_tool_calls.append({})
+                                                    while (
+                                                        len(accumulated_tool_calls)
+                                                        <= tool_call_idx
+                                                    ):
+                                                        accumulated_tool_calls.append(
+                                                            {}
+                                                        )
                                                     # Merge tool call fields
-                                                    existing = accumulated_tool_calls[tool_call_idx]
+                                                    existing = accumulated_tool_calls[
+                                                        tool_call_idx
+                                                    ]
                                                     if "id" in tool_call:
                                                         existing["id"] = tool_call["id"]
                                                     if "type" in tool_call:
-                                                        existing["type"] = tool_call["type"]
+                                                        existing["type"] = tool_call[
+                                                            "type"
+                                                        ]
                                                     if "function" in tool_call:
                                                         if "function" not in existing:
-                                                            existing["function"] = {"name": "", "arguments": ""}
+                                                            existing["function"] = {
+                                                                "name": "",
+                                                                "arguments": "",
+                                                            }
                                                         func = existing["function"]
-                                                        if "name" in tool_call["function"]:
-                                                            func["name"] = tool_call["function"]["name"]
-                                                        if "arguments" in tool_call["function"]:
-                                                            func["arguments"] += tool_call["function"]["arguments"]
+                                                        if (
+                                                            "name"
+                                                            in tool_call["function"]
+                                                        ):
+                                                            func["name"] = tool_call[
+                                                                "function"
+                                                            ]["name"]
+                                                        if (
+                                                            "arguments"
+                                                            in tool_call["function"]
+                                                        ):
+                                                            func[
+                                                                "arguments"
+                                                            ] += tool_call["function"][
+                                                                "arguments"
+                                                            ]
                                             # Store finish reason if present
                                             if "finish_reason" in choice:
                                                 # Update existing choice or add new one
                                                 choice_idx = choice.get("index", 0)
-                                                while len(response_dict["choices"]) <= choice_idx:
+                                                while (
+                                                    len(response_dict["choices"])
+                                                    <= choice_idx
+                                                ):
                                                     response_dict["choices"].append({})
-                                                message_dict = {"role": "assistant"}
+                                                message_dict: dict[str, Any] = {
+                                                    "role": "assistant"
+                                                }
                                                 if accumulated_content:
-                                                    message_dict["content"] = accumulated_content
+                                                    message_dict["content"] = (
+                                                        accumulated_content
+                                                    )
                                                 if accumulated_reasoning_content:
-                                                    message_dict["reasoning_content"] = accumulated_reasoning_content
+                                                    message_dict[
+                                                        "reasoning_content"
+                                                    ] = accumulated_reasoning_content
                                                 if accumulated_tool_calls:
-                                                    message_dict["tool_calls"] = accumulated_tool_calls
+                                                    message_dict["tool_calls"] = (
+                                                        accumulated_tool_calls
+                                                    )
                                                 response_dict["choices"][choice_idx] = {
                                                     "message": message_dict,
-                                                    "finish_reason": choice["finish_reason"],
+                                                    "finish_reason": choice[
+                                                        "finish_reason"
+                                                    ],
                                                     "index": choice_idx,
                                                 }
 
@@ -245,16 +288,20 @@ def _create_stats_tracking_generator(
                                 response_dict["usage"] = data["usage"]
                                 # Set the accumulated content
                                 if accumulated_content:
-                                    response_dict["content"] = [{"type": "text", "text": accumulated_content}]
+                                    response_dict["content"] = [
+                                        {"type": "text", "text": accumulated_content}
+                                    ]
 
                         except json.JSONDecodeError:
-                                pass
+                            pass
                 except Exception:
                     # Don't fail if we can't parse for logging
                     pass
 
             # Add usage info to response dict if we have it and it's not already present
-            if (total_input_tokens > 0 or total_output_tokens > 0) and "usage" not in response_dict:
+            if (
+                total_input_tokens > 0 or total_output_tokens > 0
+            ) and "usage" not in response_dict:
                 response_dict["usage"] = {
                     "prompt_tokens": total_input_tokens,
                     "completion_tokens": total_output_tokens,
@@ -398,8 +445,12 @@ class LLMAPIServer:
                             "total_cached_tokens": stats.total_cached_tokens,
                             "average_latency_ms": round(stats.average_latency_ms, 2),
                             "tokens_per_second": round(stats.tokens_per_second, 2),
-                            "last_request_time": _format_timestamp(stats.last_request_time),
-                            "last_success_time": _format_timestamp(stats.last_success_time),
+                            "last_request_time": _format_timestamp(
+                                stats.last_request_time
+                            ),
+                            "last_success_time": _format_timestamp(
+                                stats.last_success_time
+                            ),
                             "last_error": stats.last_error,
                         }
                         for name, stats in openai_stats.providers.items()
@@ -429,8 +480,12 @@ class LLMAPIServer:
                             "total_cached_tokens": stats.total_cached_tokens,
                             "average_latency_ms": round(stats.average_latency_ms, 2),
                             "tokens_per_second": round(stats.tokens_per_second, 2),
-                            "last_request_time": _format_timestamp(stats.last_request_time),
-                            "last_success_time": _format_timestamp(stats.last_success_time),
+                            "last_request_time": _format_timestamp(
+                                stats.last_request_time
+                            ),
+                            "last_success_time": _format_timestamp(
+                                stats.last_success_time
+                            ),
                             "last_error": stats.last_error,
                         }
                         for name, stats in anthropic_stats.providers.items()

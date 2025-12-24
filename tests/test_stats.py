@@ -123,7 +123,10 @@ def test_provider_stats_in_progress_requests():
 
     # Verify the relationship: total = success + failed + in-progress
     assert stats.total_requests == 10
-    assert stats.successful_requests + stats.failed_requests + stats.in_progress_requests == 10
+    assert (
+        stats.successful_requests + stats.failed_requests + stats.in_progress_requests
+        == 10
+    )
 
 
 def test_router_stats_most_used_provider():
