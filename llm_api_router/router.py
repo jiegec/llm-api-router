@@ -20,6 +20,7 @@ from .models import (
     ProviderType,
 )
 from .providers import BaseProvider, create_provider
+from .stats import RouterStats, StatsCollector
 
 
 class LLMRouter:
@@ -43,6 +44,9 @@ class LLMRouter:
         self._provider_instances: dict[str, BaseProvider] = {}
         self._exit_stack = AsyncExitStack()
         self.logger = get_logger()
+
+        # Initialize statistics collection
+        self.stats = StatsCollector()
 
         # Log configuration
         provider_details = []
@@ -145,6 +149,9 @@ class LLMRouter:
                 provider_priority=provider_config.priority,
             )
 
+            # Record request start for statistics
+            request_start_time = self.stats.record_request_start(provider_name)
+
             try:
                 provider = await self._get_provider(provider_config)
                 provider_start_time = time.time()
@@ -170,6 +177,19 @@ class LLMRouter:
                             duration_ms=provider_duration,
                         )
 
+                        # Record statistics for successful request
+                        input_tokens, output_tokens = (
+                            self.stats.record_tokens_from_response(
+                                provider_name, response
+                            )
+                        )
+                        self.stats.record_request_success(
+                            provider_name,
+                            request_start_time,
+                            input_tokens,
+                            output_tokens,
+                        )
+
                     # Log total request duration
                     total_duration = (time.time() - start_time) * 1000
                     self.logger.logger.info(
@@ -193,6 +213,11 @@ class LLMRouter:
                     status_code=401,
                 )
 
+                # Record statistics for authentication failure
+                self.stats.record_request_failure(
+                    provider_name, f"Authentication error: {error_msg}"
+                )
+
                 self.logger.log_retry(
                     request_id=request_id,
                     endpoint=self.endpoint,
@@ -210,6 +235,11 @@ class LLMRouter:
                 # Rate limit errors - try next provider
                 error_msg = str(e)
                 errors.append((provider_name, f"Rate limited: {error_msg}"))
+
+                # Record statistics for rate limit failure
+                self.stats.record_request_failure(
+                    provider_name, f"Rate limit error: {error_msg}"
+                )
 
                 self.logger.log_error(
                     request_id=request_id,
@@ -263,6 +293,11 @@ class LLMRouter:
                 error_msg = str(e)
                 errors.append((provider_name, error_msg))
 
+                # Record statistics for provider error
+                self.stats.record_request_failure(
+                    provider_name, f"Provider error: {error_msg}"
+                )
+
                 self.logger.log_error(
                     request_id=request_id,
                     endpoint=self.endpoint,
@@ -306,6 +341,11 @@ class LLMRouter:
                 # Unexpected errors - try next provider
                 error_msg = str(e)
                 errors.append((provider_name, f"Unexpected error: {error_msg}"))
+
+                # Record statistics for unexpected error
+                self.stats.record_request_failure(
+                    provider_name, f"Unexpected error: {error_msg}"
+                )
 
                 self.logger.log_error(
                     request_id=request_id,
@@ -366,6 +406,10 @@ class LLMRouter:
         )
 
         raise NoAvailableProviderError(f"All providers failed:\n{error_details}")
+
+    def get_stats(self) -> RouterStats:
+        """Get current router statistics."""
+        return self.stats.get_stats()
 
     async def _schedule_provider_retry(
         self, config: ProviderConfig, retry_after: int

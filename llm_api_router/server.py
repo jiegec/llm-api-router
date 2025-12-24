@@ -82,7 +82,7 @@ class LLMAPIServer:
 
         @self.app.get("/status")
         async def status() -> dict[str, Any]:
-            """Detailed status endpoint showing provider configurations."""
+            """Detailed status endpoint showing provider configurations and statistics."""
             openai_providers = [
                 {
                     "name": provider.display_name,
@@ -103,6 +103,80 @@ class LLMAPIServer:
                 for provider in self.config.anthropic_providers
             ]
 
+            # Get statistics from routers
+            openai_stats = None
+            anthropic_stats = None
+
+            try:
+                if hasattr(self, "openai_router") and self.openai_router:
+                    openai_stats = self.openai_router.get_stats()
+            except Exception:
+                pass
+
+            try:
+                if hasattr(self, "anthropic_router") and self.anthropic_router:
+                    anthropic_stats = self.anthropic_router.get_stats()
+            except Exception:
+                pass
+
+            # Prepare statistics data
+            stats_data = {}
+            if openai_stats:
+                stats_data["openai"] = {
+                    "uptime_seconds": openai_stats.uptime_seconds,
+                    "total_requests": openai_stats.total_requests,
+                    "total_input_tokens": openai_stats.total_input_tokens,
+                    "total_output_tokens": openai_stats.total_output_tokens,
+                    "most_used_provider": openai_stats.most_used_provider,
+                    "fastest_provider": openai_stats.fastest_provider,
+                    "providers": {
+                        name: {
+                            "total_requests": stats.total_requests,
+                            "successful_requests": stats.successful_requests,
+                            "failed_requests": stats.failed_requests,
+                            "success_rate": round(stats.success_rate, 2),
+                            "failure_rate": round(stats.failure_rate, 2),
+                            "total_input_tokens": stats.total_input_tokens,
+                            "total_output_tokens": stats.total_output_tokens,
+                            "total_tokens": stats.total_tokens,
+                            "average_latency_ms": round(stats.average_latency_ms, 2),
+                            "tokens_per_second": round(stats.tokens_per_second, 2),
+                            "last_request_time": stats.last_request_time,
+                            "last_success_time": stats.last_success_time,
+                            "last_error": stats.last_error,
+                        }
+                        for name, stats in openai_stats.providers.items()
+                    },
+                }
+
+            if anthropic_stats:
+                stats_data["anthropic"] = {
+                    "uptime_seconds": anthropic_stats.uptime_seconds,
+                    "total_requests": anthropic_stats.total_requests,
+                    "total_input_tokens": anthropic_stats.total_input_tokens,
+                    "total_output_tokens": anthropic_stats.total_output_tokens,
+                    "most_used_provider": anthropic_stats.most_used_provider,
+                    "fastest_provider": anthropic_stats.fastest_provider,
+                    "providers": {
+                        name: {
+                            "total_requests": stats.total_requests,
+                            "successful_requests": stats.successful_requests,
+                            "failed_requests": stats.failed_requests,
+                            "success_rate": round(stats.success_rate, 2),
+                            "failure_rate": round(stats.failure_rate, 2),
+                            "total_input_tokens": stats.total_input_tokens,
+                            "total_output_tokens": stats.total_output_tokens,
+                            "total_tokens": stats.total_tokens,
+                            "average_latency_ms": round(stats.average_latency_ms, 2),
+                            "tokens_per_second": round(stats.tokens_per_second, 2),
+                            "last_request_time": stats.last_request_time,
+                            "last_success_time": stats.last_success_time,
+                            "last_error": stats.last_error,
+                        }
+                        for name, stats in anthropic_stats.providers.items()
+                    },
+                }
+
             return {
                 "status": "healthy",
                 "config": {
@@ -117,6 +191,7 @@ class LLMAPIServer:
                         "providers": anthropic_providers,
                     },
                 },
+                "statistics": stats_data if stats_data else None,
             }
 
         @self.app.post("/openai/chat/completions", response_model=None)
