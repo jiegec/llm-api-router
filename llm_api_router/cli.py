@@ -12,7 +12,7 @@ from .server import create_app
 
 
 @click.group()
-def cli():
+def cli() -> None:
     """LLM API Router - Route OpenAI and Anthropic API requests with priority fallback."""
     pass
 
@@ -47,10 +47,11 @@ def cli():
     type=int,
     help="Number of worker processes",
 )
-def serve(config: Path | None, host: str, port: int, workers: int):
+def serve(config: Path | None, host: str, port: int, workers: int) -> None:
     """Start the LLM API Router server."""
     try:
         # Load configuration
+        router_config: RouterConfig | None
         if config:
             click.echo(f"Loading configuration from: {config}")
             router_config = RouterConfig.from_json_file(str(config))
@@ -67,6 +68,9 @@ def serve(config: Path | None, host: str, port: int, workers: int):
                     err=True,
                 )
                 sys.exit(1)
+
+        # At this point, router_config is not None
+        assert router_config is not None
 
         # Validate configuration
         errors = router_config.validate()
@@ -116,6 +120,7 @@ def serve(config: Path | None, host: str, port: int, workers: int):
         click.echo(f"  • OpenAI: http://{host}:{port}/openai/chat/completions")
         click.echo(f"  • Anthropic: http://{host}:{port}/anthropic/v1/messages")
         click.echo(f"  • Health: http://{host}:{port}/health")
+        click.echo(f"  • Status: http://{host}:{port}/status")
         click.echo(f"  • Docs: http://{host}:{port}/docs")
         click.echo()
         click.echo("📝 Example usage:")
@@ -150,7 +155,7 @@ def serve(config: Path | None, host: str, port: int, workers: int):
     show_default=True,
     help="Output path for configuration file",
 )
-def init(output: Path):
+def init(output: Path) -> None:
     """Create a new configuration file with examples."""
     if output.exists():
         if not click.confirm(f"File {output} already exists. Overwrite?"):
@@ -208,12 +213,13 @@ def init(output: Path):
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     help="Path to configuration file (JSON)",
 )
-def check(config: Path | None):
+def check(config: Path | None) -> None:
     """Check configuration and provider connectivity."""
     try:
         click.echo("🔍 Checking configuration...")
 
         # Load config
+        router_config: RouterConfig | None
         if config:
             router_config = RouterConfig.from_json_file(str(config))
         else:
@@ -222,6 +228,9 @@ def check(config: Path | None):
                 click.echo("❌ No configuration file found.")
                 click.echo("   Run: poetry run llm-api-router init")
                 sys.exit(1)
+
+        # At this point, router_config is not None
+        assert router_config is not None
 
         # Validate
         errors = router_config.validate()
@@ -272,7 +281,7 @@ def check(config: Path | None):
         sys.exit(1)
 
 
-def main():
+def main() -> None:
     """Entry point for the CLI."""
     cli()
 

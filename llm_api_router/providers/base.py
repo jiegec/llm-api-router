@@ -4,7 +4,7 @@ import asyncio
 import json
 import time
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from httpx import AsyncClient, Timeout
 
@@ -71,15 +71,19 @@ class BaseProvider(ABC):
         """Send a chat completion request to the provider."""
         # Convert request to dict if it's a Pydantic model
         if hasattr(request, "model_dump"):
-            request = request.model_dump(exclude_none=True)
+            request_dict = request.model_dump(exclude_none=True)
+        elif hasattr(request, "__dict__"):
+            request_dict = {k: v for k, v in request.__dict__.items() if v is not None}
+        else:
+            request_dict = dict(request)
 
         # Check if streaming is requested
-        stream = request.get("stream", False)
+        stream = request_dict.get("stream", False)
 
         if stream:
-            return await self._chat_completion_stream(request)
+            return await self._chat_completion_stream(request_dict)
         else:
-            return await self._chat_completion_non_stream(request)
+            return await self._chat_completion_non_stream(request_dict)
 
     async def _chat_completion_non_stream(
         self, request: dict[str, Any]
@@ -123,7 +127,7 @@ class BaseProvider(ABC):
                         f"status: {response.status_code}"
                     )
                     # Just return the raw response
-                    return response_data
+                    return response_data if isinstance(response_data, dict) else {}
                 else:
                     try:
                         error_data = response.json()
@@ -332,7 +336,7 @@ class BaseProvider(ABC):
                     raise check_error
 
                 # Check was successful, now create a generator that streams
-                async def streaming_generator() -> None:
+                async def streaming_generator() -> AsyncGenerator[bytes | str, None]:
                     """Generator that streams response chunks."""
                     nonlocal first_chunk, chunk_iterator, response_obj
 
@@ -418,12 +422,12 @@ class BaseProvider(ABC):
                 status_code,
             )
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTP client."""
         await self.client.aclose()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "BaseProvider":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         await self.close()

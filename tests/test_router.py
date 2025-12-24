@@ -54,7 +54,7 @@ async def test_router_chat_completion_success(
             Role,
             Usage,
         )
-        from tests.test_models_moved import (
+        from tests.test_models_common import (
             ChatCompletionResponse,
             Choice,
         )
@@ -136,11 +136,11 @@ async def test_router_fallback_on_failure(
         # OpenAI fails with a generic error
         mock_openai_provider.chat_completion.side_effect = Exception("OpenAI error")
         # Create a proper response dict for Anthropic
-        from test_models_moved import (
+        from tests.test_models_common import (
             ChatCompletionResponse,
             Choice,
-            Usage,
         )
+        from llm_api_router.models import Usage
 
         from llm_api_router.models import (
             Message,
@@ -222,11 +222,11 @@ async def test_router_fallback_on_rate_limit(
             "Rate limited", "openai", 60
         )
         # Create a proper response dict for Anthropic
-        from test_models_moved import (
+        from tests.test_models_common import (
             ChatCompletionResponse,
             Choice,
-            Usage,
         )
+        from llm_api_router.models import Usage
 
         from llm_api_router.models import (
             Message,
@@ -310,11 +310,11 @@ async def test_router_fallback_on_authentication_error(
             "Invalid API key", "openai"
         )
         # Create a proper response dict for Anthropic
-        from test_models_moved import (
+        from tests.test_models_common import (
             ChatCompletionResponse,
             Choice,
-            Usage,
         )
+        from llm_api_router.models import Usage
 
         from llm_api_router.models import (
             Message,

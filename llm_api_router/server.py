@@ -62,13 +62,14 @@ class LLMAPIServer:
                 "version": "0.1.0",
                 "endpoints": {
                     "openai": "/openai/chat/completions",
-                    "anthropic": "/anthropic/chat/completions",
+                    "anthropic": "/anthropic/v1/messages",
                     "health": "/health",
+                    "status": "/status",
                 },
             }
 
         @self.app.get("/health")
-        async def health():
+        async def health() -> dict[str, Any]:
             """Health check endpoint."""
             return {
                 "status": "healthy",
@@ -80,7 +81,7 @@ class LLMAPIServer:
             }
 
         @self.app.get("/status")
-        async def status():
+        async def status() -> dict[str, Any]:
             """Detailed status endpoint showing provider configurations."""
             openai_providers = [
                 {
@@ -118,22 +119,21 @@ class LLMAPIServer:
                 },
             }
 
-
-        @self.app.post("/openai/chat/completions")
+        @self.app.post("/openai/chat/completions", response_model=None)
         async def openai_chat_completion(
             request: dict[str, Any],
             router: LLMRouter = Depends(self._get_openai_router),
-        ):
+        ) -> dict[str, Any] | StreamingResponse:
             """OpenAI-compatible chat completion endpoint."""
             return await self._handle_chat_completion(
                 request, router, ProviderType.OPENAI
             )
 
-        @self.app.post("/anthropic/v1/messages")
+        @self.app.post("/anthropic/v1/messages", response_model=None)
         async def anthropic_chat_completion(
             request: dict[str, Any],
             router: LLMRouter = Depends(self._get_anthropic_router),
-        ):
+        ) -> dict[str, Any] | StreamingResponse:
             """Anthropic-compatible chat completion endpoint."""
             return await self._handle_chat_completion(
                 request, router, ProviderType.ANTHROPIC
@@ -143,7 +143,7 @@ class LLMAPIServer:
         """Setup middleware for error handling."""
 
         @self.app.exception_handler(NoAvailableProviderError)
-        async def no_available_provider_handler(request, exc):
+        async def no_available_provider_handler(request: Any, exc: NoAvailableProviderError) -> JSONResponse:
             return JSONResponse(
                 status_code=503,
                 content={
@@ -155,7 +155,7 @@ class LLMAPIServer:
             )
 
         @self.app.exception_handler(RateLimitError)
-        async def rate_limit_handler(request, exc):
+        async def rate_limit_handler(request: Any, exc: RateLimitError) -> JSONResponse:
             headers = {}
             if exc.retry_after:
                 headers["Retry-After"] = str(exc.retry_after)
@@ -172,7 +172,7 @@ class LLMAPIServer:
             )
 
         @self.app.exception_handler(AuthenticationError)
-        async def authentication_handler(request, exc):
+        async def authentication_handler(request: Any, exc: AuthenticationError) -> JSONResponse:
             return JSONResponse(
                 status_code=401,
                 content={
@@ -184,7 +184,7 @@ class LLMAPIServer:
             )
 
         @self.app.exception_handler(ProviderError)
-        async def provider_error_handler(request, exc):
+        async def provider_error_handler(request: Any, exc: ProviderError) -> JSONResponse:
             return JSONResponse(
                 status_code=502,
                 content={
@@ -197,7 +197,7 @@ class LLMAPIServer:
             )
 
         @self.app.exception_handler(LLMError)
-        async def llm_error_handler(request, exc):
+        async def llm_error_handler(request: Any, exc: LLMError) -> JSONResponse:
             return JSONResponse(
                 status_code=500,
                 content={

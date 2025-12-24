@@ -44,6 +44,7 @@ poetry run llm-api-router serve --config /path/to/config.json
 
 - `GET /` - Server information and available endpoints
 - `GET /health` - Health check endpoint
+- `GET /status` - Status endpoint
 - `POST /openai/chat/completions` - OpenAI-compatible chat completion
 - `POST /anthropic/chat/completions` - Anthropic-compatible chat completion
 

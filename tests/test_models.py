@@ -9,7 +9,7 @@ from llm_api_router.models import (
     Role,
     Usage,
 )
-from tests.test_models_moved import (
+from tests.test_models_common import (
     ChatCompletionRequest,
     ChatCompletionResponse,
     Choice,

@@ -123,7 +123,7 @@ async def test_router_streaming_fallback():
 def test_streaming_request_model():
     """Test that ChatCompletionRequest model has stream field."""
     from llm_api_router.models import Message, Role
-    from tests.test_models_moved import ChatCompletionRequest
+    from tests.test_models_common import ChatCompletionRequest
 
     # Test with stream=True
     request = ChatCompletionRequest(

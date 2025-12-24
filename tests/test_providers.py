@@ -11,7 +11,7 @@ from llm_api_router.models import (
     Role,
 )
 from llm_api_router.providers import AnthropicProvider, OpenAIProvider, create_provider
-from tests.test_models_moved import ChatCompletionRequest
+from tests.test_models_common import ChatCompletionRequest
 
 
 @pytest.mark.asyncio
