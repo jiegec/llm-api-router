@@ -244,9 +244,19 @@ class BaseProvider(ABC):
                                 try:
                                     error_data = json.loads(response_content)
                                 except json.JSONDecodeError:
-                                    error_data = {"error": {"message": response_content.decode('utf-8', errors='ignore')}}
-                            except Exception as read_error:
-                                error_data = {"error": {"message": f"HTTP {response.status_code}: Failed to read response"}}
+                                    error_data = {
+                                        "error": {
+                                            "message": response_content.decode(
+                                                "utf-8", errors="ignore"
+                                            )
+                                        }
+                                    }
+                            except Exception:
+                                error_data = {
+                                    "error": {
+                                        "message": f"HTTP {response.status_code}: Failed to read response"
+                                    }
+                                }
 
                             self.logger.logger.warning(
                                 f"Provider {self.provider_name}: "
@@ -256,7 +266,9 @@ class BaseProvider(ABC):
                             )
 
                             # Signal check complete with error
-                            check_error = self._create_error_from_status(response.status_code, error_data)
+                            check_error = self._create_error_from_status(
+                                response.status_code, error_data
+                            )
                             check_complete.set()
                             return
 
@@ -298,7 +310,9 @@ class BaseProvider(ABC):
 
                 # Wait for the check to complete (or timeout)
                 try:
-                    await asyncio.wait_for(check_complete.wait(), timeout=5.0)
+                    await asyncio.wait_for(
+                        check_complete.wait(), timeout=self.config.timeout
+                    )
                 except asyncio.TimeoutError:
                     check_task.cancel()
                     # Try to close the response if it was opened
@@ -307,7 +321,7 @@ class BaseProvider(ABC):
                     raise ProviderError(
                         "Streaming request timeout while checking provider availability",
                         self.config.name.value,
-                    )
+                    ) from None
 
                 # If there was an error during checking, raise it
                 if check_error:
@@ -381,7 +395,9 @@ class BaseProvider(ABC):
             self.config.name.value,
         )
 
-    def _create_error_from_status(self, status_code: int, error_data: dict[str, Any]) -> Exception:
+    def _create_error_from_status(
+        self, status_code: int, error_data: dict[str, Any]
+    ) -> Exception:
         """Create appropriate exception from status code and error data."""
         error_message = error_data.get("error", {}).get("message", "Unknown error")
 
