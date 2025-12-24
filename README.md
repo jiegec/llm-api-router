@@ -4,14 +4,11 @@ A FastAPI-based LLM API router server that provides separate endpoints for OpenA
 
 ## Features
 
-- **Separate endpoints**: `/openai/chat/completions` and `/anthropic/chat/completions`
+- **Separate endpoints**: `/openai/chat/completions` and `/anthropic/v1/messages`
 - **Multi-provider support per endpoint**: Each endpoint can route to multiple API keys/servers
 - **Priority-based routing**: Configure priority order for API providers within each endpoint
 - **Automatic fallback**: When a high-priority provider fails or is rate-limited, automatically switches to the next available provider
 - **Error handling**: Comprehensive error detection and HTTP error responses
-- **Async support**: Built with async/await for high performance
-- **Type safety**: Full type hints with Pydantic models
-- **FastAPI server**: Production-ready web server with OpenAPI documentation
 
 ## Installation
 
@@ -46,7 +43,7 @@ poetry run llm-api-router serve --config /path/to/config.json
 - `GET /health` - Health check endpoint
 - `GET /status` - Status endpoint
 - `POST /openai/chat/completions` - OpenAI-compatible chat completion
-- `POST /anthropic/chat/completions` - Anthropic-compatible chat completion
+- `POST /anthropic/v1/messages` - Anthropic-compatible chat completion
 
 ## Configuration
 
@@ -90,15 +87,6 @@ Create a JSON configuration file (default: `llm_router_config.json`):
   ]
 }
 ```
-
-### CLI Commands
-
-| Command                 | Description                                   |
-|-------------------------|-----------------------------------------------|
-| `llm-api-router --help` | Show all available commands                   |
-| `llm-api-router init`   | Create a new configuration file with examples |
-| `llm-api-router check`  | Validate configuration and show provider info |
-| `llm-api-router serve`  | Start the LLM API Router server               |
 
 ## Logging
 
