@@ -22,12 +22,12 @@ jobs:
         python-version: ${{ matrix.python-version }}
     
     - name: Install Poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python3 -
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
-    
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+
     - name: Install dependencies
-      run: poetry install
+      run: poetry install --no-interaction --no-ansi
     
     - name: Run tests with pytest
       run: poetry run pytest tests/ -v --cov=llm_api_router --cov-report=xml
@@ -43,12 +43,12 @@ jobs:
         python-version: "3.12"
     
     - name: Install Poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python3 -
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
-    
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+
     - name: Install dependencies
-      run: poetry install
+      run: poetry install --no-interaction --no-ansi
     
     - name: Check formatting with black
       run: poetry run black --check llm_api_router tests
