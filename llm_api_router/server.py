@@ -135,6 +135,8 @@ def _create_stats_tracking_generator(
             # Try to reconstruct a response dict from accumulated chunks for logging
             response_dict = {}
             accumulated_content = ""
+            accumulated_reasoning_content = ""
+            accumulated_tool_calls: list[dict[str, Any]] = []
 
             # Merge all chunks to reconstruct the full response
             for chunk in accumulated_chunks:
@@ -172,14 +174,45 @@ def _create_stats_tracking_generator(
                                             # Accumulate content
                                             if "content" in delta:
                                                 accumulated_content += delta["content"]
+                                            # Accumulate reasoning content (for reasoning models)
+                                            if "reasoning_content" in delta:
+                                                accumulated_reasoning_content += delta["reasoning_content"]
+                                            # Accumulate tool calls
+                                            if "tool_calls" in delta:
+                                                for tool_call in delta["tool_calls"]:
+                                                    tool_call_idx = tool_call.get("index", 0)
+                                                    # Extend accumulated_tool_calls list if needed
+                                                    while len(accumulated_tool_calls) <= tool_call_idx:
+                                                        accumulated_tool_calls.append({})
+                                                    # Merge tool call fields
+                                                    existing = accumulated_tool_calls[tool_call_idx]
+                                                    if "id" in tool_call:
+                                                        existing["id"] = tool_call["id"]
+                                                    if "type" in tool_call:
+                                                        existing["type"] = tool_call["type"]
+                                                    if "function" in tool_call:
+                                                        if "function" not in existing:
+                                                            existing["function"] = {"name": "", "arguments": ""}
+                                                        func = existing["function"]
+                                                        if "name" in tool_call["function"]:
+                                                            func["name"] = tool_call["function"]["name"]
+                                                        if "arguments" in tool_call["function"]:
+                                                            func["arguments"] += tool_call["function"]["arguments"]
                                             # Store finish reason if present
                                             if "finish_reason" in choice:
                                                 # Update existing choice or add new one
                                                 choice_idx = choice.get("index", 0)
                                                 while len(response_dict["choices"]) <= choice_idx:
                                                     response_dict["choices"].append({})
+                                                message_dict = {"role": "assistant"}
+                                                if accumulated_content:
+                                                    message_dict["content"] = accumulated_content
+                                                if accumulated_reasoning_content:
+                                                    message_dict["reasoning_content"] = accumulated_reasoning_content
+                                                if accumulated_tool_calls:
+                                                    message_dict["tool_calls"] = accumulated_tool_calls
                                                 response_dict["choices"][choice_idx] = {
-                                                    "message": {"role": "assistant", "content": accumulated_content},
+                                                    "message": message_dict,
                                                     "finish_reason": choice["finish_reason"],
                                                     "index": choice_idx,
                                                 }
