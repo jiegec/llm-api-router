@@ -134,8 +134,9 @@ def _create_stats_tracking_generator(
             # Log the streaming response
             # Try to reconstruct a response dict from accumulated chunks for logging
             response_dict = {}
+            accumulated_content = ""
 
-            # Find the last chunk which typically contains usage info
+            # Merge all chunks to reconstruct the full response
             for chunk in accumulated_chunks:
                 try:
                     if isinstance(chunk, bytes):
@@ -152,25 +153,75 @@ def _create_stats_tracking_generator(
                                 continue
                             try:
                                 data = json.loads(data_str)
-                                # Store the last data chunk as our response representation
-                                response_dict = data
+
+                                # Initialize response dict with metadata from first chunk
+                                if not response_dict:
+                                    response_dict = {
+                                        "id": data.get("id", ""),
+                                        "object": data.get("object", "chat.completion"),
+                                        "created": data.get("created", int(time.time())),
+                                        "model": data.get("model", ""),
+                                        "choices": [],
+                                    }
+
+                                # Merge content from delta
+                                if "choices" in data and data["choices"]:
+                                    for choice in data["choices"]:
+                                        if "delta" in choice:
+                                            delta = choice["delta"]
+                                            # Accumulate content
+                                            if "content" in delta:
+                                                accumulated_content += delta["content"]
+                                            # Store finish reason if present
+                                            if "finish_reason" in choice:
+                                                # Update existing choice or add new one
+                                                choice_idx = choice.get("index", 0)
+                                                while len(response_dict["choices"]) <= choice_idx:
+                                                    response_dict["choices"].append({})
+                                                response_dict["choices"][choice_idx] = {
+                                                    "message": {"role": "assistant", "content": accumulated_content},
+                                                    "finish_reason": choice["finish_reason"],
+                                                    "index": choice_idx,
+                                                }
+
                             except json.JSONDecodeError:
                                 pass
 
                     # Anthropic format: JSON with usage field
-                    elif "usage" in chunk_text:
+                    elif "usage" in chunk_text or "delta" in chunk_text:
                         try:
                             data = json.loads(chunk_text)
-                            # Store as our response representation
-                            response_dict = data
+
+                            # Initialize response dict with metadata from first chunk
+                            if not response_dict:
+                                response_dict = {
+                                    "id": data.get("id", ""),
+                                    "type": data.get("type", "message"),
+                                    "model": data.get("model", ""),
+                                    "content": [],
+                                }
+
+                            # Merge content from delta
+                            if "delta" in data:
+                                delta = data["delta"]
+                                if "text" in delta:
+                                    accumulated_content += delta["text"]
+
+                            # If this chunk has usage, it's likely the final chunk
+                            if "usage" in data:
+                                response_dict["usage"] = data["usage"]
+                                # Set the accumulated content
+                                if accumulated_content:
+                                    response_dict["content"] = [{"type": "text", "text": accumulated_content}]
+
                         except json.JSONDecodeError:
-                            pass
+                                pass
                 except Exception:
                     # Don't fail if we can't parse for logging
                     pass
 
-            # Add usage info to response dict if we have it
-            if total_input_tokens > 0 or total_output_tokens > 0:
+            # Add usage info to response dict if we have it and it's not already present
+            if (total_input_tokens > 0 or total_output_tokens > 0) and "usage" not in response_dict:
                 response_dict["usage"] = {
                     "prompt_tokens": total_input_tokens,
                     "completion_tokens": total_output_tokens,
