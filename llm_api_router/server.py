@@ -47,28 +47,33 @@ def _create_stats_tracking_generator(
                         chunk_text = str(chunk)
 
                     # OpenAI format: "data: {...}" SSE format
-                    if chunk_text.startswith("data: "):
-                        data_str = chunk_text[6:].strip()
-                        if data_str == "[DONE]":
-                            continue
+                    if "data: " in chunk_text:
+                        # Split by "data: " and process each chunk
+                        data_chunks = chunk_text.split("data: ")
+                        for data_str in data_chunks:
+                            data_str = data_str.strip()
+                            if not data_str or data_str == "[DONE]":
+                                continue
 
-                        try:
-                            data = json.loads(data_str)
-                            # Check for usage in chunk (typically in last chunk)
-                            if "usage" in data:
-                                usage = data["usage"]
-                                total_input_tokens = usage.get("prompt_tokens", 0)
-                                total_output_tokens = usage.get("completion_tokens", 0)
-                                # Also track cached tokens if available
-                                if (
-                                    "prompt_tokens_details" in usage
-                                    and usage["prompt_tokens_details"]
-                                ):
-                                    cached_tokens = usage["prompt_tokens_details"].get(
-                                        "cached_tokens", 0
+                            try:
+                                data = json.loads(data_str)
+                                # Check for usage in chunk (typically in last chunk)
+                                if "usage" in data:
+                                    usage = data["usage"]
+                                    total_input_tokens = usage.get("prompt_tokens", 0)
+                                    total_output_tokens = usage.get(
+                                        "completion_tokens", 0
                                     )
-                        except json.JSONDecodeError:
-                            pass
+                                    # Also track cached tokens if available
+                                    if (
+                                        "prompt_tokens_details" in usage
+                                        and usage["prompt_tokens_details"]
+                                    ):
+                                        cached_tokens = usage[
+                                            "prompt_tokens_details"
+                                        ].get("cached_tokens", 0)
+                            except json.JSONDecodeError:
+                                pass
 
                     # Anthropic format: JSON with usage field
                     elif "usage" in chunk_text:
