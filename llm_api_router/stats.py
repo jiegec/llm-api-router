@@ -12,6 +12,7 @@ class ProviderStats(BaseModel):
 
     # Request/Response counts
     total_requests: int = Field(default=0, description="Total number of requests")
+    in_progress_requests: int = Field(default=0, description="In-progress requests")
     successful_requests: int = Field(default=0, description="Successful requests")
     failed_requests: int = Field(default=0, description="Failed requests")
 
@@ -41,17 +42,19 @@ class ProviderStats(BaseModel):
 
     @property
     def success_rate(self) -> float:
-        """Calculate success rate."""
-        if self.total_requests == 0:
+        """Calculate success rate based on completed requests."""
+        completed_requests = self.successful_requests + self.failed_requests
+        if completed_requests == 0:
             return 0.0
-        return (self.successful_requests / self.total_requests) * 100
+        return (self.successful_requests / completed_requests) * 100
 
     @property
     def failure_rate(self) -> float:
-        """Calculate failure rate."""
-        if self.total_requests == 0:
+        """Calculate failure rate based on completed requests."""
+        completed_requests = self.successful_requests + self.failed_requests
+        if completed_requests == 0:
             return 0.0
-        return (self.failed_requests / self.total_requests) * 100
+        return (self.failed_requests / completed_requests) * 100
 
 
 class RouterStats(BaseModel):
@@ -136,8 +139,10 @@ class StatsCollector:
 
     def record_request_start(self, provider_name: str) -> float:
         """Record the start of a request."""
-        self._provider_stats[provider_name].total_requests += 1
-        self._provider_stats[provider_name].last_request_time = time.time()
+        stats = self._provider_stats[provider_name]
+        stats.total_requests += 1
+        stats.in_progress_requests += 1
+        stats.last_request_time = time.time()
         return time.time()
 
     def record_request_success(
@@ -150,6 +155,7 @@ class StatsCollector:
     ) -> None:
         """Record a successful request."""
         stats = self._provider_stats[provider_name]
+        stats.in_progress_requests -= 1
         stats.successful_requests += 1
         stats.total_input_tokens += input_tokens
         stats.total_output_tokens += output_tokens
@@ -172,6 +178,7 @@ class StatsCollector:
     def record_request_failure(self, provider_name: str, error_message: str) -> None:
         """Record a failed request."""
         stats = self._provider_stats[provider_name]
+        stats.in_progress_requests -= 1
         stats.failed_requests += 1
         stats.last_error = error_message
 

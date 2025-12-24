@@ -33,14 +33,22 @@ def test_stats_collector_record_request_start():
 
     stats = collector.get_stats()
     assert "test_provider" in stats.providers
-    assert stats.providers["test_provider"].total_requests == 1
-    assert stats.providers["test_provider"].last_request_time is not None
+    provider_stats = stats.providers["test_provider"]
+    assert provider_stats.total_requests == 1
+    assert provider_stats.in_progress_requests == 1
+    assert provider_stats.last_request_time is not None
 
 
 def test_stats_collector_record_request_success():
     """Test recording successful request."""
     collector = StatsCollector()
     start_time = collector.record_request_start("test_provider")
+
+    # Verify in-progress counter was incremented
+    stats = collector.get_stats()
+    provider_stats = stats.providers["test_provider"]
+    assert provider_stats.total_requests == 1
+    assert provider_stats.in_progress_requests == 1
 
     # Simulate some processing time
     time.sleep(0.01)
@@ -53,6 +61,7 @@ def test_stats_collector_record_request_success():
     provider_stats = stats.providers["test_provider"]
 
     assert provider_stats.total_requests == 1
+    assert provider_stats.in_progress_requests == 0
     assert provider_stats.successful_requests == 1
     assert provider_stats.failed_requests == 0
     assert provider_stats.total_input_tokens == 100
@@ -74,26 +83,47 @@ def test_stats_collector_record_request_failure():
     provider_stats = stats.providers["test_provider"]
 
     assert provider_stats.total_requests == 1
+    assert provider_stats.in_progress_requests == 0
     assert provider_stats.successful_requests == 0
     assert provider_stats.failed_requests == 1
     assert provider_stats.last_error == "Test error"
 
 
 def test_provider_stats_success_rate():
-    """Test provider stats success rate calculation."""
+    """Test provider stats success rate calculation based on completed requests."""
     stats = ProviderStats()
 
     # No requests
     assert stats.success_rate == 0.0
     assert stats.failure_rate == 0.0
 
-    # Add some requests
-    stats.total_requests = 10
+    # Add some completed requests (success + failed)
     stats.successful_requests = 7
     stats.failed_requests = 3
 
     assert stats.success_rate == 70.0
     assert stats.failure_rate == 30.0
+
+
+def test_provider_stats_in_progress_requests():
+    """Test that in-progress requests don't affect success rate calculation."""
+    stats = ProviderStats()
+
+    # Start some requests (they become in-progress)
+    stats.total_requests = 10
+    stats.in_progress_requests = 3
+
+    # Only completed requests count towards success rate
+    stats.successful_requests = 5
+    stats.failed_requests = 2
+
+    # Success rate should be 5 / (5 + 2) = ~71.43%, not 5 / 10 = 50%
+    assert stats.success_rate == pytest.approx(71.42857142857143)
+    assert stats.failure_rate == pytest.approx(28.57142857142857)
+
+    # Verify the relationship: total = success + failed + in-progress
+    assert stats.total_requests == 10
+    assert stats.successful_requests + stats.failed_requests + stats.in_progress_requests == 10
 
 
 def test_router_stats_most_used_provider():
