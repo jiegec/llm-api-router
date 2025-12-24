@@ -19,6 +19,7 @@ class ProviderStats(BaseModel):
     total_input_tokens: int = Field(default=0, description="Total input tokens")
     total_output_tokens: int = Field(default=0, description="Total output tokens")
     total_tokens: int = Field(default=0, description="Total tokens (input + output)")
+    total_cached_tokens: int = Field(default=0, description="Total cached tokens")
 
     # Performance metrics
     total_latency_ms: float = Field(
@@ -74,6 +75,9 @@ class RouterStats(BaseModel):
     total_output_tokens: int = Field(
         default=0, description="Total output tokens across all providers"
     )
+    total_cached_tokens: int = Field(
+        default=0, description="Total cached tokens across all providers"
+    )
 
     @property
     def most_used_provider(self) -> str | None:
@@ -121,6 +125,9 @@ class StatsCollector:
         self._stats.total_output_tokens = sum(
             stats.total_output_tokens for stats in self._provider_stats.values()
         )
+        self._stats.total_cached_tokens = sum(
+            stats.total_cached_tokens for stats in self._provider_stats.values()
+        )
 
         # Copy provider stats
         self._stats.providers = dict(self._provider_stats)
@@ -139,6 +146,7 @@ class StatsCollector:
         start_time: float,
         input_tokens: int = 0,
         output_tokens: int = 0,
+        cached_tokens: int = 0,
     ) -> None:
         """Record a successful request."""
         stats = self._provider_stats[provider_name]
@@ -146,6 +154,7 @@ class StatsCollector:
         stats.total_input_tokens += input_tokens
         stats.total_output_tokens += output_tokens
         stats.total_tokens += input_tokens + output_tokens
+        stats.total_cached_tokens += cached_tokens
         stats.last_success_time = time.time()
         stats.last_error = None
 

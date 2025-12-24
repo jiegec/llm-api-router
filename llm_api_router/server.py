@@ -34,6 +34,7 @@ def _create_stats_tracking_generator(
         """Generator that tracks statistics while yielding chunks."""
         total_input_tokens = 0
         total_output_tokens = 0
+        cached_tokens = 0
 
         try:
             async for chunk in original_generator:
@@ -58,6 +59,14 @@ def _create_stats_tracking_generator(
                                 usage = data["usage"]
                                 total_input_tokens = usage.get("prompt_tokens", 0)
                                 total_output_tokens = usage.get("completion_tokens", 0)
+                                # Also track cached tokens if available
+                                if (
+                                    "prompt_tokens_details" in usage
+                                    and usage["prompt_tokens_details"]
+                                ):
+                                    cached_tokens = usage["prompt_tokens_details"].get(
+                                        "cached_tokens", 0
+                                    )
                         except json.JSONDecodeError:
                             pass
 
@@ -69,6 +78,14 @@ def _create_stats_tracking_generator(
                                 usage = data["usage"]
                                 total_input_tokens = usage.get("input_tokens", 0)
                                 total_output_tokens = usage.get("output_tokens", 0)
+                                # Also track cached tokens if available
+                                if (
+                                    "prompt_tokens_details" in usage
+                                    and usage["prompt_tokens_details"]
+                                ):
+                                    cached_tokens = usage["prompt_tokens_details"].get(
+                                        "cached_tokens", 0
+                                    )
                         except json.JSONDecodeError:
                             pass
                 except Exception:
@@ -84,6 +101,7 @@ def _create_stats_tracking_generator(
                 request_start_time,
                 total_input_tokens,
                 total_output_tokens,
+                cached_tokens,
             )
 
     return stats_tracking_generator()
@@ -196,6 +214,7 @@ class LLMAPIServer:
                     "total_requests": openai_stats.total_requests,
                     "total_input_tokens": openai_stats.total_input_tokens,
                     "total_output_tokens": openai_stats.total_output_tokens,
+                    "total_cached_tokens": openai_stats.total_cached_tokens,
                     "most_used_provider": openai_stats.most_used_provider,
                     "fastest_provider": openai_stats.fastest_provider,
                     "providers": {
@@ -208,6 +227,7 @@ class LLMAPIServer:
                             "total_input_tokens": stats.total_input_tokens,
                             "total_output_tokens": stats.total_output_tokens,
                             "total_tokens": stats.total_tokens,
+                            "total_cached_tokens": stats.total_cached_tokens,
                             "average_latency_ms": round(stats.average_latency_ms, 2),
                             "tokens_per_second": round(stats.tokens_per_second, 2),
                             "last_request_time": stats.last_request_time,
@@ -224,6 +244,7 @@ class LLMAPIServer:
                     "total_requests": anthropic_stats.total_requests,
                     "total_input_tokens": anthropic_stats.total_input_tokens,
                     "total_output_tokens": anthropic_stats.total_output_tokens,
+                    "total_cached_tokens": anthropic_stats.total_cached_tokens,
                     "most_used_provider": anthropic_stats.most_used_provider,
                     "fastest_provider": anthropic_stats.fastest_provider,
                     "providers": {
@@ -236,6 +257,7 @@ class LLMAPIServer:
                             "total_input_tokens": stats.total_input_tokens,
                             "total_output_tokens": stats.total_output_tokens,
                             "total_tokens": stats.total_tokens,
+                            "total_cached_tokens": stats.total_cached_tokens,
                             "average_latency_ms": round(stats.average_latency_ms, 2),
                             "tokens_per_second": round(stats.tokens_per_second, 2),
                             "last_request_time": stats.last_request_time,
