@@ -367,7 +367,9 @@ class LLMRouter:
 
         raise NoAvailableProviderError(f"All providers failed:\n{error_details}")
 
-    async def _schedule_provider_retry(self, config: ProviderConfig, retry_after: int) -> None:
+    async def _schedule_provider_retry(
+        self, config: ProviderConfig, retry_after: int
+    ) -> None:
         """Schedule a provider to be retried after a delay."""
         await asyncio.sleep(retry_after)
         # The provider will be retried on the next request

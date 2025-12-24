@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from llm_api_router.models import Message, ProviderType, Role, Usage
+from llm_api_router.models import Message, ProviderType, Usage
 
 
 class ChatCompletionRequest:

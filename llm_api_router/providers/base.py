@@ -4,7 +4,8 @@ import asyncio
 import json
 import time
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from httpx import AsyncClient, Timeout
 

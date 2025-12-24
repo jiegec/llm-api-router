@@ -143,7 +143,9 @@ class LLMAPIServer:
         """Setup middleware for error handling."""
 
         @self.app.exception_handler(NoAvailableProviderError)
-        async def no_available_provider_handler(request: Any, exc: NoAvailableProviderError) -> JSONResponse:
+        async def no_available_provider_handler(
+            request: Any, exc: NoAvailableProviderError
+        ) -> JSONResponse:
             return JSONResponse(
                 status_code=503,
                 content={
@@ -172,7 +174,9 @@ class LLMAPIServer:
             )
 
         @self.app.exception_handler(AuthenticationError)
-        async def authentication_handler(request: Any, exc: AuthenticationError) -> JSONResponse:
+        async def authentication_handler(
+            request: Any, exc: AuthenticationError
+        ) -> JSONResponse:
             return JSONResponse(
                 status_code=401,
                 content={
@@ -184,7 +188,9 @@ class LLMAPIServer:
             )
 
         @self.app.exception_handler(ProviderError)
-        async def provider_error_handler(request: Any, exc: ProviderError) -> JSONResponse:
+        async def provider_error_handler(
+            request: Any, exc: ProviderError
+        ) -> JSONResponse:
             return JSONResponse(
                 status_code=502,
                 content={
