@@ -17,9 +17,8 @@ from .exceptions import (
     ProviderError,
     RateLimitError,
 )
-from .models import (
-    ProviderType,
-)
+from .logging import get_logger
+from .models import ProviderType
 from .router import LLMRouter
 
 
@@ -42,6 +41,9 @@ def _create_stats_tracking_generator(
     provider_name: str,
     stats_collector: Any,
     request_start_time: float,
+    request_id: str,
+    endpoint: str,
+    original_request: dict[str, Any],
 ) -> Any:
     """Create a generator that tracks statistics from streaming chunks."""
 
@@ -50,9 +52,11 @@ def _create_stats_tracking_generator(
         total_input_tokens = 0
         total_output_tokens = 0
         cached_tokens = 0
+        accumulated_chunks = []
 
         try:
             async for chunk in original_generator:
+                accumulated_chunks.append(chunk)
                 # Try to extract usage from chunk
                 try:
                     # Parse chunk as text
@@ -115,6 +119,9 @@ def _create_stats_tracking_generator(
                 # Yield original chunk
                 yield chunk
         finally:
+            # Calculate duration
+            duration_ms = (time.time() - request_start_time) * 1000
+
             # Record statistics after streaming completes
             stats_collector.record_request_success(
                 provider_name,
@@ -122,6 +129,62 @@ def _create_stats_tracking_generator(
                 total_input_tokens,
                 total_output_tokens,
                 cached_tokens,
+            )
+
+            # Log the streaming response
+            # Try to reconstruct a response dict from accumulated chunks for logging
+            response_dict = {}
+
+            # Find the last chunk which typically contains usage info
+            for chunk in accumulated_chunks:
+                try:
+                    if isinstance(chunk, bytes):
+                        chunk_text = chunk.decode("utf-8", errors="ignore")
+                    else:
+                        chunk_text = str(chunk)
+
+                    # OpenAI format: "data: {...}" SSE format
+                    if "data: " in chunk_text:
+                        data_chunks = chunk_text.split("data: ")
+                        for data_str in data_chunks:
+                            data_str = data_str.strip()
+                            if not data_str or data_str == "[DONE]":
+                                continue
+                            try:
+                                data = json.loads(data_str)
+                                # Store the last data chunk as our response representation
+                                response_dict = data
+                            except json.JSONDecodeError:
+                                pass
+
+                    # Anthropic format: JSON with usage field
+                    elif "usage" in chunk_text:
+                        try:
+                            data = json.loads(chunk_text)
+                            # Store as our response representation
+                            response_dict = data
+                        except json.JSONDecodeError:
+                            pass
+                except Exception:
+                    # Don't fail if we can't parse for logging
+                    pass
+
+            # Add usage info to response dict if we have it
+            if total_input_tokens > 0 or total_output_tokens > 0:
+                response_dict["usage"] = {
+                    "prompt_tokens": total_input_tokens,
+                    "completion_tokens": total_output_tokens,
+                    "total_tokens": total_input_tokens + total_output_tokens,
+                }
+
+            # Log the response
+            logger = get_logger()
+            logger.log_response(
+                request_id=request_id,
+                endpoint=endpoint,
+                response=response_dict,
+                provider_name=provider_name,
+                duration_ms=duration_ms,
             )
 
     return stats_tracking_generator()
@@ -445,18 +508,24 @@ class LLMAPIServer:
                 provider_name = response.get("_provider", "unknown")
                 generator = response.get("_generator")
                 request_start_time = response.get("_request_start_time", time.time())
+                request_id = response.get("_request_id", "")
+                endpoint = response.get("_endpoint", "")
+                original_request = response.get("_original_request", {})
 
                 if not generator:
                     raise HTTPException(
                         status_code=500, detail="Streaming response missing generator"
                     )
 
-                # Wrap generator with statistics tracking
+                # Wrap generator with statistics tracking and logging
                 stats_generator = _create_stats_tracking_generator(
                     generator,
                     provider_name,
                     router.stats,
                     request_start_time,
+                    request_id,
+                    endpoint,
+                    original_request,
                 )
 
                 return StreamingResponse(

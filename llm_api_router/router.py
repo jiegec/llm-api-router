@@ -160,9 +160,12 @@ class LLMRouter:
 
                 # Check if this is a streaming response
                 if isinstance(result, dict) and result.get("_streaming"):
-                    # For streaming responses, include request start time for statistics
-                    # Statistics will be recorded after streaming completes
+                    # For streaming responses, include request start time and context for statistics and logging
+                    # Statistics and logging will be recorded after streaming completes
                     result["_request_start_time"] = request_start_time
+                    result["_request_id"] = request_id
+                    result["_endpoint"] = self.endpoint
+                    result["_original_request"] = request
                     return result
                 else:
                     # Non-streaming response
