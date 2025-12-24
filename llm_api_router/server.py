@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -20,6 +21,20 @@ from .models import (
     ProviderType,
 )
 from .router import LLMRouter
+
+
+def _format_timestamp(timestamp: float | None) -> str | None:
+    """Convert a Unix timestamp to formatted datetime string with timezone.
+
+    Args:
+        timestamp: Unix timestamp (seconds since epoch)
+
+    Returns:
+        Formatted datetime string in ISO format with timezone, or None if timestamp is None
+    """
+    if timestamp is None:
+        return None
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
 
 
 def _create_stats_tracking_generator(
@@ -225,6 +240,7 @@ class LLMAPIServer:
                     "providers": {
                         name: {
                             "total_requests": stats.total_requests,
+                            "in_progress_requests": stats.in_progress_requests,
                             "successful_requests": stats.successful_requests,
                             "failed_requests": stats.failed_requests,
                             "success_rate": round(stats.success_rate, 2),
@@ -235,8 +251,8 @@ class LLMAPIServer:
                             "total_cached_tokens": stats.total_cached_tokens,
                             "average_latency_ms": round(stats.average_latency_ms, 2),
                             "tokens_per_second": round(stats.tokens_per_second, 2),
-                            "last_request_time": stats.last_request_time,
-                            "last_success_time": stats.last_success_time,
+                            "last_request_time": _format_timestamp(stats.last_request_time),
+                            "last_success_time": _format_timestamp(stats.last_success_time),
                             "last_error": stats.last_error,
                         }
                         for name, stats in openai_stats.providers.items()
@@ -255,6 +271,7 @@ class LLMAPIServer:
                     "providers": {
                         name: {
                             "total_requests": stats.total_requests,
+                            "in_progress_requests": stats.in_progress_requests,
                             "successful_requests": stats.successful_requests,
                             "failed_requests": stats.failed_requests,
                             "success_rate": round(stats.success_rate, 2),
@@ -265,8 +282,8 @@ class LLMAPIServer:
                             "total_cached_tokens": stats.total_cached_tokens,
                             "average_latency_ms": round(stats.average_latency_ms, 2),
                             "tokens_per_second": round(stats.tokens_per_second, 2),
-                            "last_request_time": stats.last_request_time,
-                            "last_success_time": stats.last_success_time,
+                            "last_request_time": _format_timestamp(stats.last_request_time),
+                            "last_success_time": _format_timestamp(stats.last_success_time),
                             "last_error": stats.last_error,
                         }
                         for name, stats in anthropic_stats.providers.items()
