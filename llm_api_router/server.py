@@ -1,5 +1,7 @@
 """FastAPI server for LLM API Router."""
 
+import json
+import time
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -18,6 +20,73 @@ from .models import (
     ProviderType,
 )
 from .router import LLMRouter
+
+
+def _create_stats_tracking_generator(
+    original_generator: Any,
+    provider_name: str,
+    stats_collector: Any,
+    request_start_time: float,
+) -> Any:
+    """Create a generator that tracks statistics from streaming chunks."""
+
+    async def stats_tracking_generator() -> Any:
+        """Generator that tracks statistics while yielding chunks."""
+        total_input_tokens = 0
+        total_output_tokens = 0
+
+        try:
+            async for chunk in original_generator:
+                # Try to extract usage from chunk
+                try:
+                    # Parse chunk as text
+                    if isinstance(chunk, bytes):
+                        chunk_text = chunk.decode("utf-8", errors="ignore")
+                    else:
+                        chunk_text = str(chunk)
+
+                    # OpenAI format: "data: {...}" SSE format
+                    if chunk_text.startswith("data: "):
+                        data_str = chunk_text[6:].strip()
+                        if data_str == "[DONE]":
+                            continue
+
+                        try:
+                            data = json.loads(data_str)
+                            # Check for usage in chunk (typically in last chunk)
+                            if "usage" in data:
+                                usage = data["usage"]
+                                total_input_tokens = usage.get("prompt_tokens", 0)
+                                total_output_tokens = usage.get("completion_tokens", 0)
+                        except json.JSONDecodeError:
+                            pass
+
+                    # Anthropic format: JSON with usage field
+                    elif "usage" in chunk_text:
+                        try:
+                            data = json.loads(chunk_text)
+                            if "usage" in data:
+                                usage = data["usage"]
+                                total_input_tokens = usage.get("input_tokens", 0)
+                                total_output_tokens = usage.get("output_tokens", 0)
+                        except json.JSONDecodeError:
+                            pass
+                except Exception:
+                    # Don't fail streaming if we can't parse stats
+                    pass
+
+                # Yield original chunk
+                yield chunk
+        finally:
+            # Record statistics after streaming completes
+            stats_collector.record_request_success(
+                provider_name,
+                request_start_time,
+                total_input_tokens,
+                total_output_tokens,
+            )
+
+    return stats_tracking_generator()
 
 
 class LLMAPIServer:
@@ -331,15 +400,23 @@ class LLMAPIServer:
                 # This is a streaming response
                 provider_name = response.get("_provider", "unknown")
                 generator = response.get("_generator")
+                request_start_time = response.get("_request_start_time", time.time())
 
                 if not generator:
                     raise HTTPException(
                         status_code=500, detail="Streaming response missing generator"
                     )
 
-                # The generator already yields chunks, just use it directly
-                return StreamingResponse(
+                # Wrap generator with statistics tracking
+                stats_generator = _create_stats_tracking_generator(
                     generator,
+                    provider_name,
+                    router.stats,
+                    request_start_time,
+                )
+
+                return StreamingResponse(
+                    stats_generator,
                     media_type="text/event-stream",
                     headers={
                         "X-Provider": provider_name,
