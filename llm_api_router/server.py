@@ -289,8 +289,7 @@ class LLMAPIServer:
 
                 if not generator:
                     raise HTTPException(
-                        status_code=500,
-                        detail="Streaming response missing generator"
+                        status_code=500, detail="Streaming response missing generator"
                     )
 
                 # The generator already yields chunks, just use it directly
@@ -301,7 +300,7 @@ class LLMAPIServer:
                         "X-Provider": provider_name,
                         "Cache-Control": "no-cache",
                         "Connection": "keep-alive",
-                    }
+                    },
                 )
             else:
                 # Non-streaming response

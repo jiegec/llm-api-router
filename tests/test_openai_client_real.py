@@ -214,14 +214,14 @@ def test_real_openai_client_fallback():
             # Make a request - should trigger fallback
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[
-                    {"role": "user", "content": "Test fallback"}
-                ],
+                messages=[{"role": "user", "content": "Test fallback"}],
             )
 
             # Should still get successful response
             assert response.id == "chatcmpl-real-client-test-123"
-            assert response.choices[0].message.content == "Hello from real OpenAI client!"
+            assert (
+                response.choices[0].message.content == "Hello from real OpenAI client!"
+            )
 
 
 if __name__ == "__main__":

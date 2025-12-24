@@ -8,11 +8,10 @@ from httpx import Response
 from llm_api_router.models import (
     Message,
     ProviderConfig,
-    ProviderType,
     Role,
 )
-from tests.test_models_moved import ChatCompletionRequest
 from llm_api_router.providers import AnthropicProvider, OpenAIProvider, create_provider
+from tests.test_models_moved import ChatCompletionRequest
 
 
 @pytest.mark.asyncio

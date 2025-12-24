@@ -1,10 +1,8 @@
 """Test models for ChatCompletionResponse, Choice, and ChatCompletionRequest."""
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
-from llm_api_router.models import Message, ProviderType, Role, Usage
+from llm_api_router.models import Message, ProviderType, Usage
 
 
 class ChatCompletionRequest(BaseModel):
@@ -27,8 +25,6 @@ class Choice(BaseModel):
     index: int
     message: Message
     finish_reason: str | None = None
-
-
 
 
 class ChatCompletionResponse(BaseModel):

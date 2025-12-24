@@ -83,7 +83,7 @@ async def test_router_chat_completion_success(
         }
 
         # Create parsed response for logging
-        parsed_response = ChatCompletionResponse(
+        ChatCompletionResponse(
             id="chatcmpl-123",
             created=1677652288,
             model="gpt-4o-mini",
@@ -136,14 +136,15 @@ async def test_router_fallback_on_failure(
         # OpenAI fails with a generic error
         mock_openai_provider.chat_completion.side_effect = Exception("OpenAI error")
         # Create a proper response dict for Anthropic
-        from llm_api_router.models import (
-            Message,
-            Role,
-        )
         from test_models_moved import (
             ChatCompletionResponse,
             Choice,
             Usage,
+        )
+
+        from llm_api_router.models import (
+            Message,
+            Role,
         )
 
         # Create the raw response (Anthropic format)
@@ -161,7 +162,7 @@ async def test_router_fallback_on_failure(
         }
 
         # Create parsed response for logging
-        parsed_response = ChatCompletionResponse(
+        ChatCompletionResponse(
             id="msg_123",
             created=1677652288,
             model="claude-3-haiku",
@@ -221,14 +222,15 @@ async def test_router_fallback_on_rate_limit(
             "Rate limited", "openai", 60
         )
         # Create a proper response dict for Anthropic
-        from llm_api_router.models import (
-            Message,
-            Role,
-        )
         from test_models_moved import (
             ChatCompletionResponse,
             Choice,
             Usage,
+        )
+
+        from llm_api_router.models import (
+            Message,
+            Role,
         )
 
         # Create the raw response (Anthropic format)
@@ -248,7 +250,7 @@ async def test_router_fallback_on_rate_limit(
         }
 
         # Create parsed response for logging
-        parsed_response = ChatCompletionResponse(
+        ChatCompletionResponse(
             id="msg_456",
             created=1677652288,
             model="claude-3-haiku",
@@ -308,14 +310,15 @@ async def test_router_fallback_on_authentication_error(
             "Invalid API key", "openai"
         )
         # Create a proper response dict for Anthropic
-        from llm_api_router.models import (
-            Message,
-            Role,
-        )
         from test_models_moved import (
             ChatCompletionResponse,
             Choice,
             Usage,
+        )
+
+        from llm_api_router.models import (
+            Message,
+            Role,
         )
 
         # Create the raw response (Anthropic format)
@@ -335,7 +338,7 @@ async def test_router_fallback_on_authentication_error(
         }
 
         # Create parsed response for logging
-        parsed_response = ChatCompletionResponse(
+        ChatCompletionResponse(
             id="msg_789",
             created=1677652288,
             model="claude-3-haiku",
@@ -451,7 +454,9 @@ async def test_router_schedule_retry(openai_config, sample_request):
     with patch("llm_api_router.router.create_provider") as mock_create:
         mock_provider = AsyncMock()
         mock_provider.chat_completion.side_effect = RateLimitError(
-            "Rate limited", "openai", 0.1  # Short delay for test
+            "Rate limited",
+            "openai",
+            0.1,  # Short delay for test
         )
         mock_create.return_value = mock_provider
 

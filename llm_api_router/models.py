@@ -48,7 +48,7 @@ class ProviderConfig(BaseModel):
     provider_name: str | None = Field(
         default=None,
         description="User-defined name for the provider (e.g., 'openai-priority-1'). "
-                    "If not provided, defaults to '{provider_type}-priority-{priority}'",
+        "If not provided, defaults to '{provider_type}-priority-{priority}'",
     )
 
     @property
@@ -65,5 +65,3 @@ class Usage(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
-
-

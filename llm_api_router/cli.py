@@ -120,7 +120,9 @@ def serve(config: Path | None, host: str, port: int, workers: int):
         click.echo()
         click.echo("📝 Example usage:")
         click.echo(f'  OpenAI: openai.OpenAI(base_url="http://{host}:{port}/openai")')
-        click.echo(f'  Anthropic: anthropic.Anthropic(base_url="http://{host}:{port}/anthropic")')
+        click.echo(
+            f'  Anthropic: anthropic.Anthropic(base_url="http://{host}:{port}/anthropic")'
+        )
         click.echo()
         click.echo("=" * 60)
         click.echo("Starting server... Press Ctrl+C to stop")

@@ -5,7 +5,6 @@ via TestClient, which simulates HTTP requests without starting a real server.
 """
 
 import json
-import time
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -22,12 +21,7 @@ def create_mock_anthropic_response() -> dict:
         "id": "msg-anthropic-test-123",
         "type": "message",
         "role": "assistant",
-        "content": [
-            {
-                "type": "text",
-                "text": "Hello from real Anthropic client!"
-            }
-        ],
+        "content": [{"type": "text", "text": "Hello from real Anthropic client!"}],
         "model": "claude-3-5-sonnet-20241022",
         "stop_reason": "stop",
         "stop_sequence": None,
@@ -84,6 +78,7 @@ def test_real_anthropic_client_with_testclient():
                 # Extract path from URL and make request through TestClient
                 # TestClient expects relative paths, not full URLs
                 from urllib.parse import urlparse
+
                 parsed = urlparse(url)
                 path = parsed.path
                 if parsed.query:
@@ -202,6 +197,7 @@ def test_real_anthropic_client_fallback():
 
                 # Extract path from URL and make request through TestClient
                 from urllib.parse import urlparse
+
                 parsed = urlparse(url)
                 path = parsed.path
                 if parsed.query:
@@ -231,9 +227,7 @@ def test_real_anthropic_client_fallback():
             message = client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=1024,
-                messages=[
-                    {"role": "user", "content": "Test fallback"}
-                ],
+                messages=[{"role": "user", "content": "Test fallback"}],
             )
 
             # Should still get successful response
@@ -279,6 +273,7 @@ def test_real_anthropic_client_with_system_message():
 
                 # Extract path from URL and make request through TestClient
                 from urllib.parse import urlparse
+
                 parsed = urlparse(url)
                 path = parsed.path
                 if parsed.query:
@@ -309,9 +304,7 @@ def test_real_anthropic_client_with_system_message():
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=1024,
                 system="You are a helpful assistant.",
-                messages=[
-                    {"role": "user", "content": "Hello!"}
-                ],
+                messages=[{"role": "user", "content": "Hello!"}],
             )
 
             # Verify response

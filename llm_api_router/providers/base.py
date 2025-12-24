@@ -219,7 +219,7 @@ class BaseProvider(ABC):
                 first_chunk = None
                 chunk_iterator = None
 
-                async def check_streaming():
+                async def check_streaming() -> None:
                     """Check if streaming works by making the request and reading first chunk."""
                     nonlocal check_error, response_obj, first_chunk, chunk_iterator
 
@@ -332,7 +332,7 @@ class BaseProvider(ABC):
                     raise check_error
 
                 # Check was successful, now create a generator that streams
-                async def streaming_generator():
+                async def streaming_generator() -> None:
                     """Generator that streams response chunks."""
                     nonlocal first_chunk, chunk_iterator, response_obj
 

@@ -5,7 +5,7 @@ import logging
 import logging.handlers
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 from uuid import uuid4
 
 from .models import Usage
@@ -71,7 +71,9 @@ class RouterLogger:
         self.json_logger.addHandler(file_handler)
 
         # Separate error log file - include datetime in filename
-        error_file = self.log_dir / f"router_{self.datetime_str}_{self.session_id}_errors.jsonl"
+        error_file = (
+            self.log_dir / f"router_{self.datetime_str}_{self.session_id}_errors.jsonl"
+        )
         error_handler = logging.FileHandler(error_file, encoding="utf-8")
         error_handler.setLevel(logging.WARNING)
         error_handler.setFormatter(json_formatter)

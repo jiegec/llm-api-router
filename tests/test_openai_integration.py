@@ -207,7 +207,7 @@ def test_multiple_providers_fallback_integration():
             )
 
             assert response.status_code == 200
-            result = response.json()
+            response.json()
             # Note: No "provider" field in response - matches OpenAI API format
 
             # Verify both providers were tried
