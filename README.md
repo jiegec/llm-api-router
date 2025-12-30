@@ -2,6 +2,8 @@
 
 A FastAPI-based LLM API router server that provides separate endpoints for OpenAI and Anthropic APIs, each with automatic fallback when APIs fail or are rate limited.
 
+> **Note**: This project is designed to be simple and easy to deploy for basic use cases. For more complex requirements such as model-level routing, caching, streaming, or multi-provider orchestration, consider using [litellm](https://github.com/BerriAI/litellm) or other advanced LLM routing solutions.
+
 ## Features
 
 - **Separate endpoints**: `/openai/chat/completions` and `/anthropic/v1/messages`
