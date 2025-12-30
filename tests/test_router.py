@@ -53,10 +53,10 @@ async def test_router_chat_completion_success(
             Usage,
         )
         from tests.test_models_common import (
-            Role,
-            Message,
             ChatCompletionResponse,
             Choice,
+            Message,
+            Role,
         )
 
         # Create the raw response (OpenAI format)
@@ -140,9 +140,9 @@ async def test_router_fallback_on_failure(
             Usage,
         )
         from tests.test_models_common import (
-            Message,
             ChatCompletionResponse,
             Choice,
+            Message,
             Role,
         )
 
@@ -312,10 +312,10 @@ async def test_router_fallback_on_authentication_error(
             Usage,
         )
         from tests.test_models_common import (
-            Message,
-            Role,
             ChatCompletionResponse,
             Choice,
+            Message,
+            Role,
         )
 
         # Create the raw response (Anthropic format)

@@ -1,8 +1,10 @@
 """Test models for LLM API Router."""
 
-from typing import Any
 from enum import Enum
+from typing import Any
+
 from pydantic import BaseModel
+
 from llm_api_router.models import Usage
 
 

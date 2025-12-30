@@ -1,7 +1,6 @@
 """Data models for LLM API Router."""
 
 from enum import Enum
-from typing import Any
 
 from pydantic import BaseModel, Field
 

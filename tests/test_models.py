@@ -8,11 +8,11 @@ from llm_api_router.models import (
     Usage,
 )
 from tests.test_models_common import (
-    Role,
-    Message,
     ChatCompletionRequest,
     ChatCompletionResponse,
     Choice,
+    Message,
+    Role,
 )
 
 
