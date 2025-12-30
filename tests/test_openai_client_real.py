@@ -65,9 +65,10 @@ def test_real_openai_client_with_testclient():
         mock_client_class.return_value = mock_client
 
         # Mock successful response
+        mock_openai_response = create_mock_openai_response()
         mock_response = httpx.Response(
             status_code=200,
-            content=json.dumps(create_mock_openai_response()),
+            content=json.dumps(mock_openai_response),
         )
         mock_client.post.return_value = mock_response
 
@@ -131,6 +132,21 @@ def test_real_openai_client_with_testclient():
             assert usage.prompt_tokens == 15
             assert usage.completion_tokens == 12
             assert usage.total_tokens == 27
+
+            assert response.model_dump(exclude_none=True) == mock_openai_response
+
+            stats = server.openai_router.get_stats()
+            assert stats.total_requests == 1
+            assert stats.total_input_tokens == 15
+            assert stats.total_output_tokens == 12
+            assert stats.total_cached_tokens == 0
+            assert stats.providers["openai-priority-1"].total_requests == 1
+            assert stats.providers["openai-priority-1"].in_progress_requests == 0
+            assert stats.providers["openai-priority-1"].successful_requests == 1
+            assert stats.providers["openai-priority-1"].total_input_tokens == 15
+            assert stats.providers["openai-priority-1"].total_output_tokens == 12
+            assert stats.providers["openai-priority-1"].total_tokens == 27
+            assert stats.providers["openai-priority-1"].total_cached_tokens == 0
 
 
 def test_real_openai_client_fallback():

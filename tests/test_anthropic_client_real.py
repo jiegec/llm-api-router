@@ -24,7 +24,6 @@ def create_mock_anthropic_response() -> dict:
         "content": [{"type": "text", "text": "Hello from real Anthropic client!"}],
         "model": "claude-3-5-sonnet-20241022",
         "stop_reason": "stop",
-        "stop_sequence": None,
         "usage": {
             "input_tokens": 20,
             "output_tokens": 15,
@@ -135,6 +134,24 @@ def test_real_anthropic_client_with_testclient():
             # Check usage
             assert message.usage.input_tokens == 20
             assert message.usage.output_tokens == 15
+
+            assert (
+                message.model_dump(exclude_none=True)
+                == create_mock_anthropic_response()
+            )
+
+            stats = server.anthropic_router.get_stats()
+            assert stats.total_requests == 1
+            assert stats.total_input_tokens == 20
+            assert stats.total_output_tokens == 15
+            assert stats.total_cached_tokens == 0
+            assert stats.providers["anthropic-priority-1"].total_requests == 1
+            assert stats.providers["anthropic-priority-1"].in_progress_requests == 0
+            assert stats.providers["anthropic-priority-1"].successful_requests == 1
+            assert stats.providers["anthropic-priority-1"].total_input_tokens == 20
+            assert stats.providers["anthropic-priority-1"].total_output_tokens == 15
+            assert stats.providers["anthropic-priority-1"].total_tokens == 35
+            assert stats.providers["anthropic-priority-1"].total_cached_tokens == 0
 
 
 def test_real_anthropic_client_fallback():
