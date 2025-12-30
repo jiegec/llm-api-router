@@ -7,6 +7,8 @@ A FastAPI-based LLM API router server that provides separate endpoints for OpenA
 ## Features
 
 - **Separate endpoints**: `/openai/chat/completions` and `/anthropic/v1/messages`
+- **No API format translation**: Each endpoint maintains the native API format. No translation between formats is performed.
+- **Streaming support**: Both endpoints support streaming responses. Streaming responses are passed through transparently while collecting usage statistics.
 - **Multi-provider support per endpoint**: Each endpoint can route to multiple API keys/servers
 - **Priority-based routing**: Configure priority order for API providers within each endpoint
 - **Automatic fallback**: When a high-priority provider fails or is rate-limited, automatically switches to the next available provider

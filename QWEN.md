@@ -16,3 +16,7 @@ Git commit every time you have progress.
 Write logs to files in json format.
 Log includes request, response, statistics, retry attempts.
 Cleanup unused code.
+
+**IMPORTANT: No API format translation** - The router does NOT translate between OpenAI and Anthropic API formats. The `/openai/chat/completions` endpoint expects OpenAI format and returns OpenAI format; the `/anthropic/v1/messages` endpoint expects Anthropic format and returns Anthropic format.
+
+**Streaming support** - Both endpoints support streaming responses (set `stream: true` in the request). Streaming chunks are passed through transparently without modification while collecting usage statistics for logging.
