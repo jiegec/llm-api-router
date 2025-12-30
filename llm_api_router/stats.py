@@ -186,30 +186,15 @@ class StatsCollector:
         self, provider_name: str, response: dict[str, Any]
     ) -> tuple[int, int]:
         """Extract token counts from provider response."""
-        try:
-            # Check for usage field first
-            if "usage" in response:
-                usage = response["usage"]
-
-                # OpenAI format
-                if "prompt_tokens" in usage and "completion_tokens" in usage:
-                    return (
-                        usage.get("prompt_tokens", 0),
-                        usage.get("completion_tokens", 0),
-                    )
-                # Anthropic format
-                elif "input_tokens" in usage and "output_tokens" in usage:
-                    return (usage.get("input_tokens", 0), usage.get("output_tokens", 0))
-
-            # Anthropic format (fallback)
-            elif "content" in response and isinstance(response["content"], list):
-                # Anthropic response format
-                input_tokens = response.get("usage", {}).get("input_tokens", 0)
-                output_tokens = response.get("usage", {}).get("output_tokens", 0)
-                return input_tokens, output_tokens
-
-        except (KeyError, TypeError, AttributeError):
-            # If we can't extract tokens, don't crash
-            pass
+        usage = response.get("usage", {})
+        # OpenAI format
+        if "prompt_tokens" in usage and "completion_tokens" in usage:
+            return (
+                usage.get("prompt_tokens", 0),
+                usage.get("completion_tokens", 0),
+            )
+        # Anthropic format
+        elif "input_tokens" in usage and "output_tokens" in usage:
+            return (usage.get("input_tokens", 0), usage.get("output_tokens", 0))
 
         return 0, 0
