@@ -269,11 +269,11 @@ def _create_stats_tracking_generator(
                                                             "arguments"
                                                             in tool_call["function"]
                                                         ):
-                                                            func["arguments"] += (
-                                                                tool_call["function"][
-                                                                    "arguments"
-                                                                ]
-                                                            )
+                                                            func[
+                                                                "arguments"
+                                                            ] += tool_call["function"][
+                                                                "arguments"
+                                                            ]
                                             # Store finish reason if present
                                             if "finish_reason" in choice:
                                                 # Update existing choice or add new one
