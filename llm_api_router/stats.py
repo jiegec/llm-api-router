@@ -29,7 +29,9 @@ class ProviderStats(BaseModel):
     average_latency_ms: float = Field(
         default=0.0, description="Average latency in milliseconds"
     )
-    tokens_per_second: float = Field(default=0.0, description="Tokens per second")
+    tokens_per_second: float = Field(
+        default=0.0, description="Average output tokens per second"
+    )
 
     # Last request info
     last_request_time: float | None = Field(
@@ -169,11 +171,17 @@ class StatsCollector:
         stats.total_latency_ms += latency_ms
         stats.average_latency_ms = stats.total_latency_ms / stats.successful_requests
 
-        # Calculate tokens per second
-        if latency_ms > 0:
+        # Calculate average tokens per second (output tokens only)
+        # Average of (output_tokens / request_duration) across all successful requests
+        if latency_ms > 0 and output_tokens > 0:
             duration_seconds = latency_ms / 1000
-            total_tokens = input_tokens + output_tokens
-            stats.tokens_per_second = total_tokens / duration_seconds
+            current_tokens_per_second = output_tokens / duration_seconds
+            # Recalculate average across all successful requests
+            # New average = (old_average * (n-1) + new_value) / n
+            stats.tokens_per_second = (
+                stats.tokens_per_second * (stats.successful_requests - 1)
+                + current_tokens_per_second
+            ) / stats.successful_requests
 
     def record_request_failure(self, provider_name: str, error_message: str) -> None:
         """Record a failed request."""

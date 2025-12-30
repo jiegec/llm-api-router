@@ -285,3 +285,63 @@ def test_record_tokens_from_response_invalid():
 
     assert input_tokens == 0
     assert output_tokens == 0
+
+
+def test_tokens_per_second_average_across_requests():
+    """Test that tokens_per_second is averaged across all successful requests using only output tokens."""
+    collector = StatsCollector()
+
+    # First request: 100 output tokens in 0.1 seconds
+    start_time1 = time.time()
+    time.sleep(0.1)  # Simulate 0.1 second processing
+    collector.record_request_success(
+        "test_provider", start_time1, input_tokens=50, output_tokens=100
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["test_provider"]
+    # Should be approximately 100 / 0.1 = 1000 tokens/second
+    assert provider_stats.tokens_per_second == pytest.approx(1000, rel=0.2)
+
+    # Second request: 50 output tokens in 0.05 seconds
+    start_time2 = time.time()
+    time.sleep(0.05)  # Simulate 0.05 second processing
+    collector.record_request_success(
+        "test_provider", start_time2, input_tokens=50, output_tokens=50
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["test_provider"]
+
+    # After two requests, should be average of both:
+    # First: ~1000 tokens/s (100 tokens / 0.1s)
+    # Second: ~1000 tokens/s (50 tokens / 0.05s)
+    # Average: (1000 + 1000) / 2 = 1000 tokens/s
+    # Note: We use relative tolerance because sleep is not precise
+    assert provider_stats.tokens_per_second == pytest.approx(1000, rel=0.3)
+
+    # Verify that only output tokens are used
+    # The input tokens should not affect the calculation
+    assert provider_stats.total_input_tokens == 100  # 50 + 50
+    assert provider_stats.total_output_tokens == 150  # 100 + 50
+
+
+def test_tokens_per_second_uses_only_output_tokens():
+    """Test that tokens_per_second calculation only uses output tokens, not input tokens."""
+    collector = StatsCollector()
+
+    # Request with many input tokens but few output tokens
+    start_time = time.time()
+    time.sleep(0.01)
+    collector.record_request_success(
+        "test_provider", start_time, input_tokens=1000, output_tokens=10
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["test_provider"]
+
+    # Should calculate based on 10 output tokens, not 1010 total tokens
+    # 10 tokens / ~0.01s = ~1000 tokens/s
+    assert provider_stats.tokens_per_second == pytest.approx(1000, rel=0.3)
+    assert provider_stats.total_input_tokens == 1000
+    assert provider_stats.total_output_tokens == 10
