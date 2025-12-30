@@ -36,6 +36,52 @@ def _format_timestamp(timestamp: float | None) -> str | None:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
 
 
+def _format_providers(providers: list[Any]) -> list[dict[str, Any]]:
+    """Format provider configurations for status endpoint."""
+    return [
+        {
+            "name": provider.display_name,
+            "priority": provider.priority,
+            "base_url": provider.base_url,
+            "model_mapping": provider.model_mapping,
+        }
+        for provider in providers
+    ]
+
+
+def _format_stats(stats: Any) -> dict[str, Any]:
+    """Format router statistics for status endpoint."""
+    return {
+        "uptime_seconds": stats.uptime_seconds,
+        "total_requests": stats.total_requests,
+        "total_input_tokens": stats.total_input_tokens,
+        "total_output_tokens": stats.total_output_tokens,
+        "total_cached_tokens": stats.total_cached_tokens,
+        "most_used_provider": stats.most_used_provider,
+        "fastest_provider": stats.fastest_provider,
+        "providers": {
+            name: {
+                "total_requests": stat.total_requests,
+                "in_progress_requests": stat.in_progress_requests,
+                "successful_requests": stat.successful_requests,
+                "failed_requests": stat.failed_requests,
+                "success_rate": round(stat.success_rate, 2),
+                "failure_rate": round(stat.failure_rate, 2),
+                "total_input_tokens": stat.total_input_tokens,
+                "total_output_tokens": stat.total_output_tokens,
+                "total_tokens": stat.total_tokens,
+                "total_cached_tokens": stat.total_cached_tokens,
+                "average_latency_ms": round(stat.average_latency_ms, 2),
+                "tokens_per_second": round(stat.tokens_per_second, 2),
+                "last_request_time": _format_timestamp(stat.last_request_time),
+                "last_success_time": _format_timestamp(stat.last_success_time),
+                "last_error": stat.last_error,
+            }
+            for name, stat in stats.providers.items()
+        },
+    }
+
+
 def _create_stats_tracking_generator(
     original_generator: Any,
     provider_name: str,
@@ -223,11 +269,11 @@ def _create_stats_tracking_generator(
                                                             "arguments"
                                                             in tool_call["function"]
                                                         ):
-                                                            func[
-                                                                "arguments"
-                                                            ] += tool_call["function"][
-                                                                "arguments"
-                                                            ]
+                                                            func["arguments"] += (
+                                                                tool_call["function"][
+                                                                    "arguments"
+                                                                ]
+                                                            )
                                             # Store finish reason if present
                                             if "finish_reason" in choice:
                                                 # Update existing choice or add new one
@@ -384,113 +430,22 @@ class LLMAPIServer:
         @self.app.get("/status")
         async def status() -> dict[str, Any]:
             """Detailed status endpoint showing provider configurations and statistics."""
-            openai_providers = [
-                {
-                    "name": provider.display_name,
-                    "priority": provider.priority,
-                    "base_url": provider.base_url,
-                    "model_mapping": provider.model_mapping,
-                }
-                for provider in self.config.openai_providers
-            ]
-
-            anthropic_providers = [
-                {
-                    "name": provider.display_name,
-                    "priority": provider.priority,
-                    "base_url": provider.base_url,
-                    "model_mapping": provider.model_mapping,
-                }
-                for provider in self.config.anthropic_providers
-            ]
+            # Format providers
+            openai_providers = _format_providers(self.config.openai_providers)
+            anthropic_providers = _format_providers(self.config.anthropic_providers)
 
             # Get statistics from routers
-            openai_stats = None
-            anthropic_stats = None
-
-            try:
-                if hasattr(self, "openai_router") and self.openai_router:
-                    openai_stats = self.openai_router.get_stats()
-            except Exception:
-                pass
-
-            try:
-                if hasattr(self, "anthropic_router") and self.anthropic_router:
-                    anthropic_stats = self.anthropic_router.get_stats()
-            except Exception:
-                pass
-
-            # Prepare statistics data
             stats_data = {}
-            if openai_stats:
-                stats_data["openai"] = {
-                    "uptime_seconds": openai_stats.uptime_seconds,
-                    "total_requests": openai_stats.total_requests,
-                    "total_input_tokens": openai_stats.total_input_tokens,
-                    "total_output_tokens": openai_stats.total_output_tokens,
-                    "total_cached_tokens": openai_stats.total_cached_tokens,
-                    "most_used_provider": openai_stats.most_used_provider,
-                    "fastest_provider": openai_stats.fastest_provider,
-                    "providers": {
-                        name: {
-                            "total_requests": stats.total_requests,
-                            "in_progress_requests": stats.in_progress_requests,
-                            "successful_requests": stats.successful_requests,
-                            "failed_requests": stats.failed_requests,
-                            "success_rate": round(stats.success_rate, 2),
-                            "failure_rate": round(stats.failure_rate, 2),
-                            "total_input_tokens": stats.total_input_tokens,
-                            "total_output_tokens": stats.total_output_tokens,
-                            "total_tokens": stats.total_tokens,
-                            "total_cached_tokens": stats.total_cached_tokens,
-                            "average_latency_ms": round(stats.average_latency_ms, 2),
-                            "tokens_per_second": round(stats.tokens_per_second, 2),
-                            "last_request_time": _format_timestamp(
-                                stats.last_request_time
-                            ),
-                            "last_success_time": _format_timestamp(
-                                stats.last_success_time
-                            ),
-                            "last_error": stats.last_error,
-                        }
-                        for name, stats in openai_stats.providers.items()
-                    },
-                }
 
-            if anthropic_stats:
-                stats_data["anthropic"] = {
-                    "uptime_seconds": anthropic_stats.uptime_seconds,
-                    "total_requests": anthropic_stats.total_requests,
-                    "total_input_tokens": anthropic_stats.total_input_tokens,
-                    "total_output_tokens": anthropic_stats.total_output_tokens,
-                    "total_cached_tokens": anthropic_stats.total_cached_tokens,
-                    "most_used_provider": anthropic_stats.most_used_provider,
-                    "fastest_provider": anthropic_stats.fastest_provider,
-                    "providers": {
-                        name: {
-                            "total_requests": stats.total_requests,
-                            "in_progress_requests": stats.in_progress_requests,
-                            "successful_requests": stats.successful_requests,
-                            "failed_requests": stats.failed_requests,
-                            "success_rate": round(stats.success_rate, 2),
-                            "failure_rate": round(stats.failure_rate, 2),
-                            "total_input_tokens": stats.total_input_tokens,
-                            "total_output_tokens": stats.total_output_tokens,
-                            "total_tokens": stats.total_tokens,
-                            "total_cached_tokens": stats.total_cached_tokens,
-                            "average_latency_ms": round(stats.average_latency_ms, 2),
-                            "tokens_per_second": round(stats.tokens_per_second, 2),
-                            "last_request_time": _format_timestamp(
-                                stats.last_request_time
-                            ),
-                            "last_success_time": _format_timestamp(
-                                stats.last_success_time
-                            ),
-                            "last_error": stats.last_error,
-                        }
-                        for name, stats in anthropic_stats.providers.items()
-                    },
-                }
+            for router_name, router in [
+                ("openai", self.openai_router),
+                ("anthropic", self.anthropic_router),
+            ]:
+                try:
+                    if router:
+                        stats_data[router_name] = _format_stats(router.get_stats())
+                except Exception:
+                    pass
 
             return {
                 "status": "healthy",

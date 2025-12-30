@@ -19,50 +19,40 @@ class RouterConfig:
         self.openai_providers = openai_providers or []
         self.anthropic_providers = anthropic_providers or []
 
+    @staticmethod
+    def _parse_provider_configs(
+        configs: dict | list[dict], provider_type: ProviderType
+    ) -> list[ProviderConfig]:
+        """Parse provider configurations from a dict or list of dicts."""
+        if isinstance(configs, dict):
+            # Single provider configuration
+            configs = [configs]
+
+        providers = []
+        for provider_config in configs:
+            providers.append(
+                ProviderConfig(
+                    name=provider_type,
+                    api_key=provider_config["api_key"],
+                    priority=provider_config.get("priority", 1),
+                    base_url=provider_config.get("base_url"),
+                    timeout=provider_config.get("timeout", 30),
+                    max_retries=provider_config.get("max_retries", 3),
+                    model_mapping=provider_config.get("model_mapping", {}),
+                    provider_name=provider_config.get("provider_name"),
+                )
+            )
+        return providers
+
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> "RouterConfig":
         """Create configuration from dictionary."""
-        openai_providers = []
-        anthropic_providers = []
-
-        # Parse OpenAI providers
-        openai_configs = config_dict.get("openai", [])
-        if isinstance(openai_configs, dict):
-            # Single provider configuration
-            openai_configs = [openai_configs]
-
-        for provider_config in openai_configs:
-            provider = ProviderConfig(
-                name=ProviderType.OPENAI,
-                api_key=provider_config["api_key"],
-                priority=provider_config.get("priority", 1),
-                base_url=provider_config.get("base_url"),
-                timeout=provider_config.get("timeout", 30),
-                max_retries=provider_config.get("max_retries", 3),
-                model_mapping=provider_config.get("model_mapping", {}),
-                provider_name=provider_config.get("provider_name"),
-            )
-            openai_providers.append(provider)
-
-        # Parse Anthropic providers
-        anthropic_configs = config_dict.get("anthropic", [])
-        if isinstance(anthropic_configs, dict):
-            # Single provider configuration
-            anthropic_configs = [anthropic_configs]
-
-        for provider_config in anthropic_configs:
-            provider = ProviderConfig(
-                name=ProviderType.ANTHROPIC,
-                api_key=provider_config["api_key"],
-                priority=provider_config.get("priority", 1),
-                base_url=provider_config.get("base_url"),
-                timeout=provider_config.get("timeout", 30),
-                max_retries=provider_config.get("max_retries", 3),
-                model_mapping=provider_config.get("model_mapping", {}),
-                provider_name=provider_config.get("provider_name"),
-            )
-            anthropic_providers.append(provider)
-
+        openai_providers = cls._parse_provider_configs(
+            config_dict.get("openai", []), ProviderType.OPENAI
+        )
+        anthropic_providers = cls._parse_provider_configs(
+            config_dict.get("anthropic", []), ProviderType.ANTHROPIC
+        )
         return cls(openai_providers, anthropic_providers)
 
     @classmethod
@@ -100,33 +90,24 @@ class RouterConfig:
         except Exception as e:
             raise ConfigurationError(f"Error loading configuration: {e}") from e
 
+    @staticmethod
+    def _provider_to_dict(provider: ProviderConfig) -> dict[str, Any]:
+        """Convert a single ProviderConfig to dictionary."""
+        return {
+            "api_key": provider.api_key,
+            "priority": provider.priority,
+            "base_url": provider.base_url,
+            "timeout": provider.timeout,
+            "max_retries": provider.max_retries,
+            "model_mapping": provider.model_mapping,
+            "provider_name": provider.provider_name,
+        }
+
     def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary."""
         return {
-            "openai": [
-                {
-                    "api_key": p.api_key,
-                    "priority": p.priority,
-                    "base_url": p.base_url,
-                    "timeout": p.timeout,
-                    "max_retries": p.max_retries,
-                    "model_mapping": p.model_mapping,
-                    "provider_name": p.provider_name,
-                }
-                for p in self.openai_providers
-            ],
-            "anthropic": [
-                {
-                    "api_key": p.api_key,
-                    "priority": p.priority,
-                    "base_url": p.base_url,
-                    "timeout": p.timeout,
-                    "max_retries": p.max_retries,
-                    "model_mapping": p.model_mapping,
-                    "provider_name": p.provider_name,
-                }
-                for p in self.anthropic_providers
-            ],
+            "openai": [self._provider_to_dict(p) for p in self.openai_providers],
+            "anthropic": [self._provider_to_dict(p) for p in self.anthropic_providers],
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -138,19 +119,23 @@ class RouterConfig:
         with open(filepath, "w") as f:
             json.dump(self.to_dict(), f, indent=indent)
 
+    @staticmethod
+    def _check_duplicate_priorities(
+        providers: list[ProviderConfig], provider_type: str
+    ) -> list[str]:
+        """Check for duplicate priorities in provider list."""
+        priorities = [p.priority for p in providers]
+        if len(priorities) != len(set(priorities)):
+            return [f"Duplicate priorities found in {provider_type} providers"]
+        return []
+
     def validate(self) -> list[str]:
         """Validate configuration and return list of errors."""
         errors = []
-
-        # Check for duplicate priorities within each provider type
-        openai_priorities = [p.priority for p in self.openai_providers]
-        if len(openai_priorities) != len(set(openai_priorities)):
-            errors.append("Duplicate priorities found in OpenAI providers")
-
-        anthropic_priorities = [p.priority for p in self.anthropic_providers]
-        if len(anthropic_priorities) != len(set(anthropic_priorities)):
-            errors.append("Duplicate priorities found in Anthropic providers")
-
+        errors.extend(self._check_duplicate_priorities(self.openai_providers, "OpenAI"))
+        errors.extend(
+            self._check_duplicate_priorities(self.anthropic_providers, "Anthropic")
+        )
         return errors
 
     def is_valid(self) -> bool:
