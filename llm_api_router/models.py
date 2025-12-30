@@ -6,25 +6,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class Role(str, Enum):
-    """Message role enumeration."""
-
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
-    TOOL = "tool"
-
-
-class Message(BaseModel):
-    """A message in a chat conversation."""
-
-    role: Role
-    content: str
-    name: str | None = None
-    tool_calls: list[dict[str, Any]] | None = None
-    tool_call_id: str | None = None
-
-
 class ProviderType(str, Enum):
     """Supported LLM provider types."""
 

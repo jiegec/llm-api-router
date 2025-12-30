@@ -29,9 +29,10 @@ class BaseProvider(ABC):
         self.logger = get_logger()
         self.provider_name = config.display_name
 
+    @abstractmethod
     def _get_headers(self) -> dict[str, str]:
         """Get HTTP headers for the provider."""
-        return {}
+        pass
 
     @abstractmethod
     def _get_default_base_url(self) -> str:
@@ -70,21 +71,13 @@ class BaseProvider(ABC):
 
     async def chat_completion(self, request: dict[str, Any]) -> dict[str, Any]:
         """Send a chat completion request to the provider."""
-        # Convert request to dict if it's a Pydantic model
-        if hasattr(request, "model_dump"):
-            request_dict = request.model_dump(exclude_none=True)
-        elif hasattr(request, "__dict__"):
-            request_dict = {k: v for k, v in request.__dict__.items() if v is not None}
-        else:
-            request_dict = dict(request)
-
         # Check if streaming is requested
-        stream = request_dict.get("stream", False)
+        stream = request.get("stream", False)
 
         if stream:
-            return await self._chat_completion_stream(request_dict)
+            return await self._chat_completion_stream(request)
         else:
-            return await self._chat_completion_non_stream(request_dict)
+            return await self._chat_completion_non_stream(request)
 
     async def _chat_completion_non_stream(
         self, request: dict[str, Any]

@@ -344,11 +344,6 @@ class RouterLogger:
             self.logger.info(
                 f"Router started with {details.get('provider_count', 0)} providers"
             )
-        elif config_type == "provider_added":
-            self.logger.info(
-                f"Provider added: {details.get('name')} "
-                f"(priority {details.get('priority')})"
-            )
 
 
 # Global logger instance

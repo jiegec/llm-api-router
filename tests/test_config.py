@@ -4,7 +4,10 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from llm_api_router.config import RouterConfig
+from llm_api_router.exceptions import ConfigurationError
 from llm_api_router.models import ProviderType
 
 
@@ -193,6 +196,9 @@ def test_router_config_from_json_file():
     finally:
         Path(temp_file).unlink()
 
+    with pytest.raises(ConfigurationError):
+        config = RouterConfig.from_json_file("/path/to/nonexistent/file")
+
 
 def test_router_config_from_json_string():
     """Test loading RouterConfig from JSON string."""
@@ -225,6 +231,12 @@ def test_router_config_from_json_string():
     anthropic_provider = config.anthropic_providers[0]
     assert anthropic_provider.name == ProviderType.ANTHROPIC
     assert anthropic_provider.api_key == "test-anthropic-key"
+
+    with pytest.raises(ConfigurationError):
+        config = RouterConfig.from_json_string("{")
+
+    with pytest.raises(ConfigurationError):
+        config = RouterConfig.from_json_string('{"openai":{}}')
 
 
 def test_router_config_to_dict():

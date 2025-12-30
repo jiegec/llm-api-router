@@ -50,11 +50,11 @@ async def test_router_chat_completion_success(
         mock_openai_provider = AsyncMock()
         # Create a proper response dict (what providers now return)
         from llm_api_router.models import (
-            Message,
-            Role,
             Usage,
         )
         from tests.test_models_common import (
+            Role,
+            Message,
             ChatCompletionResponse,
             Choice,
         )
@@ -137,13 +137,13 @@ async def test_router_fallback_on_failure(
         mock_openai_provider.chat_completion.side_effect = Exception("OpenAI error")
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
-            Message,
-            Role,
             Usage,
         )
         from tests.test_models_common import (
+            Message,
             ChatCompletionResponse,
             Choice,
+            Role,
         )
 
         # Create the raw response (Anthropic format)
@@ -222,13 +222,13 @@ async def test_router_fallback_on_rate_limit(
         )
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
-            Message,
-            Role,
             Usage,
         )
         from tests.test_models_common import (
             ChatCompletionResponse,
             Choice,
+            Message,
+            Role,
         )
 
         # Create the raw response (Anthropic format)
@@ -309,11 +309,11 @@ async def test_router_fallback_on_authentication_error(
         )
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
-            Message,
-            Role,
             Usage,
         )
         from tests.test_models_common import (
+            Message,
+            Role,
             ChatCompletionResponse,
             Choice,
         )

@@ -6,12 +6,10 @@ import pytest
 from httpx import Response
 
 from llm_api_router.models import (
-    Message,
     ProviderConfig,
-    Role,
 )
 from llm_api_router.providers import AnthropicProvider, OpenAIProvider, create_provider
-from tests.test_models_common import ChatCompletionRequest
+from tests.test_models_common import Message, ChatCompletionRequest, Role
 
 
 @pytest.mark.asyncio
@@ -175,7 +173,7 @@ async def test_provider_authentication_error(openai_config, mock_httpx_client):
     )
 
     with pytest.raises(Exception) as exc_info:
-        await provider.chat_completion(request)
+        await provider.chat_completion(request.model_dump())
 
     assert "Authentication failed" in str(exc_info.value)
     assert "openai" in str(exc_info.value)
@@ -206,7 +204,7 @@ async def test_provider_rate_limit_error(openai_config, mock_httpx_client):
     )
 
     with pytest.raises(Exception) as exc_info:
-        await provider.chat_completion(request)
+        await provider.chat_completion(request.model_dump())
 
     assert "Rate limit exceeded" in str(exc_info.value)
     assert "openai" in str(exc_info.value)
@@ -248,7 +246,7 @@ async def test_provider_retry_logic(openai_config, mock_httpx_client):
         model="gpt-4o-mini",
     )
 
-    response = await provider.chat_completion(request)
+    response = await provider.chat_completion(request.model_dump())
 
     # Should have retried once
     assert mock_httpx_client.post.call_count == 2

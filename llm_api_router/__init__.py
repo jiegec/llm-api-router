@@ -10,10 +10,8 @@ from .exceptions import (
     RateLimitError,
 )
 from .models import (
-    Message,
     ProviderConfig,
     ProviderType,
-    Role,
     Usage,
 )
 from .router import LLMRouter
@@ -21,10 +19,8 @@ from .router import LLMRouter
 __version__ = "0.1.0"
 __all__ = [
     "LLMRouter",
-    "Message",
     "ProviderConfig",
     "ProviderType",
-    "Role",
     "Usage",
     "LLMError",
     "RateLimitError",

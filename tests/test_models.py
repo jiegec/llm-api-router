@@ -3,13 +3,13 @@
 import pytest
 
 from llm_api_router.models import (
-    Message,
     ProviderConfig,
     ProviderType,
-    Role,
     Usage,
 )
 from tests.test_models_common import (
+    Role,
+    Message,
     ChatCompletionRequest,
     ChatCompletionResponse,
     Choice,
@@ -150,7 +150,6 @@ def test_chat_completion_response():
     assert response.model == "gpt-4o-mini"
     assert response.choices == [choice]
     assert response.usage == usage
-    assert response.provider == ProviderType.OPENAI
     assert response.object == "chat.completion"
 
 

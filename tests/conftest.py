@@ -5,11 +5,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from tests.test_models_common import Message, Role
 from llm_api_router.models import (
-    Message,
     ProviderConfig,
     ProviderType,
-    Role,
 )
 
 
