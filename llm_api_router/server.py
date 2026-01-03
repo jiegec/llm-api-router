@@ -216,7 +216,7 @@ def _postprocess_anthropic_chunk(response_dict: dict[str, Any]) -> dict[str, Any
             try:
                 existing_content["input"] = json.loads(existing_content["partial_json"])
             except Exception:
-                pass
+                existing_content["input"] = {}
             del existing_content["partial_json"]
 
     return response_dict
