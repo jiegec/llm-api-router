@@ -139,11 +139,21 @@ class RouterLogger:
         response_id = response.get("id", "")
         usage_data = response.get("usage")
         if usage_data:
-            usage = Usage(
-                prompt_tokens=usage_data.get("prompt_tokens", 0),
-                completion_tokens=usage_data.get("completion_tokens", 0),
-                total_tokens=usage_data.get("total_tokens", 0),
-            )
+            if "prompt_tokens" in usage_data:
+                # OpenAI format
+                usage = Usage(
+                    prompt_tokens=usage_data.get("prompt_tokens", 0),
+                    completion_tokens=usage_data.get("completion_tokens", 0),
+                    total_tokens=usage_data.get("total_tokens", 0),
+                )
+            else:
+                # Anthropic format
+                usage = Usage(
+                    prompt_tokens=usage_data.get("input_tokens", 0),
+                    completion_tokens=usage_data.get("output_tokens", 0),
+                    total_tokens=0,
+                )
+                usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
         else:
             usage = None
         choices = response.get("choices", [])

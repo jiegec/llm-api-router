@@ -161,6 +161,43 @@ def _merge_openai_chunk(
     return response_dict
 
 
+def _merge_anthropic_chunk(
+    response_dict: dict[str, Any], data: dict[str, Any]
+) -> dict[str, Any]:
+    """Merge a streaming chunk from Anthropic into a response dict."""
+    # Initialize response dict with metadata from first chunk
+    if not response_dict:
+        response_dict = {
+            "id": data.get("message", {}).get("id", ""),
+            "type": "message",
+            "role": "assistant",
+            "model": data.get("message", {}).get("model", ""),
+            "content": [],
+        }
+
+    # Merge content from content_block
+    if data["type"] == "content_block_start":
+        # add new one
+        content_idx = data.get("index", 0)
+        while len(response_dict["content"]) <= content_idx:
+            response_dict["content"].append({})
+        existing_content = response_dict["content"][content_idx]
+        for k in data["content_block"]:
+            existing_content[k] = data["content_block"][k]
+    elif data["type"] == "content_block_delta":
+        # Update existing content
+        content_idx = data.get("index", 0)
+        existing_content = response_dict["content"][content_idx]
+        if "text" in data["delta"]:
+            existing_content["text"] += data["delta"]["text"]
+    elif data["type"] == "message_delta":
+        if "stop_reason" in data["delta"]:
+            response_dict["stop_reason"] = data["delta"]["stop_reason"]
+        if "usage" in data:
+            response_dict["usage"] = data["usage"]
+    return response_dict
+
+
 def _create_stats_tracking_generator(
     original_generator: Any,
     provider_name: str,
@@ -193,33 +230,36 @@ def _create_stats_tracking_generator(
             cached_tokens = 0
 
             # Merge all chunks to reconstruct the full response
-            for chunk in accumulated_chunks:
-                try:
-                    # Parse chunk as text
+            full_resp = ""
+            try:
+                for chunk in accumulated_chunks:
                     assert isinstance(chunk, bytes)
                     chunk_text = chunk.decode("utf-8", errors="ignore")
+                    full_resp += chunk_text
+            except Exception:
+                pass
 
-                    # parse "data: {...}" SSE format
-                    for line in chunk_text.splitlines():
-                        if line.startswith("data: "):
-                            # Split by "data: " and process each chunk
-                            data_str = line.removeprefix("data: ").strip()
-                            if not data_str or data_str == "[DONE]":
-                                continue
+            # parse "data: {...}" SSE format
+            for line in full_resp.splitlines():
+                try:
+                    if line.startswith("data: "):
+                        # Split by "data: " and process each chunk
+                        data_str = line.removeprefix("data: ").strip()
+                        if not data_str or data_str == "[DONE]":
+                            continue
 
-                            try:
-                                data = json.loads(data_str)
+                        try:
+                            data = json.loads(data_str)
 
-                                if provider_type == ProviderType.OPENAI:
-                                    response_dict = _merge_openai_chunk(
-                                        response_dict, data
-                                    )
-                                elif provider_type == ProviderType.ANTHROPIC:
-                                    # TODO
-                                    pass
+                            if provider_type == ProviderType.OPENAI:
+                                response_dict = _merge_openai_chunk(response_dict, data)
+                            elif provider_type == ProviderType.ANTHROPIC:
+                                response_dict = _merge_anthropic_chunk(
+                                    response_dict, data
+                                )
 
-                            except json.JSONDecodeError:
-                                pass
+                        except json.JSONDecodeError:
+                            pass
 
                 except Exception:
                     # Don't fail if we can't parse for logging
@@ -239,8 +279,11 @@ def _create_stats_tracking_generator(
                             .get("cached_tokens", 0)
                         )
                 elif provider_type == ProviderType.ANTHROPIC:
-                    # TODO
-                    pass
+                    total_input_tokens = response_dict["usage"].get("input_tokens", 0)
+                    total_output_tokens = response_dict["usage"].get("output_tokens", 0)
+                    cached_tokens = response_dict["usage"].get(
+                        "cache_read_input_tokens", 0
+                    )
 
             # Record statistics after streaming completes
             stats_collector.record_request_success(
