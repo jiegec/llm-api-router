@@ -156,8 +156,13 @@ class RouterLogger:
                 usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
         else:
             usage = None
-        choices = response.get("choices", [])
-        finish_reason = choices[0].get("finish_reason") if choices else None
+        if "choices" in response:
+            # OpenAI format
+            choices = response.get("choices", [])
+            finish_reason = choices[0].get("finish_reason") if choices else None
+        else:
+            # Anthropic format
+            finish_reason = response.get("stop_reason", None)
         full_response = response
 
         log_entry = {
