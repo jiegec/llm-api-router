@@ -190,11 +190,35 @@ def _merge_anthropic_chunk(
         existing_content = response_dict["content"][content_idx]
         if "text" in data["delta"]:
             existing_content["text"] += data["delta"]["text"]
+        if "thinking" in data["delta"]:
+            existing_content["thinking"] += data["delta"]["thinking"]
+        if "partial_json" in data["delta"]:
+            if "partial_json" not in existing_content:
+                existing_content["partial_json"] = ""
+            existing_content["partial_json"] += data["delta"]["partial_json"]
+        if "signature" in data["delta"]:
+            existing_content["signature"] += data["delta"]["signature"]
     elif data["type"] == "message_delta":
         if "stop_reason" in data["delta"]:
             response_dict["stop_reason"] = data["delta"]["stop_reason"]
         if "usage" in data:
             response_dict["usage"] = data["usage"]
+    return response_dict
+
+
+def _postprocess_anthropic_chunk(response_dict: dict[str, Any]) -> dict[str, Any]:
+    """Postprocess response dict from Anthropic."""
+
+    # convert partial_json to dict
+    for content_idx in range(len(response_dict["content"])):
+        existing_content = response_dict["content"][content_idx]
+        if "partial_json" in existing_content:
+            try:
+                existing_content["input"] = json.loads(existing_content["partial_json"])
+            except Exception:
+                pass
+            del existing_content["partial_json"]
+
     return response_dict
 
 
@@ -264,6 +288,9 @@ def _create_stats_tracking_generator(
                 except Exception:
                     # Don't fail if we can't parse for logging
                     pass
+
+            if provider_type == ProviderType.ANTHROPIC:
+                response_dict = _postprocess_anthropic_chunk(response_dict)
 
             # Extract usage data if present
             if "usage" in response_dict:
