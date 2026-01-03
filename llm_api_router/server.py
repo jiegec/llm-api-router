@@ -105,34 +105,36 @@ def _merge_openai_chunk(
                 response_dict["choices"].append(
                     {
                         "index": len(response_dict["choices"]),
-                        "content": "",
-                        "tool_calls": [],
+                        "message": {
+                            "content": "",
+                            "tool_calls": [],
+                        },
                     }
                 )
-            existing_choice = response_dict["choices"][choice_idx]
+            existing_message = response_dict["choices"][choice_idx]["message"]
 
             if "delta" in choice:
                 delta = choice["delta"]
                 # Set role
                 if "role" in delta:
-                    existing_choice["role"] = delta["role"]
+                    existing_message["role"] = delta["role"]
                 # Accumulate content
                 if "content" in delta:
-                    existing_choice["content"] += delta["content"]
+                    existing_message["content"] += delta["content"]
                 # Accumulate reasoning content (for reasoning models)
                 if "reasoning_content" in delta:
-                    if "reasoning_content" not in existing_choice:
-                        existing_choice["reasoning_content"] = ""
-                    existing_choice["reasoning_content"] += delta["reasoning_content"]
+                    if "reasoning_content" not in existing_message:
+                        existing_message["reasoning_content"] = ""
+                    existing_message["reasoning_content"] += delta["reasoning_content"]
                 # Accumulate tool calls
                 if "tool_calls" in delta:
                     for tool_call in delta["tool_calls"]:
                         tool_call_idx = tool_call.get("index", 0)
                         # Extend tool_calls list if needed
-                        while len(existing_choice["tool_calls"]) <= tool_call_idx:
-                            existing_choice["tool_calls"].append({})
+                        while len(existing_message["tool_calls"]) <= tool_call_idx:
+                            existing_message["tool_calls"].append({})
                         # Merge tool call fields
-                        existing = existing_choice["tool_calls"][tool_call_idx]
+                        existing = existing_message["tool_calls"][tool_call_idx]
                         if "id" in tool_call:
                             existing["id"] = tool_call["id"]
                         if "type" in tool_call:
@@ -215,8 +217,6 @@ def _create_stats_tracking_generator(
                                 elif provider_type == ProviderType.ANTHROPIC:
                                     # TODO
                                     pass
-                                else:
-                                    assert False
 
                             except json.JSONDecodeError:
                                 pass
@@ -241,8 +241,6 @@ def _create_stats_tracking_generator(
                 elif provider_type == ProviderType.ANTHROPIC:
                     # TODO
                     pass
-                else:
-                    assert False
 
             # Record statistics after streaming completes
             stats_collector.record_request_success(

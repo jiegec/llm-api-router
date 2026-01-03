@@ -1,6 +1,6 @@
 """Test _merge_openai_chunk function."""
 
-from openai.types.chat import ChatCompletionChunk, ChatCompletion
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from llm_api_router.server import _merge_openai_chunk
 
@@ -8,6 +8,11 @@ from llm_api_router.server import _merge_openai_chunk
 def _chat_completion_chunk_to_dict(chunk: ChatCompletionChunk) -> dict:
     """Convert ChatCompletionChunk to dict."""
     return chunk.model_dump(mode="json", exclude_none=True)
+
+
+def _validate_chat_completion_dict(data: dict) -> ChatCompletion:
+    """Validate that a dict conforms to ChatCompletion schema."""
+    return ChatCompletion.model_construct(**data)
 
 
 def test_merge_openai_chunk_initializes_from_first_chunk():
@@ -35,8 +40,13 @@ def test_merge_openai_chunk_initializes_from_first_chunk():
     assert result["model"] == "gpt-4"
     assert len(result["choices"]) == 1
     assert result["choices"][0]["index"] == 0
-    assert result["choices"][0]["role"] == "assistant"
-    assert result["choices"][0]["content"] == "Hello"
+    assert result["choices"][0]["message"]["role"] == "assistant"
+    assert result["choices"][0]["message"]["content"] == "Hello"
+
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert completion.id == "chatcmpl-123"
+    assert completion.model == "gpt-4"
 
 
 def test_merge_openai_chunk_accumulates_content():
@@ -92,8 +102,13 @@ def test_merge_openai_chunk_accumulates_content():
     data3 = _chat_completion_chunk_to_dict(chunk3)
     result = _merge_openai_chunk(result, data3)
 
-    assert result["choices"][0]["content"] == "Hello world!"
+    assert result["choices"][0]["message"]["content"] == "Hello world!"
     assert result["choices"][0]["finish_reason"] == "stop"
+
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert completion.choices[0].message.content == "Hello world!"
+    assert completion.choices[0].finish_reason == "stop"
 
 
 def test_merge_openai_chunk_role():
@@ -115,7 +130,11 @@ def test_merge_openai_chunk_role():
     data = _chat_completion_chunk_to_dict(chunk)
     result = _merge_openai_chunk({}, data)
 
-    assert result["choices"][0]["role"] == "assistant"
+    assert result["choices"][0]["message"]["role"] == "assistant"
+
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert completion.choices[0].message.role == "assistant"
 
 
 def test_merge_openai_chunk_reasoning_content():
@@ -160,8 +179,17 @@ def test_merge_openai_chunk_reasoning_content():
     data2 = _chat_completion_chunk_to_dict(chunk2)
     result = _merge_openai_chunk(result, data2)
 
-    assert result["choices"][0]["content"] == "Hello world"
-    assert result["choices"][0]["reasoning_content"] == "Let me think about this"
+    assert result["choices"][0]["message"]["content"] == "Hello world"
+    assert (
+        result["choices"][0]["message"]["reasoning_content"]
+        == "Let me think about this"
+    )
+
+    # Validate result conforms to ChatCompletion schema
+    # Note: reasoning_content is not part of standard ChatCompletionMessage,
+    # so it's stored as extra data
+    completion = _validate_chat_completion_dict(result)
+    assert completion.choices[0].message.content == "Hello world"
 
 
 def test_merge_openai_chunk_tool_calls():
@@ -224,7 +252,7 @@ def test_merge_openai_chunk_tool_calls():
                             "index": 1,
                             "id": "call_def456",
                             "type": "function",
-                            "function": {"name": "calculate", "arguments": '2+2'},
+                            "function": {"name": "calculate", "arguments": "2+2"},
                         }
                     ]
                 },
@@ -242,21 +270,27 @@ def test_merge_openai_chunk_tool_calls():
     data3 = _chat_completion_chunk_to_dict(chunk3)
     result = _merge_openai_chunk(result, data3)
 
-    assert len(result["choices"][0]["tool_calls"]) == 2
+    assert len(result["choices"][0]["message"]["tool_calls"]) == 2
 
     # First tool call
-    tool_call_0 = result["choices"][0]["tool_calls"][0]
+    tool_call_0 = result["choices"][0]["message"]["tool_calls"][0]
     assert tool_call_0["id"] == "call_abc123"
     assert tool_call_0["type"] == "function"
     assert tool_call_0["function"]["name"] == "search"
     assert tool_call_0["function"]["arguments"] == '{"query":"hello"}'
 
     # Second tool call
-    tool_call_1 = result["choices"][0]["tool_calls"][1]
+    tool_call_1 = result["choices"][0]["message"]["tool_calls"][1]
     assert tool_call_1["id"] == "call_def456"
     assert tool_call_1["type"] == "function"
     assert tool_call_1["function"]["name"] == "calculate"
     assert tool_call_1["function"]["arguments"] == "2+2"
+
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert len(completion.choices[0].message.tool_calls) == 2
+    assert completion.choices[0].message.tool_calls[0].id == "call_abc123"
+    assert completion.choices[0].message.tool_calls[1].id == "call_def456"
 
 
 def test_merge_openai_chunk_multiple_choices():
@@ -277,9 +311,15 @@ def test_merge_openai_chunk_multiple_choices():
 
     assert len(result["choices"]) == 2
     assert result["choices"][0]["index"] == 0
-    assert result["choices"][0]["content"] == "Choice 1"
+    assert result["choices"][0]["message"]["content"] == "Choice 1"
     assert result["choices"][1]["index"] == 1
-    assert result["choices"][1]["content"] == "Choice 2"
+    assert result["choices"][1]["message"]["content"] == "Choice 2"
+
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert len(completion.choices) == 2
+    assert completion.choices[0].message.content == "Choice 1"
+    assert completion.choices[1].message.content == "Choice 2"
 
 
 def test_merge_openai_chunk_usage():
@@ -313,6 +353,12 @@ def test_merge_openai_chunk_usage():
     assert result["usage"]["total_tokens"] == 15
     assert result["usage"]["prompt_tokens_details"]["cached_tokens"] == 2
 
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert completion.usage.prompt_tokens == 10
+    assert completion.usage.completion_tokens == 5
+    assert completion.usage.total_tokens == 15
+
 
 def test_merge_openai_chunk_finish_reason():
     """Test that _merge_openai_chunk stores finish_reason correctly."""
@@ -335,6 +381,10 @@ def test_merge_openai_chunk_finish_reason():
 
     assert result["choices"][0]["finish_reason"] == "stop"
 
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert completion.choices[0].finish_reason == "stop"
+
 
 def test_merge_openai_chunk_empty_delta():
     """Test that _merge_openai_chunk handles empty delta correctly."""
@@ -355,7 +405,11 @@ def test_merge_openai_chunk_empty_delta():
     data = _chat_completion_chunk_to_dict(chunk)
     result = _merge_openai_chunk({}, data)
 
-    assert result["choices"][0].get("content") == ""
+    assert result["choices"][0]["message"].get("content") == ""
+
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert completion.choices[0].message.content == ""
 
 
 def test_merge_openai_chunk_out_of_order_choices():
@@ -398,9 +452,15 @@ def test_merge_openai_chunk_out_of_order_choices():
 
     assert len(result["choices"]) == 2
     assert result["choices"][0]["index"] == 0
-    assert result["choices"][0]["content"] == "Choice 1"
+    assert result["choices"][0]["message"]["content"] == "Choice 1"
     assert result["choices"][1]["index"] == 1
-    assert result["choices"][1]["content"] == "Choice 2"
+    assert result["choices"][1]["message"]["content"] == "Choice 2"
+
+    # Validate result conforms to ChatCompletion schema
+    completion = _validate_chat_completion_dict(result)
+    assert len(completion.choices) == 2
+    assert completion.choices[0].message.content == "Choice 1"
+    assert completion.choices[1].message.content == "Choice 2"
 
 
 if __name__ == "__main__":
