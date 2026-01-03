@@ -3,7 +3,7 @@
 import json
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -501,7 +501,9 @@ class LLMAPIServer:
                 request_start_time = response.get("_request_start_time", time.time())
                 request_id = response.get("_request_id", "")
                 endpoint = response.get("_endpoint", "")
-                provider_type = response.get("_provider_type")
+                provider_type: ProviderType = cast(
+                    ProviderType, response.get("_provider_type")
+                )
 
                 if not generator:
                     raise HTTPException(

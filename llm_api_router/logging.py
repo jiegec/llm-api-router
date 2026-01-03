@@ -147,7 +147,6 @@ class RouterLogger:
         else:
             usage = None
         choices = response.get("choices", [])
-        has_content = bool(choices and choices[0].get("message", {}).get("content"))
         finish_reason = choices[0].get("finish_reason") if choices else None
         full_response = response
 
@@ -170,7 +169,6 @@ class RouterLogger:
                 if usage
                 else None
             ),
-            "has_content": has_content,
             "finish_reason": finish_reason,
             "full_response": full_response,  # Log the complete response
         }
