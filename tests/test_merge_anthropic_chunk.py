@@ -8,7 +8,7 @@ from anthropic.types import (
     RawMessageStartEvent,
 )
 
-from llm_api_router.server import _merge_anthropic_chunk
+from llm_api_router.server import _merge_anthropic_chunk, _postprocess_anthropic_chunk
 
 
 def _anthropic_event_to_dict(event: Message | RawMessageStartEvent | RawContentBlockStartEvent | RawContentBlockDeltaEvent | RawMessageDeltaEvent) -> dict:
@@ -333,6 +333,265 @@ def test_merge_anthropic_chunk_model_from_message_start():
     # Validate result conforms to Message schema
     message = _validate_message_dict(result)
     assert message.model == "claude-3-opus-20240229"
+
+
+def test_merge_anthropic_chunk_thinking_delta():
+    """Test that _merge_anthropic_chunk accumulates thinking content."""
+    # Start a content block with minimal required fields
+    block_start = RawContentBlockStartEvent(
+        type="content_block_start",
+        index=0,
+        content_block={"type": "thinking", "thinking": "", "signature": ""},
+    )
+
+    # Add thinking deltas
+    delta1 = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=0,
+        delta={"type": "thinking_delta", "thinking": "Let me think"},
+    )
+
+    delta2 = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=0,
+        delta={"type": "thinking_delta", "thinking": " about this..."},
+    )
+
+    data1 = _anthropic_event_to_dict(block_start)
+    result = _merge_anthropic_chunk({}, data1)
+
+    data2 = _anthropic_event_to_dict(delta1)
+    result = _merge_anthropic_chunk(result, data2)
+
+    data3 = _anthropic_event_to_dict(delta2)
+    result = _merge_anthropic_chunk(result, data3)
+
+    assert result["content"][0]["thinking"] == "Let me think about this..."
+
+
+def test_merge_anthropic_chunk_signature_delta():
+    """Test that _merge_anthropic_chunk accumulates signature content."""
+    # Start a content block with minimal required fields
+    block_start = RawContentBlockStartEvent(
+        type="content_block_start",
+        index=0,
+        content_block={"type": "thinking", "thinking": "", "signature": ""},
+    )
+
+    # Add signature delta
+    delta = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=0,
+        delta={"type": "signature_delta", "signature": "abc123"},
+    )
+
+    data1 = _anthropic_event_to_dict(block_start)
+    result = _merge_anthropic_chunk({}, data1)
+
+    data2 = _anthropic_event_to_dict(delta)
+    result = _merge_anthropic_chunk(result, data2)
+
+    assert result["content"][0]["signature"] == "abc123"
+
+
+def test_merge_anthropic_chunk_partial_json_delta():
+    """Test that _merge_anthropic_chunk accumulates partial_json content."""
+    # Start a content block with minimal required fields
+    block_start = RawContentBlockStartEvent(
+        type="content_block_start",
+        index=0,
+        content_block={"type": "tool_use", "name": "search", "id": "tool_123", "input": {}},
+    )
+
+    # Add partial_json deltas
+    delta1 = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=0,
+        delta={"type": "input_json_delta", "partial_json": '{"query'},
+    )
+
+    delta2 = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=0,
+        delta={"type": "input_json_delta", "partial_json": '":"hello"}'},
+    )
+
+    data1 = _anthropic_event_to_dict(block_start)
+    result = _merge_anthropic_chunk({}, data1)
+
+    data2 = _anthropic_event_to_dict(delta1)
+    result = _merge_anthropic_chunk(result, data2)
+
+    data3 = _anthropic_event_to_dict(delta2)
+    result = _merge_anthropic_chunk(result, data3)
+
+    assert result["content"][0]["partial_json"] == '{"query":"hello"}'
+
+
+def test_postprocess_anthropic_chunk_converts_partial_json_to_dict():
+    """Test that _postprocess_anthropic_chunk converts partial_json to input dict."""
+    response_dict = {
+        "id": "msg_123",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-3-5-sonnet-20241022",
+        "content": [
+            {
+                "type": "tool_use",
+                "name": "search",
+                "id": "tool_123",
+                "partial_json": '{"query":"hello","limit":10}',
+            }
+        ],
+    }
+
+    result = _postprocess_anthropic_chunk(response_dict)
+
+    assert "partial_json" not in result["content"][0]
+    assert "input" in result["content"][0]
+    assert result["content"][0]["input"] == {"query": "hello", "limit": 10}
+
+
+def test_postprocess_anthropic_chunk_handles_invalid_json():
+    """Test that _postprocess_anthropic_chunk handles invalid JSON gracefully."""
+    response_dict = {
+        "id": "msg_123",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-3-5-sonnet-20241022",
+        "content": [
+            {
+                "type": "tool_use",
+                "name": "search",
+                "id": "tool_123",
+                "partial_json": "invalid json {",
+            }
+        ],
+    }
+
+    result = _postprocess_anthropic_chunk(response_dict)
+
+    # Invalid JSON should be handled - partial_json is removed but input is not added
+    assert "partial_json" not in result["content"][0]
+    assert "input" not in result["content"][0]
+
+
+def test_postprocess_anthropic_chunk_handles_missing_partial_json():
+    """Test that _postprocess_anthropic_chunk handles missing partial_json field."""
+    response_dict = {
+        "id": "msg_123",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-3-5-sonnet-20241022",
+        "content": [
+            {
+                "type": "text",
+                "text": "Hello world",
+            }
+        ],
+    }
+
+    result = _postprocess_anthropic_chunk(response_dict)
+
+    # No partial_json means no changes
+    assert result["content"][0]["text"] == "Hello world"
+
+
+def test_merge_and_postprocess_tool_use_streaming():
+    """Test end-to-end tool use streaming with partial_json conversion."""
+    # Start tool use content block
+    block_start = RawContentBlockStartEvent(
+        type="content_block_start",
+        index=0,
+        content_block={"type": "tool_use", "name": "calculate", "id": "tool_456", "input": {}},
+    )
+
+    # Add partial_json deltas
+    delta1 = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=0,
+        delta={"type": "input_json_delta", "partial_json": '{"a":1,'},
+    )
+
+    delta2 = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=0,
+        delta={"type": "input_json_delta", "partial_json": '"b":2}'},
+    )
+
+    # Merge chunks
+    data1 = _anthropic_event_to_dict(block_start)
+    result = _merge_anthropic_chunk({}, data1)
+
+    data2 = _anthropic_event_to_dict(delta1)
+    result = _merge_anthropic_chunk(result, data2)
+
+    data3 = _anthropic_event_to_dict(delta2)
+    result = _merge_anthropic_chunk(result, data3)
+
+    # Before postprocessing, partial_json should be present
+    assert result["content"][0]["partial_json"] == '{"a":1,"b":2}'
+
+    # Postprocess to convert partial_json to input
+    result = _postprocess_anthropic_chunk(result)
+
+    # After postprocessing, input should be a dict
+    assert "partial_json" not in result["content"][0]
+    assert result["content"][0]["input"] == {"a": 1, "b": 2}
+
+
+def test_merge_anthropic_chunk_multiple_tool_use_blocks():
+    """Test handling multiple tool_use content blocks with partial_json."""
+    # First tool use
+    block_start1 = RawContentBlockStartEvent(
+        type="content_block_start",
+        index=0,
+        content_block={"type": "tool_use", "name": "search", "id": "tool_1", "input": {}},
+    )
+
+    delta1 = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=0,
+        delta={"type": "input_json_delta", "partial_json": '{"q":"test"}'},
+    )
+
+    # Second tool use
+    block_start2 = RawContentBlockStartEvent(
+        type="content_block_start",
+        index=1,
+        content_block={"type": "tool_use", "name": "fetch", "id": "tool_2", "input": {}},
+    )
+
+    delta2 = RawContentBlockDeltaEvent(
+        type="content_block_delta",
+        index=1,
+        delta={"type": "input_json_delta", "partial_json": '{"url":"http://example.com"}'},
+    )
+
+    # Merge all chunks
+    data1 = _anthropic_event_to_dict(block_start1)
+    result = _merge_anthropic_chunk({}, data1)
+
+    data2 = _anthropic_event_to_dict(delta1)
+    result = _merge_anthropic_chunk(result, data2)
+
+    data3 = _anthropic_event_to_dict(block_start2)
+    result = _merge_anthropic_chunk(result, data3)
+
+    data4 = _anthropic_event_to_dict(delta2)
+    result = _merge_anthropic_chunk(result, data4)
+
+    # Postprocess
+    result = _postprocess_anthropic_chunk(result)
+
+    # Check both tool calls are processed
+    assert len(result["content"]) == 2
+    assert result["content"][0]["type"] == "tool_use"
+    assert result["content"][0]["name"] == "search"
+    assert result["content"][0]["input"] == {"q": "test"}
+    assert result["content"][1]["type"] == "tool_use"
+    assert result["content"][1]["name"] == "fetch"
+    assert result["content"][1]["input"] == {"url": "http://example.com"}
 
 
 if __name__ == "__main__":
