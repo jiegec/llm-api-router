@@ -1,6 +1,12 @@
 """Test _merge_anthropic_chunk function."""
 
-from anthropic.types import Message, RawContentBlockDeltaEvent, RawContentBlockStartEvent, RawMessageDeltaEvent, RawMessageStartEvent
+from anthropic.types import (
+    Message,
+    RawContentBlockDeltaEvent,
+    RawContentBlockStartEvent,
+    RawMessageDeltaEvent,
+    RawMessageStartEvent,
+)
 
 from llm_api_router.server import _merge_anthropic_chunk
 
