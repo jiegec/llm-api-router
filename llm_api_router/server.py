@@ -89,84 +89,201 @@ def _create_stats_tracking_generator(
     request_start_time: float,
     request_id: str,
     endpoint: str,
-    original_request: dict[str, Any],
+    provider_type: ProviderType,
 ) -> Any:
     """Create a generator that tracks statistics from streaming chunks."""
 
     async def stats_tracking_generator() -> Any:
         """Generator that tracks statistics while yielding chunks."""
-        total_input_tokens = 0
-        total_output_tokens = 0
-        cached_tokens = 0
         accumulated_chunks = []
 
         try:
             async for chunk in original_generator:
                 accumulated_chunks.append(chunk)
-                # Try to extract usage from chunk
-                try:
-                    # Parse chunk as text
-                    if isinstance(chunk, bytes):
-                        chunk_text = chunk.decode("utf-8", errors="ignore")
-                    else:
-                        chunk_text = str(chunk)
-
-                    # OpenAI format: "data: {...}" SSE format
-                    if "data: " in chunk_text:
-                        # Split by "data: " and process each chunk
-                        data_chunks = chunk_text.split("data: ")
-                        for data_str in data_chunks:
-                            data_str = data_str.strip()
-                            if not data_str or data_str == "[DONE]":
-                                continue
-
-                            try:
-                                data = json.loads(data_str)
-                                # Check for usage in chunk (typically in last chunk)
-                                if "usage" in data:
-                                    usage = data["usage"]
-                                    total_input_tokens = usage.get("prompt_tokens", 0)
-                                    total_output_tokens = usage.get(
-                                        "completion_tokens", 0
-                                    )
-                                    # Also track cached tokens if available
-                                    if (
-                                        "prompt_tokens_details" in usage
-                                        and usage["prompt_tokens_details"]
-                                    ):
-                                        cached_tokens = usage[
-                                            "prompt_tokens_details"
-                                        ].get("cached_tokens", 0)
-                            except json.JSONDecodeError:
-                                pass
-
-                    # Anthropic format: JSON with usage field
-                    elif "usage" in chunk_text:
-                        try:
-                            data = json.loads(chunk_text)
-                            if "usage" in data:
-                                usage = data["usage"]
-                                total_input_tokens = usage.get("input_tokens", 0)
-                                total_output_tokens = usage.get("output_tokens", 0)
-                                # Also track cached tokens if available
-                                if (
-                                    "prompt_tokens_details" in usage
-                                    and usage["prompt_tokens_details"]
-                                ):
-                                    cached_tokens = usage["prompt_tokens_details"].get(
-                                        "cached_tokens", 0
-                                    )
-                        except json.JSONDecodeError:
-                            pass
-                except Exception:
-                    # Don't fail streaming if we can't parse stats
-                    pass
-
                 # Yield original chunk
                 yield chunk
         finally:
             # Calculate duration
             duration_ms = (time.time() - request_start_time) * 1000
+
+            # Log the streaming response
+            # Try to reconstruct a response dict from accumulated chunks for logging
+            response_dict: dict[str, Any] = {}
+            total_input_tokens = 0
+            total_output_tokens = 0
+            cached_tokens = 0
+
+            # Merge all chunks to reconstruct the full response
+            for chunk in accumulated_chunks:
+                try:
+                    # Parse chunk as text
+                    assert isinstance(chunk, bytes)
+                    chunk_text = chunk.decode("utf-8", errors="ignore")
+
+                    # parse "data: {...}" SSE format
+                    for line in chunk_text.splitlines():
+                        if line.startswith("data: "):
+                            # Split by "data: " and process each chunk
+                            data_str = line.removeprefix("data: ").strip()
+                            if not data_str or data_str == "[DONE]":
+                                continue
+
+                            try:
+                                data = json.loads(data_str)
+
+                                if provider_type == ProviderType.OPENAI:
+                                    # Initialize response dict with metadata from first chunk
+                                    if not response_dict:
+                                        response_dict = {
+                                            "id": data.get("id", ""),
+                                            "object": "chat.completion",
+                                            "created": data.get(
+                                                "created", int(time.time())
+                                            ),
+                                            "model": data.get("model", ""),
+                                            "choices": [],
+                                        }
+
+                                    # Merge content from delta
+                                    if "choices" in data and data["choices"]:
+                                        for choice in data["choices"]:
+                                            # Update existing choice or add new one
+                                            choice_idx = choice.get("index", 0)
+                                            while (
+                                                len(response_dict["choices"])
+                                                <= choice_idx
+                                            ):
+                                                response_dict["choices"].append(
+                                                    {
+                                                        "index": len(
+                                                            response_dict["choices"]
+                                                        ),
+                                                        "content": "",
+                                                        "tool_calls": [],
+                                                    }
+                                                )
+                                            existing_choice = response_dict["choices"][
+                                                choice_idx
+                                            ]
+
+                                            if "delta" in choice:
+                                                delta = choice["delta"]
+                                                # Set role
+                                                if "role" in delta:
+                                                    existing_choice["role"] = delta[
+                                                        "role"
+                                                    ]
+                                                # Accumulate content
+                                                if "content" in delta:
+                                                    existing_choice["content"] += delta[
+                                                        "content"
+                                                    ]
+                                                # Accumulate reasoning content (for reasoning models)
+                                                if "reasoning_content" in delta:
+                                                    if (
+                                                        "reasoning_content"
+                                                        not in existing_choice
+                                                    ):
+                                                        existing_choice[
+                                                            "reasoning_content"
+                                                        ] = ""
+                                                    existing_choice[
+                                                        "reasoning_content"
+                                                    ] += delta["reasoning_content"]
+                                                # Accumulate tool calls
+                                                if "tool_calls" in delta:
+                                                    for tool_call in delta[
+                                                        "tool_calls"
+                                                    ]:
+                                                        tool_call_idx = tool_call.get(
+                                                            "index", 0
+                                                        )
+                                                        # Extend tool_calls list if needed
+                                                        while (
+                                                            len(
+                                                                existing_choice[
+                                                                    "tool_calls"
+                                                                ]
+                                                            )
+                                                            <= tool_call_idx
+                                                        ):
+                                                            existing_choice[
+                                                                "tool_calls"
+                                                            ].append({})
+                                                        # Merge tool call fields
+                                                        existing = existing_choice[
+                                                            "tool_calls"
+                                                        ][tool_call_idx]
+                                                        if "id" in tool_call:
+                                                            existing["id"] = tool_call[
+                                                                "id"
+                                                            ]
+                                                        if "type" in tool_call:
+                                                            existing["type"] = (
+                                                                tool_call["type"]
+                                                            )
+                                                        if "function" in tool_call:
+                                                            if (
+                                                                "function"
+                                                                not in existing
+                                                            ):
+                                                                existing["function"] = {
+                                                                    "name": "",
+                                                                    "arguments": "",
+                                                                }
+                                                            func = existing["function"]
+                                                            if (
+                                                                "name"
+                                                                in tool_call["function"]
+                                                            ):
+                                                                func["name"] = (
+                                                                    tool_call[
+                                                                        "function"
+                                                                    ]["name"]
+                                                                )
+                                                            if (
+                                                                "arguments"
+                                                                in tool_call["function"]
+                                                            ):
+                                                                func[
+                                                                    "arguments"
+                                                                ] += tool_call[
+                                                                    "function"
+                                                                ][
+                                                                    "arguments"
+                                                                ]
+                                            # Store finish reason if present
+                                            if "finish_reason" in choice:
+                                                response_dict["choices"][choice_idx][
+                                                    "finish_reason"
+                                                ] = choice["finish_reason"]
+                                    # Store usage data if present
+                                    if "usage" in data:
+                                        response_dict["usage"] = data["usage"]
+                                        total_input_tokens = data["usage"].get(
+                                            "prompt_tokens", 0
+                                        )
+                                        total_output_tokens = data["usage"].get(
+                                            "completion_tokens", 0
+                                        )
+                                        if "prompt_tokens_details" in data["usage"]:
+                                            cached_tokens = (
+                                                data["usage"]
+                                                .get("prompt_tokens_details", {})
+                                                .get("cached_tokens", 0)
+                                            )
+                                elif provider_type == ProviderType.ANTHROPIC:
+                                    # TODO
+                                    pass
+                                else:
+                                    assert False
+
+                            except json.JSONDecodeError:
+                                pass
+
+                except Exception:
+                    # Don't fail if we can't parse for logging
+                    pass
 
             # Record statistics after streaming completes
             stats_collector.record_request_success(
@@ -176,183 +293,6 @@ def _create_stats_tracking_generator(
                 total_output_tokens,
                 cached_tokens,
             )
-
-            # Log the streaming response
-            # Try to reconstruct a response dict from accumulated chunks for logging
-            response_dict: dict[str, Any] = {}
-            accumulated_content = ""
-            accumulated_reasoning_content = ""
-            accumulated_tool_calls: list[dict[str, Any]] = []
-
-            # Merge all chunks to reconstruct the full response
-            for chunk in accumulated_chunks:
-                try:
-                    if isinstance(chunk, bytes):
-                        chunk_text = chunk.decode("utf-8", errors="ignore")
-                    else:
-                        chunk_text = str(chunk)
-
-                    # OpenAI format: "data: {...}" SSE format
-                    if "data: " in chunk_text:
-                        data_chunks = chunk_text.split("data: ")
-                        for data_str in data_chunks:
-                            data_str = data_str.strip()
-                            if not data_str or data_str == "[DONE]":
-                                continue
-                            try:
-                                data = json.loads(data_str)
-
-                                # Initialize response dict with metadata from first chunk
-                                if not response_dict:
-                                    response_dict = {
-                                        "id": data.get("id", ""),
-                                        "object": data.get("object", "chat.completion"),
-                                        "created": data.get(
-                                            "created", int(time.time())
-                                        ),
-                                        "model": data.get("model", ""),
-                                        "choices": [],
-                                    }
-
-                                # Merge content from delta
-                                if "choices" in data and data["choices"]:
-                                    for choice in data["choices"]:
-                                        if "delta" in choice:
-                                            delta = choice["delta"]
-                                            # Accumulate content
-                                            if "content" in delta:
-                                                accumulated_content += delta["content"]
-                                            # Accumulate reasoning content (for reasoning models)
-                                            if "reasoning_content" in delta:
-                                                accumulated_reasoning_content += delta[
-                                                    "reasoning_content"
-                                                ]
-                                            # Accumulate tool calls
-                                            if "tool_calls" in delta:
-                                                for tool_call in delta["tool_calls"]:
-                                                    tool_call_idx = tool_call.get(
-                                                        "index", 0
-                                                    )
-                                                    # Extend accumulated_tool_calls list if needed
-                                                    while (
-                                                        len(accumulated_tool_calls)
-                                                        <= tool_call_idx
-                                                    ):
-                                                        accumulated_tool_calls.append(
-                                                            {}
-                                                        )
-                                                    # Merge tool call fields
-                                                    existing = accumulated_tool_calls[
-                                                        tool_call_idx
-                                                    ]
-                                                    if "id" in tool_call:
-                                                        existing["id"] = tool_call["id"]
-                                                    if "type" in tool_call:
-                                                        existing["type"] = tool_call[
-                                                            "type"
-                                                        ]
-                                                    if "function" in tool_call:
-                                                        if "function" not in existing:
-                                                            existing["function"] = {
-                                                                "name": "",
-                                                                "arguments": "",
-                                                            }
-                                                        func = existing["function"]
-                                                        if (
-                                                            "name"
-                                                            in tool_call["function"]
-                                                        ):
-                                                            func["name"] = tool_call[
-                                                                "function"
-                                                            ]["name"]
-                                                        if (
-                                                            "arguments"
-                                                            in tool_call["function"]
-                                                        ):
-                                                            func[
-                                                                "arguments"
-                                                            ] += tool_call["function"][
-                                                                "arguments"
-                                                            ]
-                                            # Store finish reason if present
-                                            if "finish_reason" in choice:
-                                                # Update existing choice or add new one
-                                                choice_idx = choice.get("index", 0)
-                                                while (
-                                                    len(response_dict["choices"])
-                                                    <= choice_idx
-                                                ):
-                                                    response_dict["choices"].append({})
-                                                message_dict: dict[str, Any] = {
-                                                    "role": "assistant"
-                                                }
-                                                if accumulated_content:
-                                                    message_dict["content"] = (
-                                                        accumulated_content
-                                                    )
-                                                if accumulated_reasoning_content:
-                                                    message_dict[
-                                                        "reasoning_content"
-                                                    ] = accumulated_reasoning_content
-                                                if accumulated_tool_calls:
-                                                    message_dict["tool_calls"] = (
-                                                        accumulated_tool_calls
-                                                    )
-                                                response_dict["choices"][choice_idx] = {
-                                                    "message": message_dict,
-                                                    "finish_reason": choice[
-                                                        "finish_reason"
-                                                    ],
-                                                    "index": choice_idx,
-                                                }
-
-                            except json.JSONDecodeError:
-                                pass
-
-                    # Anthropic format: JSON with usage field
-                    elif "usage" in chunk_text or "delta" in chunk_text:
-                        try:
-                            data = json.loads(chunk_text)
-
-                            # Initialize response dict with metadata from first chunk
-                            if not response_dict:
-                                response_dict = {
-                                    "id": data.get("id", ""),
-                                    "type": data.get("type", "message"),
-                                    "model": data.get("model", ""),
-                                    "content": [],
-                                }
-
-                            # Merge content from delta
-                            if "delta" in data:
-                                delta = data["delta"]
-                                if "text" in delta:
-                                    accumulated_content += delta["text"]
-
-                            # If this chunk has usage, it's likely the final chunk
-                            if "usage" in data:
-                                response_dict["usage"] = data["usage"]
-                                # Set the accumulated content
-                                if accumulated_content:
-                                    response_dict["content"] = [
-                                        {"type": "text", "text": accumulated_content}
-                                    ]
-
-                        except json.JSONDecodeError:
-                            pass
-                except Exception:
-                    # Don't fail if we can't parse for logging
-                    pass
-
-            # Add usage info to response dict if we have it and it's not already present
-            if (
-                total_input_tokens > 0 or total_output_tokens > 0
-            ) and "usage" not in response_dict:
-                response_dict["usage"] = {
-                    "prompt_tokens": total_input_tokens,
-                    "completion_tokens": total_output_tokens,
-                    "total_tokens": total_input_tokens + total_output_tokens,
-                }
 
             # Log the response
             logger = get_logger()
@@ -604,7 +544,7 @@ class LLMAPIServer:
                 request_start_time = response.get("_request_start_time", time.time())
                 request_id = response.get("_request_id", "")
                 endpoint = response.get("_endpoint", "")
-                original_request = response.get("_original_request", {})
+                provider_type = response.get("_provider_type")
 
                 if not generator:
                     raise HTTPException(
@@ -619,7 +559,7 @@ class LLMAPIServer:
                     request_start_time,
                     request_id,
                     endpoint,
-                    original_request,
+                    provider_type,
                 )
 
                 return StreamingResponse(

@@ -352,6 +352,7 @@ class BaseProvider(ABC):
                 # Generator checked successfully, return it
                 return {
                     "_streaming": True,
+                    "_provider_type": self.config.name,
                     "_provider": self.provider_name,
                     "_generator": streaming_generator(),
                 }
