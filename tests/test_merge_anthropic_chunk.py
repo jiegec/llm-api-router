@@ -11,7 +11,15 @@ from anthropic.types import (
 from llm_api_router.server import _merge_anthropic_chunk, _postprocess_anthropic_chunk
 
 
-def _anthropic_event_to_dict(event: Message | RawMessageStartEvent | RawContentBlockStartEvent | RawContentBlockDeltaEvent | RawMessageDeltaEvent) -> dict:
+def _anthropic_event_to_dict(
+    event: (
+        Message
+        | RawMessageStartEvent
+        | RawContentBlockStartEvent
+        | RawContentBlockDeltaEvent
+        | RawMessageDeltaEvent
+    ),
+) -> dict:
     """Convert Anthropic event to dict."""
     return event.model_dump(mode="json", exclude_none=True)
 
@@ -400,7 +408,12 @@ def test_merge_anthropic_chunk_partial_json_delta():
     block_start = RawContentBlockStartEvent(
         type="content_block_start",
         index=0,
-        content_block={"type": "tool_use", "name": "search", "id": "tool_123", "input": {}},
+        content_block={
+            "type": "tool_use",
+            "name": "search",
+            "id": "tool_123",
+            "input": {},
+        },
     )
 
     # Add partial_json deltas
@@ -451,6 +464,12 @@ def test_postprocess_anthropic_chunk_converts_partial_json_to_dict():
     assert "input" in result["content"][0]
     assert result["content"][0]["input"] == {"query": "hello", "limit": 10}
 
+    # Validate result conforms to Message schema
+    message = _validate_message_dict(result)
+    assert message.content[0].type == "tool_use"
+    assert message.content[0].name == "search"
+    assert message.content[0].input == {"query": "hello", "limit": 10}
+
 
 def test_postprocess_anthropic_chunk_handles_invalid_json():
     """Test that _postprocess_anthropic_chunk handles invalid JSON gracefully."""
@@ -464,6 +483,7 @@ def test_postprocess_anthropic_chunk_handles_invalid_json():
                 "type": "tool_use",
                 "name": "search",
                 "id": "tool_123",
+                "input": {},
                 "partial_json": "invalid json {",
             }
         ],
@@ -471,9 +491,14 @@ def test_postprocess_anthropic_chunk_handles_invalid_json():
 
     result = _postprocess_anthropic_chunk(response_dict)
 
-    # Invalid JSON should be handled - partial_json is removed but input is not added
+    # Invalid JSON should be handled - partial_json is removed, input remains
     assert "partial_json" not in result["content"][0]
-    assert "input" not in result["content"][0]
+    assert result["content"][0]["input"] == {}
+
+    # Validate result conforms to Message schema
+    message = _validate_message_dict(result)
+    assert message.content[0].type == "tool_use"
+    assert message.content[0].input == {}
 
 
 def test_postprocess_anthropic_chunk_handles_missing_partial_json():
@@ -496,6 +521,10 @@ def test_postprocess_anthropic_chunk_handles_missing_partial_json():
     # No partial_json means no changes
     assert result["content"][0]["text"] == "Hello world"
 
+    # Validate result conforms to Message schema
+    message = _validate_message_dict(result)
+    assert message.content[0].text == "Hello world"
+
 
 def test_merge_and_postprocess_tool_use_streaming():
     """Test end-to-end tool use streaming with partial_json conversion."""
@@ -503,7 +532,12 @@ def test_merge_and_postprocess_tool_use_streaming():
     block_start = RawContentBlockStartEvent(
         type="content_block_start",
         index=0,
-        content_block={"type": "tool_use", "name": "calculate", "id": "tool_456", "input": {}},
+        content_block={
+            "type": "tool_use",
+            "name": "calculate",
+            "id": "tool_456",
+            "input": {},
+        },
     )
 
     # Add partial_json deltas
@@ -539,6 +573,12 @@ def test_merge_and_postprocess_tool_use_streaming():
     assert "partial_json" not in result["content"][0]
     assert result["content"][0]["input"] == {"a": 1, "b": 2}
 
+    # Validate result conforms to Message schema
+    message = _validate_message_dict(result)
+    assert message.content[0].type == "tool_use"
+    assert message.content[0].name == "calculate"
+    assert message.content[0].input == {"a": 1, "b": 2}
+
 
 def test_merge_anthropic_chunk_multiple_tool_use_blocks():
     """Test handling multiple tool_use content blocks with partial_json."""
@@ -546,7 +586,12 @@ def test_merge_anthropic_chunk_multiple_tool_use_blocks():
     block_start1 = RawContentBlockStartEvent(
         type="content_block_start",
         index=0,
-        content_block={"type": "tool_use", "name": "search", "id": "tool_1", "input": {}},
+        content_block={
+            "type": "tool_use",
+            "name": "search",
+            "id": "tool_1",
+            "input": {},
+        },
     )
 
     delta1 = RawContentBlockDeltaEvent(
@@ -559,13 +604,21 @@ def test_merge_anthropic_chunk_multiple_tool_use_blocks():
     block_start2 = RawContentBlockStartEvent(
         type="content_block_start",
         index=1,
-        content_block={"type": "tool_use", "name": "fetch", "id": "tool_2", "input": {}},
+        content_block={
+            "type": "tool_use",
+            "name": "fetch",
+            "id": "tool_2",
+            "input": {},
+        },
     )
 
     delta2 = RawContentBlockDeltaEvent(
         type="content_block_delta",
         index=1,
-        delta={"type": "input_json_delta", "partial_json": '{"url":"http://example.com"}'},
+        delta={
+            "type": "input_json_delta",
+            "partial_json": '{"url":"http://example.com"}',
+        },
     )
 
     # Merge all chunks
@@ -592,6 +645,16 @@ def test_merge_anthropic_chunk_multiple_tool_use_blocks():
     assert result["content"][1]["type"] == "tool_use"
     assert result["content"][1]["name"] == "fetch"
     assert result["content"][1]["input"] == {"url": "http://example.com"}
+
+    # Validate result conforms to Message schema
+    message = _validate_message_dict(result)
+    assert len(message.content) == 2
+    assert message.content[0].type == "tool_use"
+    assert message.content[0].name == "search"
+    assert message.content[0].input == {"q": "test"}
+    assert message.content[1].type == "tool_use"
+    assert message.content[1].name == "fetch"
+    assert message.content[1].input == {"url": "http://example.com"}
 
 
 if __name__ == "__main__":
