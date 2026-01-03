@@ -82,6 +82,83 @@ def _format_stats(stats: Any) -> dict[str, Any]:
     }
 
 
+def _merge_openai_chunk(
+    response_dict: dict[str, Any], data: dict[str, Any]
+) -> dict[str, Any]:
+    """Merge a streaming chunk from OpenAI into a response dict."""
+    # Initialize response dict with metadata from first chunk
+    if not response_dict:
+        response_dict = {
+            "id": data.get("id", ""),
+            "object": "chat.completion",
+            "created": data.get("created", int(time.time())),
+            "model": data.get("model", ""),
+            "choices": [],
+        }
+
+    # Merge content from delta
+    if "choices" in data and data["choices"]:
+        for choice in data["choices"]:
+            # Update existing choice or add new one
+            choice_idx = choice.get("index", 0)
+            while len(response_dict["choices"]) <= choice_idx:
+                response_dict["choices"].append(
+                    {
+                        "index": len(response_dict["choices"]),
+                        "content": "",
+                        "tool_calls": [],
+                    }
+                )
+            existing_choice = response_dict["choices"][choice_idx]
+
+            if "delta" in choice:
+                delta = choice["delta"]
+                # Set role
+                if "role" in delta:
+                    existing_choice["role"] = delta["role"]
+                # Accumulate content
+                if "content" in delta:
+                    existing_choice["content"] += delta["content"]
+                # Accumulate reasoning content (for reasoning models)
+                if "reasoning_content" in delta:
+                    if "reasoning_content" not in existing_choice:
+                        existing_choice["reasoning_content"] = ""
+                    existing_choice["reasoning_content"] += delta["reasoning_content"]
+                # Accumulate tool calls
+                if "tool_calls" in delta:
+                    for tool_call in delta["tool_calls"]:
+                        tool_call_idx = tool_call.get("index", 0)
+                        # Extend tool_calls list if needed
+                        while len(existing_choice["tool_calls"]) <= tool_call_idx:
+                            existing_choice["tool_calls"].append({})
+                        # Merge tool call fields
+                        existing = existing_choice["tool_calls"][tool_call_idx]
+                        if "id" in tool_call:
+                            existing["id"] = tool_call["id"]
+                        if "type" in tool_call:
+                            existing["type"] = tool_call["type"]
+                        if "function" in tool_call:
+                            if "function" not in existing:
+                                existing["function"] = {
+                                    "name": "",
+                                    "arguments": "",
+                                }
+                            func = existing["function"]
+                            if "name" in tool_call["function"]:
+                                func["name"] = tool_call["function"]["name"]
+                            if "arguments" in tool_call["function"]:
+                                func["arguments"] += tool_call["function"]["arguments"]
+            # Store finish reason if present
+            if "finish_reason" in choice:
+                response_dict["choices"][choice_idx]["finish_reason"] = choice[
+                    "finish_reason"
+                ]
+    # Store usage data if present
+    if "usage" in data:
+        response_dict["usage"] = data["usage"]
+    return response_dict
+
+
 def _create_stats_tracking_generator(
     original_generator: Any,
     provider_name: str,
@@ -132,146 +209,9 @@ def _create_stats_tracking_generator(
                                 data = json.loads(data_str)
 
                                 if provider_type == ProviderType.OPENAI:
-                                    # Initialize response dict with metadata from first chunk
-                                    if not response_dict:
-                                        response_dict = {
-                                            "id": data.get("id", ""),
-                                            "object": "chat.completion",
-                                            "created": data.get(
-                                                "created", int(time.time())
-                                            ),
-                                            "model": data.get("model", ""),
-                                            "choices": [],
-                                        }
-
-                                    # Merge content from delta
-                                    if "choices" in data and data["choices"]:
-                                        for choice in data["choices"]:
-                                            # Update existing choice or add new one
-                                            choice_idx = choice.get("index", 0)
-                                            while (
-                                                len(response_dict["choices"])
-                                                <= choice_idx
-                                            ):
-                                                response_dict["choices"].append(
-                                                    {
-                                                        "index": len(
-                                                            response_dict["choices"]
-                                                        ),
-                                                        "content": "",
-                                                        "tool_calls": [],
-                                                    }
-                                                )
-                                            existing_choice = response_dict["choices"][
-                                                choice_idx
-                                            ]
-
-                                            if "delta" in choice:
-                                                delta = choice["delta"]
-                                                # Set role
-                                                if "role" in delta:
-                                                    existing_choice["role"] = delta[
-                                                        "role"
-                                                    ]
-                                                # Accumulate content
-                                                if "content" in delta:
-                                                    existing_choice["content"] += delta[
-                                                        "content"
-                                                    ]
-                                                # Accumulate reasoning content (for reasoning models)
-                                                if "reasoning_content" in delta:
-                                                    if (
-                                                        "reasoning_content"
-                                                        not in existing_choice
-                                                    ):
-                                                        existing_choice[
-                                                            "reasoning_content"
-                                                        ] = ""
-                                                    existing_choice[
-                                                        "reasoning_content"
-                                                    ] += delta["reasoning_content"]
-                                                # Accumulate tool calls
-                                                if "tool_calls" in delta:
-                                                    for tool_call in delta[
-                                                        "tool_calls"
-                                                    ]:
-                                                        tool_call_idx = tool_call.get(
-                                                            "index", 0
-                                                        )
-                                                        # Extend tool_calls list if needed
-                                                        while (
-                                                            len(
-                                                                existing_choice[
-                                                                    "tool_calls"
-                                                                ]
-                                                            )
-                                                            <= tool_call_idx
-                                                        ):
-                                                            existing_choice[
-                                                                "tool_calls"
-                                                            ].append({})
-                                                        # Merge tool call fields
-                                                        existing = existing_choice[
-                                                            "tool_calls"
-                                                        ][tool_call_idx]
-                                                        if "id" in tool_call:
-                                                            existing["id"] = tool_call[
-                                                                "id"
-                                                            ]
-                                                        if "type" in tool_call:
-                                                            existing["type"] = (
-                                                                tool_call["type"]
-                                                            )
-                                                        if "function" in tool_call:
-                                                            if (
-                                                                "function"
-                                                                not in existing
-                                                            ):
-                                                                existing["function"] = {
-                                                                    "name": "",
-                                                                    "arguments": "",
-                                                                }
-                                                            func = existing["function"]
-                                                            if (
-                                                                "name"
-                                                                in tool_call["function"]
-                                                            ):
-                                                                func["name"] = (
-                                                                    tool_call[
-                                                                        "function"
-                                                                    ]["name"]
-                                                                )
-                                                            if (
-                                                                "arguments"
-                                                                in tool_call["function"]
-                                                            ):
-                                                                func[
-                                                                    "arguments"
-                                                                ] += tool_call[
-                                                                    "function"
-                                                                ][
-                                                                    "arguments"
-                                                                ]
-                                            # Store finish reason if present
-                                            if "finish_reason" in choice:
-                                                response_dict["choices"][choice_idx][
-                                                    "finish_reason"
-                                                ] = choice["finish_reason"]
-                                    # Store usage data if present
-                                    if "usage" in data:
-                                        response_dict["usage"] = data["usage"]
-                                        total_input_tokens = data["usage"].get(
-                                            "prompt_tokens", 0
-                                        )
-                                        total_output_tokens = data["usage"].get(
-                                            "completion_tokens", 0
-                                        )
-                                        if "prompt_tokens_details" in data["usage"]:
-                                            cached_tokens = (
-                                                data["usage"]
-                                                .get("prompt_tokens_details", {})
-                                                .get("cached_tokens", 0)
-                                            )
+                                    response_dict = _merge_openai_chunk(
+                                        response_dict, data
+                                    )
                                 elif provider_type == ProviderType.ANTHROPIC:
                                     # TODO
                                     pass
@@ -284,6 +224,25 @@ def _create_stats_tracking_generator(
                 except Exception:
                     # Don't fail if we can't parse for logging
                     pass
+
+            # Extract usage data if present
+            if "usage" in response_dict:
+                if provider_type == ProviderType.OPENAI:
+                    total_input_tokens = response_dict["usage"].get("prompt_tokens", 0)
+                    total_output_tokens = response_dict["usage"].get(
+                        "completion_tokens", 0
+                    )
+                    if "prompt_tokens_details" in response_dict["usage"]:
+                        cached_tokens = (
+                            response_dict["usage"]
+                            .get("prompt_tokens_details", {})
+                            .get("cached_tokens", 0)
+                        )
+                elif provider_type == ProviderType.ANTHROPIC:
+                    # TODO
+                    pass
+                else:
+                    assert False
 
             # Record statistics after streaming completes
             stats_collector.record_request_success(
