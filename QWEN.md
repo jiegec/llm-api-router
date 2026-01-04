@@ -56,15 +56,17 @@ llm_api_router/
 ├── __init__.py
 ├── cli.py           # CLI entry point
 ├── config.py        # Configuration loading and validation
+├── exceptions.py    # Custom exception classes
 ├── logging.py       # JSON logging to files
 ├── models.py        # Pydantic models for data structures
 ├── server.py        # FastAPI server and endpoints
-├── providers        # OpenAI/Anthropic provider implementations
+├── providers/       # OpenAI/Anthropic provider implementations
 │   ├── anthropic.py
 │   ├── base.py
 │   ├── __init__.py
-│   ├── openai.py
-└── router.py        # Router with fallback logic
+│   └── openai.py
+├── router.py        # Router with fallback logic
+└── stats.py         # Statistics collection
 
 tests/               # Test suite
 .github/workflows/   # GitHub CI configuration
@@ -77,6 +79,10 @@ tests/               # Test suite
 - **HTTP Clients**: httpx
 - **API Clients**: openai, anthropic
 - **Validation**: Pydantic
+- **Testing**: pytest
+- **Code Formatting**: black
+- **Linting**: ruff
+- **Type Checking**: mypy
 
 ## Configuration
 
@@ -114,6 +120,36 @@ Model mappings and provider settings are configured via JSON config:
 4. **Type checking** - Use mypy with strict mode
 5. **Linting** - Use ruff for code quality
 6. **Cleanup** - Remove unused code and maintain clean codebase
+
+### Pre-commit Checks
+
+Before committing changes, run the following commands to ensure code quality:
+
+```bash
+# Format code with black (fails if formatting is needed)
+poetry run black --check llm_api_router tests
+
+# Lint with ruff (fails if linting issues found)
+poetry run ruff check llm_api_router tests
+
+# Type check with mypy (fails if type errors found)
+poetry run mypy llm_api_router
+
+# Run tests
+poetry run pytest tests/
+```
+
+To automatically fix linting and formatting issues:
+
+```bash
+# Auto-fix with ruff
+poetry run ruff check --fix llm_api_router tests
+
+# Format code with black
+poetry run black llm_api_router tests
+```
+
+These checks are also run automatically in GitHub Actions (see `.github/workflows/test.yml`).
 
 ## Logging Requirements
 
