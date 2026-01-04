@@ -182,16 +182,17 @@ class LLMRouter:
                         )
 
                         # Record statistics for successful request
-                        input_tokens, output_tokens = (
-                            self.stats.record_tokens_from_response(
-                                provider_name, response
-                            )
-                        )
+                        (
+                            input_tokens,
+                            output_tokens,
+                            cached_tokens,
+                        ) = provider.extract_tokens_from_response(response)
                         self.stats.record_request_success(
                             provider_name,
                             request_start_time,
                             input_tokens,
                             output_tokens,
+                            cached_tokens,
                         )
 
                     # Log total request duration

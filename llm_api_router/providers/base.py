@@ -352,8 +352,9 @@ class BaseProvider(ABC):
                 # Generator checked successfully, return it
                 return {
                     "_streaming": True,
+                    "_provider": self,
                     "_provider_type": self.config.name,
-                    "_provider": self.provider_name,
+                    "_provider_name": self.provider_name,
                     "_generator": streaming_generator(),
                 }
 
@@ -416,6 +417,47 @@ class BaseProvider(ABC):
                 self.config.name.value,
                 status_code,
             )
+
+    @abstractmethod
+    def merge_streaming_chunk(
+        self, response_dict: dict[str, Any], data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Merge a streaming chunk into a response dict.
+
+        Args:
+            response_dict: The current accumulated response dict
+            data: The new chunk data to merge
+
+        Returns:
+            Updated response dict
+        """
+        pass
+
+    @abstractmethod
+    def postprocess_response(self, response_dict: dict[str, Any]) -> dict[str, Any]:
+        """Postprocess a response dict after all chunks are merged.
+
+        Args:
+            response_dict: The accumulated response dict
+
+        Returns:
+            Postprocessed response dict
+        """
+        pass
+
+    @abstractmethod
+    def extract_tokens_from_response(
+        self, response: dict[str, Any]
+    ) -> tuple[int, int, int]:
+        """Extract token counts from a response.
+
+        Args:
+            response: The provider response
+
+        Returns:
+            Tuple of (input_tokens, output_tokens, cached_tokens)
+        """
+        pass
 
     async def close(self) -> None:
         """Close the HTTP client."""

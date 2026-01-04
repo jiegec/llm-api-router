@@ -59,7 +59,11 @@ llm_api_router/
 ├── logging.py       # JSON logging to files
 ├── models.py        # Pydantic models for data structures
 ├── server.py        # FastAPI server and endpoints
-├── providers.py     # OpenAI/Anthropic provider implementations
+├── providers        # OpenAI/Anthropic provider implementations
+│   ├── anthropic.py
+│   ├── base.py
+│   ├── __init__.py
+│   ├── openai.py
 └── router.py        # Router with fallback logic
 
 tests/               # Test suite

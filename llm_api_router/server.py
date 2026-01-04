@@ -3,7 +3,7 @@
 import json
 import time
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -19,7 +19,9 @@ from .exceptions import (
 )
 from .logging import get_logger
 from .models import ProviderType
+from .providers import BaseProvider
 from .router import LLMRouter
+from .stats import StatsCollector
 
 
 def _format_timestamp(timestamp: float | None) -> str | None:
@@ -82,154 +84,13 @@ def _format_stats(stats: Any) -> dict[str, Any]:
     }
 
 
-def _merge_openai_chunk(
-    response_dict: dict[str, Any], data: dict[str, Any]
-) -> dict[str, Any]:
-    """Merge a streaming chunk from OpenAI into a response dict."""
-    # Initialize response dict with metadata from first chunk
-    if not response_dict:
-        response_dict = {
-            "id": data.get("id", ""),
-            "object": "chat.completion",
-            "created": data.get("created", int(time.time())),
-            "model": data.get("model", ""),
-            "choices": [],
-        }
-
-    # Merge content from delta
-    if "choices" in data and data["choices"]:
-        for choice in data["choices"]:
-            # Update existing choice or add new one
-            choice_idx = choice.get("index", 0)
-            while len(response_dict["choices"]) <= choice_idx:
-                response_dict["choices"].append(
-                    {
-                        "index": len(response_dict["choices"]),
-                        "message": {
-                            "content": "",
-                            "tool_calls": [],
-                        },
-                    }
-                )
-            existing_message = response_dict["choices"][choice_idx]["message"]
-
-            if "delta" in choice:
-                delta = choice["delta"]
-                # Set role
-                if "role" in delta:
-                    existing_message["role"] = delta["role"]
-                # Accumulate content
-                if "content" in delta:
-                    existing_message["content"] += delta["content"]
-                # Accumulate reasoning content (for reasoning models)
-                if "reasoning_content" in delta:
-                    if "reasoning_content" not in existing_message:
-                        existing_message["reasoning_content"] = ""
-                    existing_message["reasoning_content"] += delta["reasoning_content"]
-                # Accumulate tool calls
-                if "tool_calls" in delta:
-                    for tool_call in delta["tool_calls"]:
-                        tool_call_idx = tool_call.get("index", 0)
-                        # Extend tool_calls list if needed
-                        while len(existing_message["tool_calls"]) <= tool_call_idx:
-                            existing_message["tool_calls"].append({})
-                        # Merge tool call fields
-                        existing = existing_message["tool_calls"][tool_call_idx]
-                        if "id" in tool_call:
-                            existing["id"] = tool_call["id"]
-                        if "type" in tool_call:
-                            existing["type"] = tool_call["type"]
-                        if "function" in tool_call:
-                            if "function" not in existing:
-                                existing["function"] = {
-                                    "name": "",
-                                    "arguments": "",
-                                }
-                            func = existing["function"]
-                            if "name" in tool_call["function"]:
-                                func["name"] = tool_call["function"]["name"]
-                            if "arguments" in tool_call["function"]:
-                                func["arguments"] += tool_call["function"]["arguments"]
-            # Store finish reason if present
-            if "finish_reason" in choice:
-                response_dict["choices"][choice_idx]["finish_reason"] = choice[
-                    "finish_reason"
-                ]
-    # Store usage data if present
-    if "usage" in data:
-        response_dict["usage"] = data["usage"]
-    return response_dict
-
-
-def _merge_anthropic_chunk(
-    response_dict: dict[str, Any], data: dict[str, Any]
-) -> dict[str, Any]:
-    """Merge a streaming chunk from Anthropic into a response dict."""
-    # Initialize response dict with metadata from first chunk
-    if not response_dict:
-        response_dict = {
-            "id": data.get("message", {}).get("id", ""),
-            "type": "message",
-            "role": "assistant",
-            "model": data.get("message", {}).get("model", ""),
-            "content": [],
-        }
-
-    # Merge content from content_block
-    if data["type"] == "content_block_start":
-        # add new one
-        content_idx = data.get("index", 0)
-        while len(response_dict["content"]) <= content_idx:
-            response_dict["content"].append({})
-        existing_content = response_dict["content"][content_idx]
-        for k in data["content_block"]:
-            existing_content[k] = data["content_block"][k]
-    elif data["type"] == "content_block_delta":
-        # Update existing content
-        content_idx = data.get("index", 0)
-        existing_content = response_dict["content"][content_idx]
-        if "text" in data["delta"]:
-            existing_content["text"] += data["delta"]["text"]
-        if "thinking" in data["delta"]:
-            existing_content["thinking"] += data["delta"]["thinking"]
-        if "partial_json" in data["delta"]:
-            if "partial_json" not in existing_content:
-                existing_content["partial_json"] = ""
-            existing_content["partial_json"] += data["delta"]["partial_json"]
-        if "signature" in data["delta"]:
-            existing_content["signature"] += data["delta"]["signature"]
-    elif data["type"] == "message_delta":
-        if "stop_reason" in data["delta"]:
-            response_dict["stop_reason"] = data["delta"]["stop_reason"]
-        if "usage" in data:
-            response_dict["usage"] = data["usage"]
-    return response_dict
-
-
-def _postprocess_anthropic_chunk(response_dict: dict[str, Any]) -> dict[str, Any]:
-    """Postprocess response dict from Anthropic."""
-
-    # convert partial_json to dict
-    for content_idx in range(len(response_dict["content"])):
-        existing_content = response_dict["content"][content_idx]
-        if "partial_json" in existing_content:
-            try:
-                existing_content["input"] = json.loads(existing_content["partial_json"])
-            except Exception:
-                existing_content["input"] = {}
-            del existing_content["partial_json"]
-
-    return response_dict
-
-
 def _create_stats_tracking_generator(
     original_generator: Any,
-    provider_name: str,
-    stats_collector: Any,
+    provider: BaseProvider,
+    stats_collector: StatsCollector,
     request_start_time: float,
     request_id: str,
     endpoint: str,
-    provider_type: ProviderType,
 ) -> Any:
     """Create a generator that tracks statistics from streaming chunks."""
 
@@ -249,9 +110,6 @@ def _create_stats_tracking_generator(
             # Log the streaming response
             # Try to reconstruct a response dict from accumulated chunks for logging
             response_dict: dict[str, Any] = {}
-            total_input_tokens = 0
-            total_output_tokens = 0
-            cached_tokens = 0
 
             # Merge all chunks to reconstruct the full response
             full_resp = ""
@@ -274,14 +132,9 @@ def _create_stats_tracking_generator(
 
                         try:
                             data = json.loads(data_str)
-
-                            if provider_type == ProviderType.OPENAI:
-                                response_dict = _merge_openai_chunk(response_dict, data)
-                            elif provider_type == ProviderType.ANTHROPIC:
-                                response_dict = _merge_anthropic_chunk(
-                                    response_dict, data
-                                )
-
+                            response_dict = provider.merge_streaming_chunk(
+                                response_dict, data
+                            )
                         except json.JSONDecodeError:
                             pass
 
@@ -289,32 +142,19 @@ def _create_stats_tracking_generator(
                     # Don't fail if we can't parse for logging
                     pass
 
-            if provider_type == ProviderType.ANTHROPIC:
-                response_dict = _postprocess_anthropic_chunk(response_dict)
+            # Postprocess response (e.g., convert partial_json for Anthropic)
+            response_dict = provider.postprocess_response(response_dict)
 
-            # Extract usage data if present
-            if "usage" in response_dict:
-                if provider_type == ProviderType.OPENAI:
-                    total_input_tokens = response_dict["usage"].get("prompt_tokens", 0)
-                    total_output_tokens = response_dict["usage"].get(
-                        "completion_tokens", 0
-                    )
-                    if "prompt_tokens_details" in response_dict["usage"]:
-                        cached_tokens = (
-                            response_dict["usage"]
-                            .get("prompt_tokens_details", {})
-                            .get("cached_tokens", 0)
-                        )
-                elif provider_type == ProviderType.ANTHROPIC:
-                    total_input_tokens = response_dict["usage"].get("input_tokens", 0)
-                    total_output_tokens = response_dict["usage"].get("output_tokens", 0)
-                    cached_tokens = response_dict["usage"].get(
-                        "cache_read_input_tokens", 0
-                    )
+            # Extract token counts from response
+            (
+                total_input_tokens,
+                total_output_tokens,
+                cached_tokens,
+            ) = provider.extract_tokens_from_response(response_dict)
 
             # Record statistics after streaming completes
             stats_collector.record_request_success(
-                provider_name,
+                provider.provider_name,
                 request_start_time,
                 total_input_tokens,
                 total_output_tokens,
@@ -327,7 +167,7 @@ def _create_stats_tracking_generator(
                 request_id=request_id,
                 endpoint=endpoint,
                 response=response_dict,
-                provider_name=provider_name,
+                provider_name=provider.provider_name,
                 duration_ms=duration_ms,
             )
 
@@ -566,36 +406,37 @@ class LLMAPIServer:
             # Check if this is a streaming response
             if isinstance(response, dict) and response.get("_streaming"):
                 # This is a streaming response
-                provider_name = response.get("_provider", "unknown")
                 generator = response.get("_generator")
                 request_start_time = response.get("_request_start_time", time.time())
                 request_id = response.get("_request_id", "")
                 endpoint = response.get("_endpoint", "")
-                provider_type: ProviderType = cast(
-                    ProviderType, response.get("_provider_type")
-                )
+                provider = response.get("_provider")
 
                 if not generator:
                     raise HTTPException(
                         status_code=500, detail="Streaming response missing generator"
                     )
 
+                if not provider:
+                    raise HTTPException(
+                        status_code=500, detail="Streaming response missing provider"
+                    )
+
                 # Wrap generator with statistics tracking and logging
                 stats_generator = _create_stats_tracking_generator(
                     generator,
-                    provider_name,
+                    provider,
                     router.stats,
                     request_start_time,
                     request_id,
                     endpoint,
-                    provider_type,
                 )
 
                 return StreamingResponse(
                     stats_generator,
                     media_type="text/event-stream",
                     headers={
-                        "X-Provider": provider_name,
+                        "X-Provider": provider.provider_name,
                         "Cache-Control": "no-cache",
                         "Connection": "keep-alive",
                     },

@@ -1,4 +1,4 @@
-"""Test _merge_anthropic_chunk function."""
+"""Test Anthropic provider streaming chunk merging."""
 
 from anthropic.types import (
     Message,
@@ -8,7 +8,8 @@ from anthropic.types import (
     RawMessageStartEvent,
 )
 
-from llm_api_router.server import _merge_anthropic_chunk, _postprocess_anthropic_chunk
+from llm_api_router.models import ProviderConfig, ProviderType
+from llm_api_router.providers.anthropic import AnthropicProvider
 
 
 def _anthropic_event_to_dict(
@@ -29,8 +30,20 @@ def _validate_message_dict(data: dict) -> Message:
     return Message.model_construct(**data)
 
 
+def _get_provider() -> AnthropicProvider:
+    """Create an Anthropic provider instance for testing."""
+    config = ProviderConfig(
+        name=ProviderType.ANTHROPIC,
+        api_key="test-key",
+        priority=1,
+    )
+    return AnthropicProvider(config)
+
+
 def test_merge_anthropic_chunk_initializes_from_first_chunk():
-    """Test that _merge_anthropic_chunk initializes response dict from first chunk."""
+    """Test that merge_streaming_chunk initializes response dict from first chunk."""
+    provider = _get_provider()
+
     message_start = RawMessageStartEvent(
         type="message_start",
         message=Message(
@@ -46,7 +59,7 @@ def test_merge_anthropic_chunk_initializes_from_first_chunk():
     )
 
     data = _anthropic_event_to_dict(message_start)
-    result = _merge_anthropic_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert result["id"] == "msg_123"
     assert result["type"] == "message"
@@ -61,7 +74,9 @@ def test_merge_anthropic_chunk_initializes_from_first_chunk():
 
 
 def test_merge_anthropic_chunk_accumulates_content():
-    """Test that _merge_anthropic_chunk accumulates content across chunks."""
+    """Test that merge_streaming_chunk accumulates content across chunks."""
+    provider = _get_provider()
+
     # First content block starts
     block_start = RawContentBlockStartEvent(
         type="content_block_start",
@@ -100,19 +115,19 @@ def test_merge_anthropic_chunk_accumulates_content():
     )
 
     data1 = _anthropic_event_to_dict(block_start)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta1)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _anthropic_event_to_dict(delta2)
-    result = _merge_anthropic_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     data4 = _anthropic_event_to_dict(delta3)
-    result = _merge_anthropic_chunk(result, data4)
+    result = provider.merge_streaming_chunk(result, data4)
 
     data5 = _anthropic_event_to_dict(message_delta)
-    result = _merge_anthropic_chunk(result, data5)
+    result = provider.merge_streaming_chunk(result, data5)
 
     assert result["content"][0]["text"] == "Hello world!"
     assert result["stop_reason"] == "end_turn"
@@ -124,7 +139,9 @@ def test_merge_anthropic_chunk_accumulates_content():
 
 
 def test_merge_anthropic_chunk_multiple_content_blocks():
-    """Test that _merge_anthropic_chunk handles multiple content blocks correctly."""
+    """Test that merge_streaming_chunk handles multiple content blocks correctly."""
+    provider = _get_provider()
+
     # First content block starts
     block_start1 = RawContentBlockStartEvent(
         type="content_block_start",
@@ -152,16 +169,16 @@ def test_merge_anthropic_chunk_multiple_content_blocks():
     )
 
     data1 = _anthropic_event_to_dict(block_start1)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta1)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _anthropic_event_to_dict(block_start2)
-    result = _merge_anthropic_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     data4 = _anthropic_event_to_dict(delta2)
-    result = _merge_anthropic_chunk(result, data4)
+    result = provider.merge_streaming_chunk(result, data4)
 
     assert len(result["content"]) == 2
     assert result["content"][0]["text"] == "First block"
@@ -175,7 +192,9 @@ def test_merge_anthropic_chunk_multiple_content_blocks():
 
 
 def test_merge_anthropic_chunk_usage():
-    """Test that _merge_anthropic_chunk stores usage data."""
+    """Test that merge_streaming_chunk stores usage data."""
+    provider = _get_provider()
+
     message_delta = RawMessageDeltaEvent(
         type="message_delta",
         delta={"type": "delta", "stop_reason": "end_turn"},
@@ -185,7 +204,7 @@ def test_merge_anthropic_chunk_usage():
     )
 
     data = _anthropic_event_to_dict(message_delta)
-    result = _merge_anthropic_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert "usage" in result
     assert result["usage"]["output_tokens"] == 15
@@ -196,7 +215,9 @@ def test_merge_anthropic_chunk_usage():
 
 
 def test_merge_anthropic_chunk_stop_reason():
-    """Test that _merge_anthropic_chunk stores stop_reason correctly."""
+    """Test that merge_streaming_chunk stores stop_reason correctly."""
+    provider = _get_provider()
+
     message_delta = RawMessageDeltaEvent(
         type="message_delta",
         delta={"type": "delta", "stop_reason": "max_tokens"},
@@ -206,7 +227,7 @@ def test_merge_anthropic_chunk_stop_reason():
     )
 
     data = _anthropic_event_to_dict(message_delta)
-    result = _merge_anthropic_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert result["stop_reason"] == "max_tokens"
 
@@ -216,7 +237,9 @@ def test_merge_anthropic_chunk_stop_reason():
 
 
 def test_merge_anthropic_chunk_empty_delta():
-    """Test that _merge_anthropic_chunk handles empty content correctly."""
+    """Test that merge_streaming_chunk handles empty content correctly."""
+    provider = _get_provider()
+
     block_start = RawContentBlockStartEvent(
         type="content_block_start",
         index=0,
@@ -230,10 +253,10 @@ def test_merge_anthropic_chunk_empty_delta():
     )
 
     data1 = _anthropic_event_to_dict(block_start)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     assert result["content"][0]["text"] == ""
 
@@ -243,7 +266,9 @@ def test_merge_anthropic_chunk_empty_delta():
 
 
 def test_merge_anthropic_chunk_out_of_order_blocks():
-    """Test that _merge_anthropic_chunk handles content blocks arriving out of order."""
+    """Test that merge_streaming_chunk handles content blocks arriving out of order."""
+    provider = _get_provider()
+
     # First block with index 1
     block_start1 = RawContentBlockStartEvent(
         type="content_block_start",
@@ -271,16 +296,16 @@ def test_merge_anthropic_chunk_out_of_order_blocks():
     )
 
     data1 = _anthropic_event_to_dict(block_start1)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta1)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _anthropic_event_to_dict(block_start2)
-    result = _merge_anthropic_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     data4 = _anthropic_event_to_dict(delta2)
-    result = _merge_anthropic_chunk(result, data4)
+    result = provider.merge_streaming_chunk(result, data4)
 
     assert len(result["content"]) == 2
     assert result["content"][0]["text"] == "First block"
@@ -294,7 +319,9 @@ def test_merge_anthropic_chunk_out_of_order_blocks():
 
 
 def test_merge_anthropic_chunk_with_cached_tokens():
-    """Test that _merge_anthropic_chunk stores cached tokens correctly."""
+    """Test that merge_streaming_chunk stores cached tokens correctly."""
+    provider = _get_provider()
+
     message_delta = RawMessageDeltaEvent(
         type="message_delta",
         delta={"type": "delta", "stop_reason": "end_turn"},
@@ -305,7 +332,7 @@ def test_merge_anthropic_chunk_with_cached_tokens():
     )
 
     data = _anthropic_event_to_dict(message_delta)
-    result = _merge_anthropic_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert "usage" in result
     assert result["usage"]["output_tokens"] == 10
@@ -319,6 +346,8 @@ def test_merge_anthropic_chunk_with_cached_tokens():
 
 def test_merge_anthropic_chunk_model_from_message_start():
     """Test that model name is extracted from message_start event."""
+    provider = _get_provider()
+
     message_start = RawMessageStartEvent(
         type="message_start",
         message=Message(
@@ -334,7 +363,7 @@ def test_merge_anthropic_chunk_model_from_message_start():
     )
 
     data = _anthropic_event_to_dict(message_start)
-    result = _merge_anthropic_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert result["model"] == "claude-3-opus-20240229"
 
@@ -344,7 +373,9 @@ def test_merge_anthropic_chunk_model_from_message_start():
 
 
 def test_merge_anthropic_chunk_thinking_delta():
-    """Test that _merge_anthropic_chunk accumulates thinking content."""
+    """Test that merge_streaming_chunk accumulates thinking content."""
+    provider = _get_provider()
+
     # Start a content block with minimal required fields
     block_start = RawContentBlockStartEvent(
         type="content_block_start",
@@ -366,19 +397,21 @@ def test_merge_anthropic_chunk_thinking_delta():
     )
 
     data1 = _anthropic_event_to_dict(block_start)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta1)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _anthropic_event_to_dict(delta2)
-    result = _merge_anthropic_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     assert result["content"][0]["thinking"] == "Let me think about this..."
 
 
 def test_merge_anthropic_chunk_signature_delta():
-    """Test that _merge_anthropic_chunk accumulates signature content."""
+    """Test that merge_streaming_chunk accumulates signature content."""
+    provider = _get_provider()
+
     # Start a content block with minimal required fields
     block_start = RawContentBlockStartEvent(
         type="content_block_start",
@@ -394,16 +427,18 @@ def test_merge_anthropic_chunk_signature_delta():
     )
 
     data1 = _anthropic_event_to_dict(block_start)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     assert result["content"][0]["signature"] == "abc123"
 
 
 def test_merge_anthropic_chunk_partial_json_delta():
-    """Test that _merge_anthropic_chunk accumulates partial_json content."""
+    """Test that merge_streaming_chunk accumulates partial_json content."""
+    provider = _get_provider()
+
     # Start a content block with minimal required fields
     block_start = RawContentBlockStartEvent(
         type="content_block_start",
@@ -430,19 +465,21 @@ def test_merge_anthropic_chunk_partial_json_delta():
     )
 
     data1 = _anthropic_event_to_dict(block_start)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta1)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _anthropic_event_to_dict(delta2)
-    result = _merge_anthropic_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     assert result["content"][0]["partial_json"] == '{"query":"hello"}'
 
 
 def test_postprocess_anthropic_chunk_converts_partial_json_to_dict():
-    """Test that _postprocess_anthropic_chunk converts partial_json to input dict."""
+    """Test that postprocess_response converts partial_json to input dict."""
+    provider = _get_provider()
+
     response_dict = {
         "id": "msg_123",
         "type": "message",
@@ -458,7 +495,7 @@ def test_postprocess_anthropic_chunk_converts_partial_json_to_dict():
         ],
     }
 
-    result = _postprocess_anthropic_chunk(response_dict)
+    result = provider.postprocess_response(response_dict)
 
     assert "partial_json" not in result["content"][0]
     assert "input" in result["content"][0]
@@ -472,7 +509,9 @@ def test_postprocess_anthropic_chunk_converts_partial_json_to_dict():
 
 
 def test_postprocess_anthropic_chunk_handles_invalid_json():
-    """Test that _postprocess_anthropic_chunk handles invalid JSON gracefully."""
+    """Test that postprocess_response handles invalid JSON gracefully."""
+    provider = _get_provider()
+
     response_dict = {
         "id": "msg_123",
         "type": "message",
@@ -489,7 +528,7 @@ def test_postprocess_anthropic_chunk_handles_invalid_json():
         ],
     }
 
-    result = _postprocess_anthropic_chunk(response_dict)
+    result = provider.postprocess_response(response_dict)
 
     # Invalid JSON should be handled - partial_json is removed, input remains
     assert "partial_json" not in result["content"][0]
@@ -502,7 +541,9 @@ def test_postprocess_anthropic_chunk_handles_invalid_json():
 
 
 def test_postprocess_anthropic_chunk_handles_missing_partial_json():
-    """Test that _postprocess_anthropic_chunk handles missing partial_json field."""
+    """Test that postprocess_response handles missing partial_json field."""
+    provider = _get_provider()
+
     response_dict = {
         "id": "msg_123",
         "type": "message",
@@ -516,7 +557,7 @@ def test_postprocess_anthropic_chunk_handles_missing_partial_json():
         ],
     }
 
-    result = _postprocess_anthropic_chunk(response_dict)
+    result = provider.postprocess_response(response_dict)
 
     # No partial_json means no changes
     assert result["content"][0]["text"] == "Hello world"
@@ -528,6 +569,8 @@ def test_postprocess_anthropic_chunk_handles_missing_partial_json():
 
 def test_merge_and_postprocess_tool_use_streaming():
     """Test end-to-end tool use streaming with partial_json conversion."""
+    provider = _get_provider()
+
     # Start tool use content block
     block_start = RawContentBlockStartEvent(
         type="content_block_start",
@@ -555,19 +598,19 @@ def test_merge_and_postprocess_tool_use_streaming():
 
     # Merge chunks
     data1 = _anthropic_event_to_dict(block_start)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta1)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _anthropic_event_to_dict(delta2)
-    result = _merge_anthropic_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     # Before postprocessing, partial_json should be present
     assert result["content"][0]["partial_json"] == '{"a":1,"b":2}'
 
     # Postprocess to convert partial_json to input
-    result = _postprocess_anthropic_chunk(result)
+    result = provider.postprocess_response(result)
 
     # After postprocessing, input should be a dict
     assert "partial_json" not in result["content"][0]
@@ -582,6 +625,8 @@ def test_merge_and_postprocess_tool_use_streaming():
 
 def test_merge_anthropic_chunk_multiple_tool_use_blocks():
     """Test handling multiple tool_use content blocks with partial_json."""
+    provider = _get_provider()
+
     # First tool use
     block_start1 = RawContentBlockStartEvent(
         type="content_block_start",
@@ -623,19 +668,19 @@ def test_merge_anthropic_chunk_multiple_tool_use_blocks():
 
     # Merge all chunks
     data1 = _anthropic_event_to_dict(block_start1)
-    result = _merge_anthropic_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _anthropic_event_to_dict(delta1)
-    result = _merge_anthropic_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _anthropic_event_to_dict(block_start2)
-    result = _merge_anthropic_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     data4 = _anthropic_event_to_dict(delta2)
-    result = _merge_anthropic_chunk(result, data4)
+    result = provider.merge_streaming_chunk(result, data4)
 
     # Postprocess
-    result = _postprocess_anthropic_chunk(result)
+    result = provider.postprocess_response(result)
 
     # Check both tool calls are processed
     assert len(result["content"]) == 2

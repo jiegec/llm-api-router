@@ -2,7 +2,6 @@
 
 import time
 from collections import defaultdict
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -189,20 +188,3 @@ class StatsCollector:
         stats.in_progress_requests -= 1
         stats.failed_requests += 1
         stats.last_error = error_message
-
-    def record_tokens_from_response(
-        self, provider_name: str, response: dict[str, Any]
-    ) -> tuple[int, int]:
-        """Extract token counts from provider response."""
-        usage = response.get("usage", {})
-        # OpenAI format
-        if "prompt_tokens" in usage and "completion_tokens" in usage:
-            return (
-                usage.get("prompt_tokens", 0),
-                usage.get("completion_tokens", 0),
-            )
-        # Anthropic format
-        elif "input_tokens" in usage and "output_tokens" in usage:
-            return (usage.get("input_tokens", 0), usage.get("output_tokens", 0))
-
-        return 0, 0

@@ -1,8 +1,9 @@
-"""Test _merge_openai_chunk function."""
+"""Test OpenAI provider streaming chunk merging."""
 
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
-from llm_api_router.server import _merge_openai_chunk
+from llm_api_router.models import ProviderConfig, ProviderType
+from llm_api_router.providers.openai import OpenAIProvider
 
 
 def _chat_completion_chunk_to_dict(chunk: ChatCompletionChunk) -> dict:
@@ -15,8 +16,20 @@ def _validate_chat_completion_dict(data: dict) -> ChatCompletion:
     return ChatCompletion.model_construct(**data)
 
 
+def _get_provider() -> OpenAIProvider:
+    """Create an OpenAI provider instance for testing."""
+    config = ProviderConfig(
+        name=ProviderType.OPENAI,
+        api_key="test-key",
+        priority=1,
+    )
+    return OpenAIProvider(config)
+
+
 def test_merge_openai_chunk_initializes_from_first_chunk():
-    """Test that _merge_openai_chunk initializes response dict from first chunk."""
+    """Test that merge_streaming_chunk initializes response dict from first chunk."""
+    provider = _get_provider()
+
     chunk = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -32,7 +45,7 @@ def test_merge_openai_chunk_initializes_from_first_chunk():
     )
 
     data = _chat_completion_chunk_to_dict(chunk)
-    result = _merge_openai_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert result["id"] == "chatcmpl-123"
     assert result["object"] == "chat.completion"
@@ -50,7 +63,9 @@ def test_merge_openai_chunk_initializes_from_first_chunk():
 
 
 def test_merge_openai_chunk_accumulates_content():
-    """Test that _merge_openai_chunk accumulates content across chunks."""
+    """Test that merge_streaming_chunk accumulates content across chunks."""
+    provider = _get_provider()
+
     chunk1 = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -94,13 +109,13 @@ def test_merge_openai_chunk_accumulates_content():
     )
 
     data1 = _chat_completion_chunk_to_dict(chunk1)
-    result = _merge_openai_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _chat_completion_chunk_to_dict(chunk2)
-    result = _merge_openai_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _chat_completion_chunk_to_dict(chunk3)
-    result = _merge_openai_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     assert result["choices"][0]["message"]["content"] == "Hello world!"
     assert result["choices"][0]["finish_reason"] == "stop"
@@ -112,7 +127,9 @@ def test_merge_openai_chunk_accumulates_content():
 
 
 def test_merge_openai_chunk_role():
-    """Test that _merge_openai_chunk sets role correctly."""
+    """Test that merge_streaming_chunk sets role correctly."""
+    provider = _get_provider()
+
     chunk = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -128,7 +145,7 @@ def test_merge_openai_chunk_role():
     )
 
     data = _chat_completion_chunk_to_dict(chunk)
-    result = _merge_openai_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert result["choices"][0]["message"]["role"] == "assistant"
 
@@ -138,7 +155,9 @@ def test_merge_openai_chunk_role():
 
 
 def test_merge_openai_chunk_reasoning_content():
-    """Test that _merge_openai_chunk accumulates reasoning_content."""
+    """Test that merge_streaming_chunk accumulates reasoning_content."""
+    provider = _get_provider()
+
     chunk1 = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -174,10 +193,10 @@ def test_merge_openai_chunk_reasoning_content():
     )
 
     data1 = _chat_completion_chunk_to_dict(chunk1)
-    result = _merge_openai_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _chat_completion_chunk_to_dict(chunk2)
-    result = _merge_openai_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     assert result["choices"][0]["message"]["content"] == "Hello world"
     assert (
@@ -193,7 +212,9 @@ def test_merge_openai_chunk_reasoning_content():
 
 
 def test_merge_openai_chunk_tool_calls():
-    """Test that _merge_openai_chunk accumulates tool_calls correctly."""
+    """Test that merge_streaming_chunk accumulates tool_calls correctly."""
+    provider = _get_provider()
+
     chunk1 = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -262,13 +283,13 @@ def test_merge_openai_chunk_tool_calls():
     )
 
     data1 = _chat_completion_chunk_to_dict(chunk1)
-    result = _merge_openai_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _chat_completion_chunk_to_dict(chunk2)
-    result = _merge_openai_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     data3 = _chat_completion_chunk_to_dict(chunk3)
-    result = _merge_openai_chunk(result, data3)
+    result = provider.merge_streaming_chunk(result, data3)
 
     assert len(result["choices"][0]["message"]["tool_calls"]) == 2
 
@@ -294,7 +315,9 @@ def test_merge_openai_chunk_tool_calls():
 
 
 def test_merge_openai_chunk_multiple_choices():
-    """Test that _merge_openai_chunk handles multiple choices correctly."""
+    """Test that merge_streaming_chunk handles multiple choices correctly."""
+    provider = _get_provider()
+
     chunk = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -307,7 +330,7 @@ def test_merge_openai_chunk_multiple_choices():
     )
 
     data = _chat_completion_chunk_to_dict(chunk)
-    result = _merge_openai_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert len(result["choices"]) == 2
     assert result["choices"][0]["index"] == 0
@@ -323,7 +346,9 @@ def test_merge_openai_chunk_multiple_choices():
 
 
 def test_merge_openai_chunk_usage():
-    """Test that _merge_openai_chunk stores usage data."""
+    """Test that merge_streaming_chunk stores usage data."""
+    provider = _get_provider()
+
     chunk = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -345,7 +370,7 @@ def test_merge_openai_chunk_usage():
     )
 
     data = _chat_completion_chunk_to_dict(chunk)
-    result = _merge_openai_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert "usage" in result
     assert result["usage"]["prompt_tokens"] == 10
@@ -361,7 +386,9 @@ def test_merge_openai_chunk_usage():
 
 
 def test_merge_openai_chunk_finish_reason():
-    """Test that _merge_openai_chunk stores finish_reason correctly."""
+    """Test that merge_streaming_chunk stores finish_reason correctly."""
+    provider = _get_provider()
+
     chunk = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -377,7 +404,7 @@ def test_merge_openai_chunk_finish_reason():
     )
 
     data = _chat_completion_chunk_to_dict(chunk)
-    result = _merge_openai_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert result["choices"][0]["finish_reason"] == "stop"
 
@@ -387,7 +414,9 @@ def test_merge_openai_chunk_finish_reason():
 
 
 def test_merge_openai_chunk_empty_delta():
-    """Test that _merge_openai_chunk handles empty delta correctly."""
+    """Test that merge_streaming_chunk handles empty delta correctly."""
+    provider = _get_provider()
+
     chunk = ChatCompletionChunk(
         id="chatcmpl-123",
         object="chat.completion.chunk",
@@ -403,7 +432,7 @@ def test_merge_openai_chunk_empty_delta():
     )
 
     data = _chat_completion_chunk_to_dict(chunk)
-    result = _merge_openai_chunk({}, data)
+    result = provider.merge_streaming_chunk({}, data)
 
     assert result["choices"][0]["message"].get("content") == ""
 
@@ -413,7 +442,9 @@ def test_merge_openai_chunk_empty_delta():
 
 
 def test_merge_openai_chunk_out_of_order_choices():
-    """Test that _merge_openai_chunk handles choices arriving out of order."""
+    """Test that merge_streaming_chunk handles choices arriving out of order."""
+    provider = _get_provider()
+
     # First chunk with choice index 1
     chunk1 = ChatCompletionChunk(
         id="chatcmpl-123",
@@ -445,10 +476,10 @@ def test_merge_openai_chunk_out_of_order_choices():
     )
 
     data1 = _chat_completion_chunk_to_dict(chunk1)
-    result = _merge_openai_chunk({}, data1)
+    result = provider.merge_streaming_chunk({}, data1)
 
     data2 = _chat_completion_chunk_to_dict(chunk2)
-    result = _merge_openai_chunk(result, data2)
+    result = provider.merge_streaming_chunk(result, data2)
 
     assert len(result["choices"]) == 2
     assert result["choices"][0]["index"] == 0

@@ -1,7 +1,7 @@
 """Test router."""
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -107,6 +107,8 @@ async def test_router_chat_completion_success(
 
         # Providers now return raw response dicts directly
         mock_openai_provider.chat_completion.return_value = raw_response
+        # Mock extract_tokens_from_response method (synchronous)
+        mock_openai_provider.extract_tokens_from_response = Mock(return_value=(10, 8, 0))
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider if config.name == ProviderType.OPENAI else AsyncMock()
@@ -135,6 +137,8 @@ async def test_router_fallback_on_failure(
 
         # OpenAI fails with a generic error
         mock_openai_provider.chat_completion.side_effect = Exception("OpenAI error")
+        # Mock extract_tokens_from_response method for anthropic (synchronous)
+        mock_anthropic_provider.extract_tokens_from_response = Mock(return_value=(10, 8, 0))
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
             Usage,
@@ -220,6 +224,8 @@ async def test_router_fallback_on_rate_limit(
         mock_openai_provider.chat_completion.side_effect = RateLimitError(
             "Rate limited", "openai", 60
         )
+        # Mock extract_tokens_from_response method for anthropic (synchronous)
+        mock_anthropic_provider.extract_tokens_from_response = Mock(return_value=(10, 8, 0))
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
             Usage,
@@ -307,6 +313,8 @@ async def test_router_fallback_on_authentication_error(
         mock_openai_provider.chat_completion.side_effect = AuthenticationError(
             "Invalid API key", "openai"
         )
+        # Mock extract_tokens_from_response method for anthropic (synchronous)
+        mock_anthropic_provider.extract_tokens_from_response = Mock(return_value=(10, 8, 0))
         # Create a proper response dict for Anthropic
         from llm_api_router.models import (
             Usage,

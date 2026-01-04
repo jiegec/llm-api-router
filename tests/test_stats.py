@@ -1,7 +1,7 @@
 """Tests for statistics collection functionality."""
 
 import time
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -198,6 +198,8 @@ async def test_router_statistics_integration():
         ],
         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
+    # Mock extract_tokens_from_response method (synchronous)
+    mock_provider.extract_tokens_from_response = Mock(return_value=(10, 5, 0))
 
     # Create router with mock provider
     provider_config = ProviderConfig(
@@ -244,47 +246,80 @@ async def test_router_statistics_integration():
 
 def test_record_tokens_from_response_openai():
     """Test token extraction from OpenAI response."""
-    collector = StatsCollector()
+    from llm_api_router.models import ProviderConfig, ProviderType
+    from llm_api_router.providers.openai import OpenAIProvider
+
+    # Create a mock provider
+    provider = OpenAIProvider(
+        ProviderConfig(
+            name=ProviderType.OPENAI,
+            api_key="test-key",
+            priority=1,
+        )
+    )
 
     response = {"usage": {"prompt_tokens": 100, "completion_tokens": 50}}
 
-    input_tokens, output_tokens = collector.record_tokens_from_response(
-        "test_provider", response
+    input_tokens, output_tokens, cached_tokens = provider.extract_tokens_from_response(
+        response
     )
 
     assert input_tokens == 100
     assert output_tokens == 50
+    assert cached_tokens == 0
 
 
 def test_record_tokens_from_response_anthropic():
     """Test token extraction from Anthropic response."""
-    collector = StatsCollector()
+    from llm_api_router.models import ProviderConfig, ProviderType
+    from llm_api_router.providers.anthropic import AnthropicProvider
+
+    # Create a mock provider
+    provider = AnthropicProvider(
+        ProviderConfig(
+            name=ProviderType.ANTHROPIC,
+            api_key="test-key",
+            priority=1,
+        )
+    )
 
     response = {
         "content": [{"type": "text", "text": "Test"}],
         "usage": {"input_tokens": 100, "output_tokens": 50},
     }
 
-    input_tokens, output_tokens = collector.record_tokens_from_response(
-        "test_provider", response
+    input_tokens, output_tokens, cached_tokens = provider.extract_tokens_from_response(
+        response
     )
 
     assert input_tokens == 100
     assert output_tokens == 50
+    assert cached_tokens == 0
 
 
 def test_record_tokens_from_response_invalid():
     """Test token extraction from invalid response."""
-    collector = StatsCollector()
+    from llm_api_router.models import ProviderConfig, ProviderType
+    from llm_api_router.providers.openai import OpenAIProvider
+
+    # Create a mock provider
+    provider = OpenAIProvider(
+        ProviderConfig(
+            name=ProviderType.OPENAI,
+            api_key="test-key",
+            priority=1,
+        )
+    )
 
     response = {"invalid": "response"}
 
-    input_tokens, output_tokens = collector.record_tokens_from_response(
-        "test_provider", response
+    input_tokens, output_tokens, cached_tokens = provider.extract_tokens_from_response(
+        response
     )
 
     assert input_tokens == 0
     assert output_tokens == 0
+    assert cached_tokens == 0
 
 
 def test_tokens_per_second_average_across_requests():
