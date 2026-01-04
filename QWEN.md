@@ -89,24 +89,33 @@ tests/               # Test suite
 Model mappings and provider settings are configured via JSON config:
 ```json
 {
-  "model_mapping": {
-    "gpt-4": ["provider1-model-name", "provider2-model-name"],
-    "claude-3-opus": ["provider1-model-name"]
-  },
-  "providers": [
+  "openai": [
     {
-      "name": "openai-primary",
-      "type": "openai",
-      "api_key": "...",
-      "base_url": "...",
-      "priority": 1
-    },
+      "api_key": "sk-your-openai-api-key",
+      "priority": 1,
+      "provider_name": "openai-primary",
+      "base_url": "https://api.openai.com/v1",
+      "timeout": 30,
+      "max_retries": 3,
+      "model_mapping": {
+        "gpt-4": "gpt-4",
+        "gpt-4o": "gpt-4o",
+        "gpt-3.5-turbo": "gpt-3.5-turbo"
+      }
+    }
+  ],
+  "anthropic": [
     {
-      "name": "anthropic-fallback",
-      "type": "anthropic",
-      "api_key": "...",
-      "base_url": "...",
-      "priority": 2
+      "api_key": "sk-ant-your-anthropic-api-key",
+      "priority": 2,
+      "provider_name": "anthropic-primary",
+      "base_url": "https://api.anthropic.com",
+      "timeout": 30,
+      "max_retries": 3,
+      "model_mapping": {
+        "claude-3-opus": "claude-3-opus-20240229",
+        "claude-3-haiku": "claude-3-haiku-20240307"
+      }
     }
   ]
 }
