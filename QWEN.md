@@ -1,197 +1,101 @@
-# LLM API Router Project
+# LLM API Router
 
-This is an LLM API router that provides a unified interface for multiple OpenAI and Anthropic API backends with automatic fallback.
+LLM API router with unified OpenAI/Anthropic endpoints, priority-based fallback, and transparent pass-through.
 
-## Overview
+## Endpoints
 
-The router acts as a proxy layer that:
-- Exposes standard OpenAI and Anthropic API endpoints
-- Routes requests to multiple backend providers with priority-based fallback
-- Transparently passes through API requests and responses without modification
-- Collects usage statistics for monitoring
-- Logs all requests, responses, and metrics
-
-## API Endpoints
-
-### OpenAI Compatible Endpoint
-- **Path**: `/openai/chat/completions`
-- **Format**: Accepts and returns OpenAI API format
-- **Client**: Compatible with vanilla `openai` Python client
-
-### Anthropic Compatible Endpoint
-- **Path**: `/anthropic/v1/messages`
-- **Format**: Accepts and returns Anthropic API format
-- **Client**: Compatible with vanilla `anthropic` Python client
-
-## Core Requirements
-
-### Request/Response Handling
-1. **No API format translation** - Each endpoint only handles its own format
-2. **Model name mapping** - Transform model names based on JSON config mapping
-3. **Transparent pass-through** - Do not modify request/response JSON except for:
-   - Model name translation
-   - Usage statistics extraction (for logging only)
-4. **Streaming support** - Both endpoints support `stream: true` responses with transparent chunk pass-through
-
-### Backend Fallback
-- Each endpoint supports multiple API backend providers
-- Providers have a configured priority order
-- Automatic fallback when:
-  - Request fails (HTTP error, timeout)
-  - Rate limit encountered (HTTP 429)
-  - Authentication error (HTTP 401)
-
-### Statistics Collection
-- Extract and log usage statistics:
-  - OpenAI: `usage.prompt_tokens`, `usage.completion_tokens`, `usage.total_tokens`
-  - Anthropic: `usage.input_tokens`, `usage.output_tokens`, `usage.cache_read_input_tokens`
-- Track retry attempts and failures
-- Measure response times per provider
+| Path | Format | Client |
+|------|--------|--------|
+| `/openai/chat/completions` | OpenAI | `openai` Python client |
+| `/anthropic/v1/messages` | Anthropic | `anthropic` Python client |
 
 ## Architecture
 
-### Project Structure
 ```
 llm_api_router/
-├── __init__.py
-├── cli.py           # CLI entry point
-├── config.py        # Configuration loading and validation
-├── exceptions.py    # Custom exception classes
-├── logging.py       # JSON logging to files
-├── models.py        # Pydantic models for data structures
-├── server.py        # FastAPI server and endpoints
-├── providers/       # OpenAI/Anthropic provider implementations
-│   ├── anthropic.py
-│   ├── base.py
-│   ├── __init__.py
-│   └── openai.py
-├── router.py        # Router with fallback logic
-└── stats.py         # Statistics collection
-
-tests/               # Test suite
-.github/workflows/   # GitHub CI configuration
+├── cli.py              # CLI entry point
+├── config.py           # Configuration loading
+├── exceptions.py       # Custom exceptions
+├── logging.py          # JSON logging
+├── models.py           # Pydantic models
+├── server.py           # FastAPI server
+├── providers/          # Provider implementations
+│   ├── base.py         # Base provider (ABC)
+│   ├── openai.py       # OpenAI provider
+│   └── anthropic.py   # Anthropic provider
+├── router.py           # Router with fallback
+└── stats.py            # Statistics collection
 ```
 
-### Technology Stack
-- **Language**: Python 3.10+
-- **Dependency Management**: Poetry
-- **Web Framework**: FastAPI with uvicorn
-- **HTTP Clients**: httpx
-- **API Clients**: openai, anthropic
-- **Validation**: Pydantic
-- **Testing**: pytest
-- **Code Formatting**: black
-- **Linting**: ruff
-- **Type Checking**: mypy
+**Stack**: Python 3.10+, Poetry, FastAPI/uvicorn, httpx, openai/anthropic clients, Pydantic, pytest, black, ruff, mypy
 
 ## Configuration
 
-Model mappings and provider settings are configured via JSON config:
 ```json
 {
-  "openai": [
-    {
-      "api_key": "sk-your-openai-api-key",
-      "priority": 1,
-      "provider_name": "openai-primary",
-      "base_url": "https://api.openai.com/v1",
-      "timeout": 30,
-      "max_retries": 3,
-      "model_mapping": {
-        "gpt-4": "gpt-4",
-        "gpt-4o": "gpt-4o",
-        "gpt-3.5-turbo": "gpt-3.5-turbo"
-      }
+  "openai": [{
+    "api_key": "...",
+    "priority": 1,
+    "provider_name": "openai-primary",
+    "base_url": "https://api.openai.com/v1",
+    "timeout": 30,
+    "max_retries": 3,
+    "model_mapping": {"gpt-4": "gpt-4", "gpt-3.5-turbo": "gpt-3.5-turbo"}
+  }],
+  "anthropic": [{
+    "api_key": "...",
+    "priority": 2,
+    "provider_name": "anthropic-primary",
+    "base_url": "https://api.anthropic.com",
+    "timeout": 30,
+    "max_retries": 3,
+    "model_mapping": {
+      "claude-3-opus": "claude-3-opus-20240229",
+      "claude-3-haiku": "claude-3-haiku-20240307"
     }
-  ],
-  "anthropic": [
-    {
-      "api_key": "sk-ant-your-anthropic-api-key",
-      "priority": 2,
-      "provider_name": "anthropic-primary",
-      "base_url": "https://api.anthropic.com",
-      "timeout": 30,
-      "max_retries": 3,
-      "model_mapping": {
-        "claude-3-opus": "claude-3-opus-20240229",
-        "claude-3-haiku": "claude-3-haiku-20240307"
-      }
-    }
-  ]
+  }]
 }
 ```
 
-## Development Workflow
+## Key Principles
 
-1. **Implement features iteratively** - Commit after each significant progress
-2. **Write tests** - Use pytest with fixtures and clear test organization
-3. **Run CI** - GitHub Actions for automated testing
-4. **Type checking** - Use mypy with strict mode
-5. **Linting** - Use ruff for code quality
-6. **Cleanup** - Remove unused code and maintain clean codebase
+1. **No API format translation** - Each endpoint handles its own format only
+2. **Model name mapping** - Transform model names via config
+3. **Transparent pass-through** - Don't modify responses except model name
+4. **Streaming support** - Stream chunks transparently
+5. **Automatic fallback** - Retry with next provider on failure (HTTP error, 429, 401)
 
-### Pre-commit Checks
+## Provider-Specific Methods
 
-Before committing changes, run the following commands to ensure code quality:
+BaseProvider abstract methods (implemented by OpenAIProvider/AnthropicProvider):
+- `merge_streaming_chunk()` - Merge streaming chunks into response dict
+- `postprocess_response()` - Postprocess after all chunks merged
+- `extract_tokens_from_response()` - Extract (input, output, cached) tokens
 
+## Development
+
+**Pre-commit checks**:
 ```bash
-# Format code with black (fails if formatting is needed)
 poetry run black --check llm_api_router tests
-
-# Lint with ruff (fails if linting issues found)
 poetry run ruff check llm_api_router tests
-
-# Type check with mypy (fails if type errors found)
 poetry run mypy llm_api_router
-
-# Run tests
 poetry run pytest tests/
 ```
 
-To automatically fix linting and formatting issues:
-
+**Auto-fix**:
 ```bash
-# Auto-fix with ruff
-poetry run ruff check --fix llm_api_router tests
-
-# Format code with black
 poetry run black llm_api_router tests
+poetry run ruff check --fix llm_api_router tests
 ```
 
-These checks are also run automatically in GitHub Actions (see `.github/workflows/test.yml`).
-
-## Logging Requirements
+## Logging
 
 - **Format**: JSON lines
-- **Location**: Files in `logs/` directory
-- **Content per request**:
-  - Full request body
-  - Full response body
-  - Usage statistics (tokens, cached tokens)
-  - Response time
-  - Provider used
-  - Retry attempts
-  - Error details (if any)
-
-## Key Constraints
-
-1. **DO NOT translate between API formats** - `/openai/chat/completions` only handles OpenAI format, `/anthropic/v1/messages` only handles Anthropic format
-2. **Minimal request modification** - Only change model names based on config
-3. **No response body modification** - Extract statistics but don't alter response
-4. **Pass-through streaming** - Stream chunks transparently, only collect metrics
-5. **Automatic fallback** - Retry with next provider without client intervention
-
-## Testing
-
-- Unit tests for individual components (config, logging, providers)
-- Integration tests for router with mock backends
-- Streaming tests for both endpoints
-- Fallback logic tests
-- API compatibility tests with vanilla clients
+- **Location**: `logs/` directory
+- **Per request**: request body, response body, usage stats, response time, provider, retry attempts, errors
 
 ## Deployment
 
-- Run via CLI: `llm-api-router --config config.json`
-- Server runs on configurable host/port
-- Logs written to rotating files
-- Graceful shutdown support
+```bash
+llm-api-router --config config.json
+```
