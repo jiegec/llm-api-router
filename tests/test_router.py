@@ -515,7 +515,8 @@ async def test_router_count_tokens_success(anthropic_config):
 
 @pytest.mark.asyncio
 async def test_router_count_tokens_fallback_on_failure(
-    anthropic_config, openai_config,
+    anthropic_config,
+    openai_config,
 ):
     """Test router count_tokens fallback when first provider fails."""
     # Mock providers
@@ -550,7 +551,8 @@ async def test_router_count_tokens_fallback_on_failure(
 
 @pytest.mark.asyncio
 async def test_router_count_tokens_fallback_on_rate_limit(
-    anthropic_config, openai_config,
+    anthropic_config,
+    openai_config,
 ):
     """Test router count_tokens fallback when first provider is rate limited."""
     from llm_api_router.exceptions import RateLimitError
