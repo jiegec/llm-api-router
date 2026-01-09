@@ -70,16 +70,17 @@ class AnthropicProvider(BaseProvider):
     def postprocess_response(self, response_dict: dict[str, Any]) -> dict[str, Any]:
         """Postprocess response dict from Anthropic."""
         # convert partial_json to dict
-        for content_idx in range(len(response_dict["content"])):
-            existing_content = response_dict["content"][content_idx]
-            if "partial_json" in existing_content:
-                try:
-                    existing_content["input"] = json.loads(
-                        existing_content["partial_json"]
-                    )
-                except Exception:
-                    existing_content["input"] = {}
-                del existing_content["partial_json"]
+        if "content" in response_dict:
+            for content_idx in range(len(response_dict["content"])):
+                existing_content = response_dict["content"][content_idx]
+                if "partial_json" in existing_content:
+                    try:
+                        existing_content["input"] = json.loads(
+                            existing_content["partial_json"]
+                        )
+                    except Exception:
+                        existing_content["input"] = {}
+                    del existing_content["partial_json"]
         return response_dict
 
     def extract_tokens_from_response(
