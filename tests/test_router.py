@@ -485,3 +485,106 @@ async def test_router_schedule_retry(openai_config, sample_request):
 
         # Provider should have been called once
         mock_provider.chat_completion.assert_called_once_with(sample_request)
+
+
+@pytest.mark.asyncio
+async def test_router_count_tokens_success(anthropic_config):
+    """Test router successful count_tokens."""
+    # Mock providers
+    with patch("llm_api_router.router.create_provider") as mock_create:
+        mock_anthropic_provider = AsyncMock()
+
+        # Mock successful count_tokens response
+        mock_anthropic_provider.count_tokens.return_value = {"input_tokens": 42}
+
+        mock_create.return_value = mock_anthropic_provider
+
+        router = LLMRouter(providers=[anthropic_config])
+        count_request = {
+            "model": "claude-3-opus",
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+
+        async with router:
+            response = await router.count_tokens(count_request)
+
+        # Should use Anthropic provider
+        mock_anthropic_provider.count_tokens.assert_called_once_with(count_request)
+        assert response["input_tokens"] == 42
+
+
+@pytest.mark.asyncio
+async def test_router_count_tokens_fallback_on_failure(
+    anthropic_config, openai_config,
+):
+    """Test router count_tokens fallback when first provider fails."""
+    # Mock providers
+    with patch("llm_api_router.router.create_provider") as mock_create:
+        mock_openai_provider = AsyncMock()
+        mock_anthropic_provider = AsyncMock()
+
+        # Both providers fail
+        mock_openai_provider.count_tokens.side_effect = Exception("OpenAI error")
+        mock_anthropic_provider.count_tokens.side_effect = Exception("Anthropic error")
+
+        mock_create.side_effect = lambda config: (
+            mock_openai_provider
+            if config.name == ProviderType.OPENAI
+            else mock_anthropic_provider
+        )
+
+        router = LLMRouter(providers=[openai_config, anthropic_config])
+        count_request = {
+            "model": "claude-3-opus",
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+
+        async with router:
+            with pytest.raises(NoAvailableProviderError):
+                await router.count_tokens(count_request)
+
+        # Should try both providers
+        mock_openai_provider.count_tokens.assert_called_once_with(count_request)
+        mock_anthropic_provider.count_tokens.assert_called_once_with(count_request)
+
+
+@pytest.mark.asyncio
+async def test_router_count_tokens_fallback_on_rate_limit(
+    anthropic_config, openai_config,
+):
+    """Test router count_tokens fallback when first provider is rate limited."""
+    from llm_api_router.exceptions import RateLimitError
+
+    # Mock providers
+    with patch("llm_api_router.router.create_provider") as mock_create:
+        mock_openai_provider = AsyncMock()
+        mock_anthropic_provider = AsyncMock()
+
+        # OpenAI rate limited
+        mock_openai_provider.count_tokens.side_effect = RateLimitError(
+            "Rate limited", "openai", 60
+        )
+        # Anthropic also rate limited (both fail)
+        mock_anthropic_provider.count_tokens.side_effect = RateLimitError(
+            "Rate limited", "anthropic", 60
+        )
+
+        mock_create.side_effect = lambda config: (
+            mock_openai_provider
+            if config.name == ProviderType.OPENAI
+            else mock_anthropic_provider
+        )
+
+        router = LLMRouter(providers=[openai_config, anthropic_config])
+        count_request = {
+            "model": "claude-3-opus",
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+
+        async with router:
+            with pytest.raises(NoAvailableProviderError):
+                await router.count_tokens(count_request)
+
+        # Should try both providers
+        mock_openai_provider.count_tokens.assert_called_once_with(count_request)
+        mock_anthropic_provider.count_tokens.assert_called_once_with(count_request)

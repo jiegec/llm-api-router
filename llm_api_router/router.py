@@ -412,6 +412,303 @@ class LLMRouter:
 
         raise NoAvailableProviderError(f"All providers failed:\n{error_details}")
 
+    async def count_tokens(self, request: dict[str, Any]) -> dict[str, Any]:
+        """
+        Send a count_tokens request using priority-based routing.
+
+        Args:
+            request: Count tokens request
+
+        Returns:
+            Count tokens response from the first successful provider
+
+        Raises:
+            NoAvailableProviderError: If all providers fail
+        """
+        # Generate a unique request ID for tracking
+        request_id = str(uuid.uuid4())
+        start_time = time.time()
+
+        # Log the incoming request
+        available_providers = []
+        for provider_config in self.providers:
+            provider_name = (
+                provider_config.name.value
+                if isinstance(provider_config.name, ProviderType)
+                else provider_config.name
+            )
+            available_providers.append((provider_name, provider_config.priority))
+
+        self.logger.log_provider_selection(
+            request_id=request_id,
+            endpoint=self.endpoint,
+            selected_provider="",
+            selected_priority=0,
+            available_providers=available_providers,
+        )
+
+        errors = []
+        attempt = 0
+
+        for provider_config in self.providers:
+            attempt += 1
+            provider_name = provider_config.display_name
+
+            # Log request to this specific provider
+            self.logger.log_request(
+                request_id=request_id,
+                endpoint=f"{self.endpoint}/count_tokens",
+                request=request,
+                provider_name=provider_name,
+                provider_priority=provider_config.priority,
+            )
+
+            # Record request start for statistics
+            request_start_time = self.stats.record_request_start(provider_name)
+
+            try:
+                provider = await self._get_provider(provider_config)
+                provider_start_time = time.time()
+                result = await provider.count_tokens(request)
+                provider_duration = (time.time() - provider_start_time) * 1000
+
+                # Log successful response
+                if result:
+                    self.logger.log_response(
+                        request_id=request_id,
+                        endpoint=f"{self.endpoint}/count_tokens",
+                        response=result,
+                        provider_name=provider_name,
+                        duration_ms=provider_duration,
+                    )
+
+                    # Record statistics for successful request
+                    input_tokens = result.get("input_tokens", 0)
+                    self.stats.record_request_success(
+                        provider_name,
+                        request_start_time,
+                        input_tokens,
+                        0,  # No output tokens for count_tokens
+                        0,  # No cached tokens for count_tokens
+                    )
+
+                # Log total request duration
+                total_duration = (time.time() - start_time) * 1000
+                self.logger.logger.info(
+                    f"Request {request_id[:8]} completed in {total_duration:.0f}ms "
+                    f"using {provider_name} (attempt {attempt})"
+                )
+
+                return result
+
+            except AuthenticationError as e:
+                # Authentication errors are fatal for this provider
+                error_msg = str(e)
+                errors.append((provider_name, error_msg))
+
+                self.logger.log_error(
+                    request_id=request_id,
+                    endpoint=f"{self.endpoint}/count_tokens",
+                    provider_name=provider_name,
+                    error_type="authentication_error",
+                    error_message=error_msg,
+                    status_code=401,
+                )
+
+                # Record statistics for authentication failure
+                self.stats.record_request_failure(
+                    provider_name, f"Authentication error: {error_msg}"
+                )
+
+                self.logger.log_retry(
+                    request_id=request_id,
+                    endpoint=f"{self.endpoint}/count_tokens",
+                    provider_name=provider_name,
+                    provider_priority=provider_config.priority,
+                    attempt=attempt,
+                    max_attempts=len(self.providers),
+                    error_type="authentication_error",
+                    error_message=error_msg,
+                )
+
+                continue
+
+            except RateLimitError as e:
+                # Rate limit errors - try next provider
+                error_msg = str(e)
+                errors.append((provider_name, f"Rate limited: {error_msg}"))
+
+                # Record statistics for rate limit failure
+                self.stats.record_request_failure(
+                    provider_name, f"Rate limit error: {error_msg}"
+                )
+
+                self.logger.log_error(
+                    request_id=request_id,
+                    endpoint=f"{self.endpoint}/count_tokens",
+                    provider_name=provider_name,
+                    error_type="rate_limit_error",
+                    error_message=error_msg,
+                    status_code=429,
+                )
+
+                self.logger.log_retry(
+                    request_id=request_id,
+                    endpoint=f"{self.endpoint}/count_tokens",
+                    provider_name=provider_name,
+                    provider_priority=provider_config.priority,
+                    attempt=attempt,
+                    max_attempts=len(self.providers),
+                    error_type="rate_limit_error",
+                    error_message=error_msg,
+                    retry_after=e.retry_after,
+                )
+
+                if e.retry_after:
+                    # Schedule retry after delay
+                    asyncio.create_task(
+                        self._schedule_provider_retry(provider_config, e.retry_after)
+                    )
+
+                # Log fallback if there are more providers
+                if attempt < len(self.providers):
+                    next_provider = self.providers[attempt]
+                    next_provider_name = (
+                        next_provider.name.value
+                        if isinstance(next_provider.name, ProviderType)
+                        else next_provider.name
+                    )
+                    self.logger.log_fallback(
+                        request_id=request_id,
+                        endpoint=f"{self.endpoint}/count_tokens",
+                        from_provider=provider_name,
+                        from_priority=provider_config.priority,
+                        to_provider=next_provider_name,
+                        to_priority=next_provider.priority,
+                        reason="rate_limit",
+                    )
+
+                continue
+
+            except (ProviderError, LLMError) as e:
+                # Other provider errors - try next provider
+                error_msg = str(e)
+                errors.append((provider_name, error_msg))
+
+                # Record statistics for provider error
+                self.stats.record_request_failure(
+                    provider_name, f"Provider error: {error_msg}"
+                )
+
+                self.logger.log_error(
+                    request_id=request_id,
+                    endpoint=f"{self.endpoint}/count_tokens",
+                    provider_name=provider_name,
+                    error_type="provider_error",
+                    error_message=error_msg,
+                )
+
+                self.logger.log_retry(
+                    request_id=request_id,
+                    endpoint=f"{self.endpoint}/count_tokens",
+                    provider_name=provider_name,
+                    provider_priority=provider_config.priority,
+                    attempt=attempt,
+                    max_attempts=len(self.providers),
+                    error_type="provider_error",
+                    error_message=error_msg,
+                )
+
+                # Log fallback if there are more providers
+                if attempt < len(self.providers):
+                    next_provider = self.providers[attempt]
+                    next_provider_name = (
+                        next_provider.name.value
+                        if isinstance(next_provider.name, ProviderType)
+                        else next_provider.name
+                    )
+                    self.logger.log_fallback(
+                        request_id=request_id,
+                        endpoint=f"{self.endpoint}/count_tokens",
+                        from_provider=provider_name,
+                        from_priority=provider_config.priority,
+                        to_provider=next_provider_name,
+                        to_priority=next_provider.priority,
+                        reason="provider_error",
+                    )
+
+                continue
+
+            except Exception as e:
+                # Unexpected errors - try next provider
+                error_msg = str(e)
+                errors.append((provider_name, f"Unexpected error: {error_msg}"))
+
+                # Record statistics for unexpected error
+                self.stats.record_request_failure(
+                    provider_name, f"Unexpected error: {error_msg}"
+                )
+
+                self.logger.log_error(
+                    request_id=request_id,
+                    endpoint=f"{self.endpoint}/count_tokens",
+                    provider_name=provider_name,
+                    error_type="unexpected_error",
+                    error_message=error_msg,
+                )
+
+                self.logger.log_retry(
+                    request_id=request_id,
+                    endpoint=f"{self.endpoint}/count_tokens",
+                    provider_name=provider_name,
+                    provider_priority=provider_config.priority,
+                    attempt=attempt,
+                    max_attempts=len(self.providers),
+                    error_type="unexpected_error",
+                    error_message=error_msg,
+                )
+
+                # Log fallback if there are more providers
+                if attempt < len(self.providers):
+                    next_provider = self.providers[attempt]
+                    next_provider_name = (
+                        next_provider.name.value
+                        if isinstance(next_provider.name, ProviderType)
+                        else next_provider.name
+                    )
+                    self.logger.log_fallback(
+                        request_id=request_id,
+                        endpoint=f"{self.endpoint}/count_tokens",
+                        from_provider=provider_name,
+                        from_priority=provider_config.priority,
+                        to_provider=next_provider_name,
+                        to_priority=next_provider.priority,
+                        reason="unexpected_error",
+                    )
+
+                continue
+
+        # All providers failed
+        error_details = "\n".join(
+            [f"- {provider}: {error}" for provider, error in errors]
+        )
+
+        self.logger.log_error(
+            request_id=request_id,
+            endpoint=f"{self.endpoint}/count_tokens",
+            provider_name="all",
+            error_type="no_available_provider",
+            error_message=f"All {len(self.providers)} providers failed",
+        )
+
+        total_duration = (time.time() - start_time) * 1000
+        self.logger.logger.error(
+            f"Request {request_id[:8]} failed after {total_duration:.0f}ms: "
+            f"all {len(self.providers)} providers failed"
+        )
+
+        raise NoAvailableProviderError(f"All providers failed:\n{error_details}")
+
     def get_stats(self) -> RouterStats:
         """Get current router statistics."""
         return self.stats.get_stats()

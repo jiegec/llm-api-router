@@ -217,6 +217,7 @@ class LLMAPIServer:
                 "endpoints": {
                     "openai": "/openai/chat/completions",
                     "anthropic": "/anthropic/v1/messages",
+                    "anthropic_count_tokens": "/anthropic/v1/messages/count_tokens",
                     "health": "/health",
                     "status": "/status",
                 },
@@ -290,6 +291,26 @@ class LLMAPIServer:
             return await self._handle_chat_completion(
                 request, router, ProviderType.ANTHROPIC
             )
+
+        @self.app.post(
+            "/anthropic/v1/messages/count_tokens", response_model=dict[str, Any]
+        )
+        async def anthropic_count_tokens(
+            request: dict[str, Any],
+            router: LLMRouter = Depends(self._get_anthropic_router),
+        ) -> dict[str, Any]:
+            """Anthropic-compatible count_tokens endpoint."""
+            try:
+                return await router.count_tokens(request)
+            except Exception as e:
+                # Re-raise HTTP exceptions
+                if isinstance(e, HTTPException):
+                    raise e
+                # Convert other exceptions to appropriate HTTP errors
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Internal server error: {str(e)}",
+                ) from e
 
     def _setup_middleware(self) -> None:
         """Setup middleware for error handling."""

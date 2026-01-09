@@ -8,6 +8,7 @@ LLM API router with unified OpenAI/Anthropic endpoints, priority-based fallback,
 |------|--------|--------|
 | `/openai/chat/completions` | OpenAI | `openai` Python client |
 | `/anthropic/v1/messages` | Anthropic | `anthropic` Python client |
+| `/anthropic/v1/messages/count_tokens` | Anthropic | `anthropic` Python client |
 
 ## Architecture
 

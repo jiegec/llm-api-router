@@ -22,6 +22,11 @@ class OpenAIProvider(BaseProvider):
     def _get_endpoint(self) -> str:
         return "/chat/completions"
 
+    def _get_count_tokens_endpoint(self) -> str:
+        raise NotImplementedError(
+            "OpenAI does not have a count_tokens endpoint at this time"
+        )
+
     def merge_streaming_chunk(
         self, response_dict: dict[str, Any], data: dict[str, Any]
     ) -> dict[str, Any]:

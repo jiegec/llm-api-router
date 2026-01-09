@@ -48,6 +48,105 @@ class BaseProvider(ABC):
         """Get the API endpoint for chat completions."""
         pass
 
+    @abstractmethod
+    def _get_count_tokens_endpoint(self) -> str:
+        """Get the API endpoint for counting tokens."""
+        pass
+
+    async def count_tokens(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Count tokens for a request without actually generating a response."""
+        # Extract model from request
+        model = request.get("model", "")
+        provider_model = self._map_model(model)
+
+        # Build payload - start with original request and update model only
+        payload = dict(request)
+        payload["model"] = provider_model
+
+        # Remove None values
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        # Log the API call
+        self.logger.logger.debug(
+            f"Provider {self.provider_name}: "
+            f"Counting tokens for model {model} -> {provider_model}, "
+            f"messages: {len(request.get('messages', []))}, "
+            f"max_retries: {self.config.max_retries}"
+        )
+
+        for attempt in range(self.config.max_retries + 1):
+            try:
+                self.logger.logger.debug(
+                    f"Provider {self.provider_name}: "
+                    f"Attempt {attempt + 1}/{self.config.max_retries + 1}"
+                )
+
+                start_time = time.time()
+                response = await self.client.post(
+                    self._get_count_tokens_endpoint(), json=payload
+                )
+                duration = (time.time() - start_time) * 1000
+
+                if response.status_code == 200:
+                    response_data = response.json()
+                    self.logger.logger.debug(
+                        f"Provider {self.provider_name}: "
+                        f"Count tokens successful in {duration:.0f}ms, "
+                        f"status: {response.status_code}"
+                    )
+                    return response_data if isinstance(response_data, dict) else {}
+                else:
+                    try:
+                        error_data = response.json()
+                    except json.JSONDecodeError:
+                        error_data = {"error": {"message": response.text}}
+
+                    self.logger.logger.warning(
+                        f"Provider {self.provider_name}: "
+                        f"Count tokens failed in {duration:.0f}ms, "
+                        f"status: {response.status_code}, "
+                        f"error: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                    )
+
+                    self._handle_error(response.status_code, error_data)
+
+            except (RateLimitError, AuthenticationError) as e:
+                # Don't retry auth or rate limit errors
+                self.logger.logger.warning(
+                    f"Provider {self.provider_name}: "
+                    f"Fatal error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}"
+                )
+                raise e
+            except Exception as e:
+                self.logger.logger.warning(
+                    f"Provider {self.provider_name}: "
+                    f"Error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}"
+                )
+
+                if attempt == self.config.max_retries:
+                    self.logger.logger.error(
+                        f"Provider {self.provider_name}: "
+                        f"Max retries ({self.config.max_retries}) exceeded"
+                    )
+                    raise ProviderError(
+                        f"Count tokens failed after {self.config.max_retries + 1} attempts: {str(e)}",
+                        self.config.name.value,
+                    ) from e
+
+                # Exponential backoff
+                backoff_time = 2**attempt
+                self.logger.logger.debug(
+                    f"Provider {self.provider_name}: "
+                    f"Retrying after {backoff_time}s backoff"
+                )
+                await asyncio.sleep(backoff_time)
+
+        # This should never be reached due to the raise statements above
+        raise ProviderError(
+            "Unexpected error: max retries exhausted without raising exception",
+            self.config.name.value,
+        )
+
     def _handle_error(self, status_code: int, error_data: dict[str, Any]) -> None:
         """Handle provider-specific errors."""
         error_message = error_data.get("error", {}).get("message", "Unknown error")

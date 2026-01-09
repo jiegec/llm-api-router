@@ -253,3 +253,133 @@ async def test_provider_retry_logic(openai_config, mock_httpx_client):
     assert isinstance(response, dict)
     # Providers return raw response dicts, not wrapped
     assert response["id"] == "chatcmpl-123"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_provider_count_tokens(anthropic_config, mock_httpx_client):
+    """Test Anthropic provider count_tokens endpoint."""
+    # Mock successful count_tokens response
+    mock_response = Response(
+        status_code=200,
+        content=json.dumps({"input_tokens": 42}),
+    )
+    mock_httpx_client.post.return_value = mock_response
+
+    provider = AnthropicProvider(anthropic_config)
+    count_request = {
+        "model": "claude-3-opus",
+        "messages": [
+            {"role": "user", "content": "Hello, how are you?"},
+        ],
+    }
+
+    response = await provider.count_tokens(count_request)
+
+    # Verify request
+    mock_httpx_client.post.assert_called_once()
+    call_args = mock_httpx_client.post.call_args
+    assert call_args[0][0] == "/v1/messages/count_tokens"
+
+    # Verify the request body has mapped model name
+    request_body = call_args[1]["json"]
+    assert request_body["model"] == "claude-3-opus-20240229"
+
+    # Verify response
+    assert isinstance(response, dict)
+    assert response["input_tokens"] == 42
+
+
+@pytest.mark.asyncio
+async def test_anthropic_provider_count_tokens_authentication_error(
+    anthropic_config, mock_httpx_client
+):
+    """Test Anthropic provider count_tokens authentication error handling."""
+    # Mock authentication error
+    mock_response = Response(
+        status_code=401,
+        content=json.dumps(
+            {
+                "error": {
+                    "message": "Invalid API key",
+                    "type": "invalid_request_error",
+                }
+            }
+        ),
+    )
+    mock_httpx_client.post.return_value = mock_response
+
+    provider = AnthropicProvider(anthropic_config)
+    count_request = {
+        "model": "claude-3-opus",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    with pytest.raises(Exception) as exc_info:
+        await provider.count_tokens(count_request)
+
+    assert "Authentication failed" in str(exc_info.value)
+    assert "anthropic" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_anthropic_provider_count_tokens_rate_limit_error(
+    anthropic_config, mock_httpx_client
+):
+    """Test Anthropic provider count_tokens rate limit error handling."""
+    # Mock rate limit error
+    mock_response = Response(
+        status_code=429,
+        content=json.dumps(
+            {
+                "error": {
+                    "message": "Rate limit exceeded",
+                    "type": "rate_limit_error",
+                    "retry_after": 60,
+                }
+            }
+        ),
+    )
+    mock_httpx_client.post.return_value = mock_response
+
+    provider = AnthropicProvider(anthropic_config)
+    count_request = {
+        "model": "claude-3-opus",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    with pytest.raises(Exception) as exc_info:
+        await provider.count_tokens(count_request)
+
+    assert "Rate limit exceeded" in str(exc_info.value)
+    assert "anthropic" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_anthropic_provider_count_tokens_retry(
+    anthropic_config, mock_httpx_client
+):
+    """Test Anthropic provider count_tokens retry logic."""
+    # Mock first failure, then success
+    error_response = Response(
+        status_code=500,
+        content=json.dumps({"error": {"message": "Internal server error"}}),
+    )
+    success_response = Response(
+        status_code=200,
+        content=json.dumps({"input_tokens": 42}),
+    )
+
+    mock_httpx_client.post.side_effect = [error_response, success_response]
+
+    provider = AnthropicProvider(anthropic_config)
+    count_request = {
+        "model": "claude-3-opus",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    response = await provider.count_tokens(count_request)
+
+    # Should have retried once
+    assert mock_httpx_client.post.call_count == 2
+    assert isinstance(response, dict)
+    assert response["input_tokens"] == 42

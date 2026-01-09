@@ -23,6 +23,9 @@ class AnthropicProvider(BaseProvider):
     def _get_endpoint(self) -> str:
         return "/v1/messages"
 
+    def _get_count_tokens_endpoint(self) -> str:
+        return "/v1/messages/count_tokens"
+
     def merge_streaming_chunk(
         self, response_dict: dict[str, Any], data: dict[str, Any]
     ) -> dict[str, Any]:
