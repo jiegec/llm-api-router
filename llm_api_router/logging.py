@@ -134,6 +134,33 @@ class RouterLogger:
         duration_ms: float,
     ) -> None:
         """Log a successful response."""
+        # Check if this is a count_tokens response
+        if "input_tokens" in response and "model" not in response:
+            # count_tokens response format: {"input_tokens": 42}
+            input_tokens = response.get("input_tokens", 0)
+            log_entry = {
+                "timestamp": datetime.now(timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z"),
+                "type": "response",
+                "session_id": self.session_id,
+                "request_id": request_id,
+                "endpoint": endpoint,
+                "provider": provider_name,
+                "input_tokens": input_tokens,
+                "duration_ms": duration_ms,
+                "full_response": response,
+            }
+
+            self.json_logger.debug(json.dumps(log_entry))
+
+            self.logger.info(
+                f"Response {request_id[:8]} from {provider_name}: "
+                f"duration={duration_ms:.0f}ms, "
+                f"input_tokens={input_tokens}"
+            )
+            return
+
         # Extract values from response (now always a dict)
         model = response.get("model", "")
         response_id = response.get("id", "")
