@@ -20,6 +20,49 @@ A FastAPI-based LLM API router server that provides separate endpoints for OpenA
 poetry install
 ```
 
+## Configuration
+
+### JSON Configuration File
+
+Create a JSON configuration file (e.g. `~/.llm_router_config.json`):
+
+```json
+{
+  "openai": [
+    {
+      "api_key": "sk-your-primary-openai-api-key-here",
+      "priority": 1,
+      "base_url": "https://api.openai.com/v1",
+      "timeout": 30,
+      "max_retries": 3
+    },
+    {
+      "api_key": "sk-your-backup-openai-api-key-here",
+      "priority": 2,
+      "base_url": "https://api.openai.com/v1",
+      "timeout": 30,
+      "max_retries": 3
+    }
+  ],
+  "anthropic": [
+    {
+      "api_key": "sk-ant-your-primary-anthropic-api-key-here",
+      "priority": 1,
+      "base_url": "https://api.anthropic.com",
+      "timeout": 30,
+      "max_retries": 3
+    },
+    {
+      "api_key": "sk-ant-your-backup-anthropic-api-key-here",
+      "priority": 2,
+      "base_url": "https://api.anthropic.com",
+      "timeout": 30,
+      "max_retries": 3
+    }
+  ]
+}
+```
+
 ## Running the Server
 
 ### Using the CLI (Recommended)
@@ -88,48 +131,6 @@ Configure Claude Code to use this router:
 }
 ```
 
-## Configuration
-
-### JSON Configuration File
-
-Create a JSON configuration file (default: `llm_router_config.json`):
-
-```json
-{
-  "openai": [
-    {
-      "api_key": "sk-your-primary-openai-api-key-here",
-      "priority": 1,
-      "base_url": "https://api.openai.com/v1",
-      "timeout": 30,
-      "max_retries": 3
-    },
-    {
-      "api_key": "sk-your-backup-openai-api-key-here",
-      "priority": 2,
-      "base_url": "https://api.openai.com/v1",
-      "timeout": 30,
-      "max_retries": 3
-    }
-  ],
-  "anthropic": [
-    {
-      "api_key": "sk-ant-your-primary-anthropic-api-key-here",
-      "priority": 1,
-      "base_url": "https://api.anthropic.com",
-      "timeout": 30,
-      "max_retries": 3
-    },
-    {
-      "api_key": "sk-ant-your-backup-anthropic-api-key-here",
-      "priority": 2,
-      "base_url": "https://api.anthropic.com",
-      "timeout": 30,
-      "max_retries": 3
-    }
-  ]
-}
-```
 
 ## Logging
 
