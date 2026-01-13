@@ -41,6 +41,8 @@ poetry run llm-api-router serve
 poetry run llm-api-router serve --config /path/to/config.json
 ```
 
+The server runs on port **8000** by default.
+
 ## API Endpoints
 
 - `GET /` - Server information and available endpoints
