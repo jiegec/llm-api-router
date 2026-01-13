@@ -51,6 +51,43 @@ The server runs on port **8000** by default.
 - `POST /openai/chat/completions` - OpenAI-compatible chat completion
 - `POST /anthropic/v1/messages` - Anthropic-compatible chat completion
 
+## Client Configuration
+
+### Qwen Code (~/.qwen/settings.json)
+
+Configure Qwen Code to use this router:
+
+```json
+{
+  "security": {
+    "auth": {
+      "selectedType": "openai",
+      "apiKey": "RANDOM",
+      "baseUrl": "http://127.0.0.1:8000/openai"
+    }
+  },
+  "model": "example"
+}
+```
+
+### Claude Code (~/.claude/settings.json)
+
+Configure Claude Code to use this router:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "RANDOM",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8000/anthropic"
+  },
+  "permissions": {
+    "allow": [],
+    "deny": [],
+    "ask": []
+  }
+}
+```
+
 ## Configuration
 
 ### JSON Configuration File
