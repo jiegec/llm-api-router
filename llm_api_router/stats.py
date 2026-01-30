@@ -197,6 +197,9 @@ class RouterStats(BaseModel):
     total_cached_tokens: int = Field(
         default=0, description="Total cached tokens across all providers"
     )
+    total_tokens: int = Field(
+        default=0, description="Total tokens (input + output) across all providers"
+    )
 
     @property
     def most_used_provider(self) -> str | None:
@@ -246,6 +249,9 @@ class StatsCollector:
         )
         self._stats.total_cached_tokens = sum(
             stats.total_cached_tokens for stats in self._provider_stats.values()
+        )
+        self._stats.total_tokens = (
+            self._stats.total_input_tokens + self._stats.total_output_tokens
         )
 
         # Copy provider stats

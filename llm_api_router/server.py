@@ -61,6 +61,7 @@ def _format_stats(stats: Any) -> dict[str, Any]:
         "total_input_tokens": stats.total_input_tokens,
         "total_output_tokens": stats.total_output_tokens,
         "total_cached_tokens": stats.total_cached_tokens,
+        "total_tokens": stats.total_tokens,
         "most_used_provider": stats.most_used_provider,
         "fastest_provider": stats.fastest_provider,
         "providers": {
@@ -418,6 +419,13 @@ class LLMAPIServer:
                     stats.total_cached_tokens,
                     {"provider_type": provider_type},
                     "Total number of cached tokens",
+                    "counter",
+                )
+                metric(
+                    "llm_router_total_tokens",
+                    stats.total_input_tokens + stats.total_output_tokens,
+                    {"provider_type": provider_type},
+                    "Total number of tokens (input + output)",
                     "counter",
                 )
 
