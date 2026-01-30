@@ -67,6 +67,29 @@ class ProviderStats(BaseModel):
     )
     last_error: str | None = Field(default=None, description="Last error message")
 
+    # Rate limit stats
+    total_rate_limits: int = Field(
+        default=0, description="Total number of rate limit errors"
+    )
+    recent_rate_limits: int = Field(
+        default=0, description="Number of rate limits in current window"
+    )
+    cooldown_count: int = Field(
+        default=0, description="Number of times provider entered cooldown"
+    )
+    total_cooldown_time_seconds: float = Field(
+        default=0.0, description="Total time spent in cooldown"
+    )
+    in_cooldown: bool = Field(
+        default=False, description="Whether provider is currently in cooldown"
+    )
+    cooldown_remaining_seconds: float = Field(
+        default=0.0, description="Remaining seconds in cooldown (0 if not in cooldown)"
+    )
+    last_cooldown_start_time: float | None = Field(
+        default=None, description="Timestamp when last cooldown started"
+    )
+
     @property
     def success_rate(self) -> float:
         """Calculate success rate based on completed requests."""
@@ -305,3 +328,46 @@ class StatsCollector:
         stats.in_progress_requests -= 1
         stats.failed_requests += 1
         stats.last_error = error_message
+
+    def record_rate_limit(self, provider_name: str) -> None:
+        """Record a rate limit error for a provider."""
+        stats = self._provider_stats[provider_name]
+        stats.total_rate_limits += 1
+
+    def record_cooldown_start(self, provider_name: str) -> None:
+        """Record when a provider enters cooldown."""
+        stats = self._provider_stats[provider_name]
+        stats.cooldown_count += 1
+        stats.in_cooldown = True
+        stats.last_cooldown_start_time = time.time()
+
+    def record_cooldown_end(self, provider_name: str) -> None:
+        """Record when a provider exits cooldown."""
+        stats = self._provider_stats[provider_name]
+        if stats.last_cooldown_start_time:
+            cooldown_duration = time.time() - stats.last_cooldown_start_time
+            stats.total_cooldown_time_seconds += cooldown_duration
+        stats.in_cooldown = False
+        stats.last_cooldown_start_time = None
+
+    def update_rate_limit_status(
+        self,
+        provider_name: str,
+        recent_count: int,
+        cooldown_remaining: float | None,
+    ) -> None:
+        """Update rate limit status for a provider.
+
+        Args:
+            provider_name: Name of the provider
+            recent_count: Number of rate limits in current window
+            cooldown_remaining: Remaining seconds in cooldown (None if not in cooldown)
+        """
+        stats = self._provider_stats[provider_name]
+        stats.recent_rate_limits = recent_count
+        if cooldown_remaining is None:
+            cooldown_remaining = 0.0
+            stats.in_cooldown = False
+        else:
+            stats.in_cooldown = True
+        stats.cooldown_remaining_seconds = cooldown_remaining

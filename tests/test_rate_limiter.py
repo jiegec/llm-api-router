@@ -197,3 +197,135 @@ class TestRateLimiterWithRouter:
         assert status["openai-priority-1"]["in_cooldown"] is False
         assert status["openai-priority-1"]["cooldown_remaining"] is None
         assert status["openai-priority-1"]["recent_rate_limits"] == 0
+
+
+class TestRateLimiterStatsIntegration:
+    """Tests for rate limiter integration with stats collector."""
+
+    def test_rate_limiter_with_stats_collector(self):
+        """Test that rate limiter can be initialized with a stats collector."""
+        from llm_api_router.stats import StatsCollector
+
+        stats = StatsCollector()
+        rl = RateLimiter(stats_collector=stats)
+
+        assert rl.stats_collector is stats
+
+    def test_record_rate_limit_updates_stats(self):
+        """Test that record_rate_limit calls stats.record_rate_limit."""
+        from llm_api_router.stats import StatsCollector
+
+        stats = StatsCollector()
+        rl = RateLimiter(stats_collector=stats)
+
+        rl.record_rate_limit("provider1")
+
+        assert stats.get_stats().providers["provider1"].total_rate_limits == 1
+
+    def test_cooldown_start_updates_stats(self):
+        """Test that hitting the threshold triggers cooldown start in stats."""
+        from llm_api_router.stats import StatsCollector
+
+        stats = StatsCollector()
+        rl = RateLimiter(consecutive_threshold=3, stats_collector=stats)
+
+        # Hit the threshold
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+
+        provider_stats = stats.get_stats().providers["provider1"]
+        assert provider_stats.cooldown_count == 1
+        assert provider_stats.in_cooldown is True
+        assert provider_stats.last_cooldown_start_time is not None
+
+    def test_cooldown_end_updates_stats(self):
+        """Test that cooldown expiring triggers cooldown end in stats."""
+        from llm_api_router.stats import StatsCollector
+
+        stats = StatsCollector()
+        rl = RateLimiter(
+            consecutive_threshold=3, cooldown_seconds=0.1, stats_collector=stats
+        )
+
+        # Trigger cooldown
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+
+        assert stats.get_stats().providers["provider1"].in_cooldown is True
+
+        # Wait for cooldown to expire
+        time.sleep(0.15)
+
+        # Check if in cooldown - this should trigger cooldown end in stats
+        rl.is_in_cooldown("provider1")
+
+        assert stats.get_stats().providers["provider1"].in_cooldown is False
+
+    def test_update_rate_limit_stats(self):
+        """Test that update_rate_limit_stats syncs stats with rate limiter."""
+        from llm_api_router.stats import StatsCollector
+
+        stats = StatsCollector()
+        rl = RateLimiter(stats_collector=stats)
+
+        # Add some rate limits
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+
+        # Update stats
+        rl.update_rate_limit_stats("provider1")
+
+        provider_stats = stats.get_stats().providers["provider1"]
+        assert provider_stats.recent_rate_limits == 2
+        assert provider_stats.in_cooldown is False
+
+    def test_success_updates_rate_limit_stats(self):
+        """Test that record_success resets recent_rate_limits in stats."""
+        from llm_api_router.stats import StatsCollector
+
+        stats = StatsCollector()
+        rl = RateLimiter(stats_collector=stats)
+
+        # Add some rate limits
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+
+        # Update stats to see the rate limits
+        rl.update_rate_limit_stats("provider1")
+        assert stats.get_stats().providers["provider1"].recent_rate_limits == 2
+
+        # Record success - should reset recent count
+        rl.record_success("provider1")
+
+        # Check that stats were updated
+        assert stats.get_stats().providers["provider1"].recent_rate_limits == 0
+
+    def test_multiple_rate_limits_increment_stats(self):
+        """Test that multiple rate limits increment total_rate_limits."""
+        from llm_api_router.stats import StatsCollector
+
+        stats = StatsCollector()
+        rl = RateLimiter(stats_collector=stats)
+
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+
+        assert stats.get_stats().providers["provider1"].total_rate_limits == 4
+
+    def test_stats_collector_none_no_errors(self):
+        """Test that rate limiter works without stats collector."""
+        rl = RateLimiter(stats_collector=None)
+
+        # Should not raise any errors
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+        rl.record_rate_limit("provider1")
+
+        assert rl.is_in_cooldown("provider1") is True
+
+        # update_rate_limit_stats should not raise
+        rl.update_rate_limit_stats("provider1")

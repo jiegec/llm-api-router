@@ -519,3 +519,133 @@ def test_mixed_streaming_and_non_streaming():
     assert provider_stats.non_streaming_average_latency_ms > 0
     assert provider_stats.streaming_average_latency_ms > 0
     assert provider_stats.streaming_average_time_to_first_token_ms == 5.0
+
+
+def test_record_rate_limit():
+    """Test recording rate limit errors."""
+    collector = StatsCollector()
+
+    # Record multiple rate limits
+    collector.record_rate_limit("provider1")
+    collector.record_rate_limit("provider1")
+    collector.record_rate_limit("provider2")
+
+    stats = collector.get_stats()
+
+    assert stats.providers["provider1"].total_rate_limits == 2
+    assert stats.providers["provider2"].total_rate_limits == 1
+
+
+def test_record_cooldown_start():
+    """Test recording cooldown start."""
+    collector = StatsCollector()
+
+    collector.record_cooldown_start("provider1")
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["provider1"]
+
+    assert provider_stats.cooldown_count == 1
+    assert provider_stats.in_cooldown is True
+    assert provider_stats.last_cooldown_start_time is not None
+    assert isinstance(provider_stats.last_cooldown_start_time, float)
+
+
+def test_record_cooldown_end():
+    """Test recording cooldown end."""
+    collector = StatsCollector()
+
+    # Start cooldown
+    collector.record_cooldown_start("provider1")
+    time.sleep(0.1)  # Simulate some cooldown time
+
+    # End cooldown
+    collector.record_cooldown_end("provider1")
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["provider1"]
+
+    assert provider_stats.in_cooldown is False
+    assert provider_stats.last_cooldown_start_time is None
+    assert provider_stats.total_cooldown_time_seconds >= 0.1
+
+
+def test_update_rate_limit_status():
+    """Test updating rate limit status."""
+    collector = StatsCollector()
+
+    # Update with some rate limits and cooldown
+    collector.update_rate_limit_status(
+        "provider1", recent_count=3, cooldown_remaining=60.0
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["provider1"]
+
+    assert provider_stats.recent_rate_limits == 3
+    assert provider_stats.in_cooldown is True
+    assert provider_stats.cooldown_remaining_seconds == 60.0
+
+    # Update again with no cooldown
+    collector.update_rate_limit_status(
+        "provider1", recent_count=0, cooldown_remaining=None
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["provider1"]
+
+    assert provider_stats.recent_rate_limits == 0
+    assert provider_stats.in_cooldown is False
+    assert provider_stats.cooldown_remaining_seconds == 0.0
+
+
+def test_provider_stats_rate_limit_fields():
+    """Test ProviderStats rate limit field defaults."""
+    stats = ProviderStats()
+
+    assert stats.total_rate_limits == 0
+    assert stats.recent_rate_limits == 0
+    assert stats.cooldown_count == 0
+    assert stats.total_cooldown_time_seconds == 0.0
+    assert stats.in_cooldown is False
+    assert stats.cooldown_remaining_seconds == 0.0
+    assert stats.last_cooldown_start_time is None
+
+
+def test_multiple_cooldowns():
+    """Test tracking multiple cooldown cycles."""
+    collector = StatsCollector()
+
+    # First cooldown cycle
+    collector.record_cooldown_start("provider1")
+    time.sleep(0.05)
+    collector.record_cooldown_end("provider1")
+
+    # Second cooldown cycle
+    collector.record_cooldown_start("provider1")
+    time.sleep(0.05)
+    collector.record_cooldown_end("provider1")
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["provider1"]
+
+    assert provider_stats.cooldown_count == 2
+    assert provider_stats.total_cooldown_time_seconds >= 0.1
+    assert provider_stats.in_cooldown is False
+
+
+def test_rate_limit_status_with_no_cooldown():
+    """Test update_rate_limit_status with None for cooldown_remaining."""
+    collector = StatsCollector()
+
+    # None means no cooldown
+    collector.update_rate_limit_status(
+        "provider1", recent_count=1, cooldown_remaining=None
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["provider1"]
+
+    assert provider_stats.recent_rate_limits == 1
+    assert provider_stats.in_cooldown is False
+    assert provider_stats.cooldown_remaining_seconds == 0.0

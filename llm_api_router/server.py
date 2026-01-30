@@ -78,6 +78,22 @@ def _format_stats(stats: Any) -> dict[str, Any]:
                 "last_request_time": _format_timestamp(stat.last_request_time),
                 "last_success_time": _format_timestamp(stat.last_success_time),
                 "last_error": stat.last_error,
+                # Rate limit stats
+                "rate_limits": {
+                    "total_rate_limits": stat.total_rate_limits,
+                    "recent_rate_limits": stat.recent_rate_limits,
+                    "cooldown_count": stat.cooldown_count,
+                    "total_cooldown_time_seconds": round(
+                        stat.total_cooldown_time_seconds, 2
+                    ),
+                    "in_cooldown": stat.in_cooldown,
+                    "cooldown_remaining_seconds": round(
+                        stat.cooldown_remaining_seconds, 2
+                    ),
+                    "last_cooldown_start_time": _format_timestamp(
+                        stat.last_cooldown_start_time
+                    ),
+                },
                 # Non-streaming metrics
                 "non_streaming": {
                     "requests": stat.non_streaming_requests,
@@ -544,6 +560,51 @@ class LLMAPIServer:
                             "Success rate (0-1)",
                             "gauge",
                         )
+
+                        # Rate limit metrics
+                        metric(
+                            "llm_router_provider_rate_limits_total",
+                            pstats.total_rate_limits,
+                            labels,
+                            "Total rate limit errors per provider",
+                            "counter",
+                        )
+                        metric(
+                            "llm_router_provider_recent_rate_limits",
+                            pstats.recent_rate_limits,
+                            labels,
+                            "Recent rate limits in current window",
+                            "gauge",
+                        )
+                        metric(
+                            "llm_router_provider_cooldowns_total",
+                            pstats.cooldown_count,
+                            labels,
+                            "Total number of cooldowns entered",
+                            "counter",
+                        )
+                        metric(
+                            "llm_router_provider_cooldown_time_seconds_total",
+                            pstats.total_cooldown_time_seconds,
+                            labels,
+                            "Total time spent in cooldown",
+                            "counter",
+                        )
+                        metric(
+                            "llm_router_provider_in_cooldown",
+                            1 if pstats.in_cooldown else 0,
+                            labels,
+                            "Whether provider is currently in cooldown",
+                            "gauge",
+                        )
+                        if pstats.cooldown_remaining_seconds > 0:
+                            metric(
+                                "llm_router_provider_cooldown_remaining_seconds",
+                                pstats.cooldown_remaining_seconds,
+                                labels,
+                                "Remaining seconds in cooldown",
+                                "gauge",
+                            )
 
             return "\n".join(lines) + "\n"
 

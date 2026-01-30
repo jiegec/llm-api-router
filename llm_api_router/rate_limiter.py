@@ -3,6 +3,10 @@
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .stats import StatsCollector
 
 
 @dataclass
@@ -14,6 +18,9 @@ class RateLimitTracker:
 
     # Timestamp when the cooldown period ends (None if not in cooldown)
     cooldown_until: float | None = None
+
+    # Track when cooldown started for stats recording
+    cooldown_start_time: float | None = None
 
 
 class RateLimiter:
@@ -32,6 +39,7 @@ class RateLimiter:
         consecutive_threshold: int = 3,
         window_seconds: int = 60,
         cooldown_seconds: int = 600,
+        stats_collector: "StatsCollector | None" = None,
     ) -> None:
         """
         Initialize the rate limiter.
@@ -40,10 +48,12 @@ class RateLimiter:
             consecutive_threshold: Number of consecutive rate limits to trigger cooldown
             window_seconds: Time window in seconds to check for consecutive rate limits
             cooldown_seconds: How long to skip the provider after threshold is reached
+            stats_collector: Optional stats collector to record rate limit metrics
         """
         self.consecutive_threshold = consecutive_threshold
         self.window_seconds = window_seconds
         self.cooldown_seconds = cooldown_seconds
+        self.stats_collector = stats_collector
         self._trackers: dict[str, RateLimitTracker] = {}
 
     def _get_tracker(self, provider_name: str) -> RateLimitTracker:
@@ -69,6 +79,9 @@ class RateLimiter:
         # Check if cooldown has expired
         if time.time() >= tracker.cooldown_until:
             tracker.cooldown_until = None
+            # Record cooldown end in stats
+            if self.stats_collector:
+                self.stats_collector.record_cooldown_end(provider_name)
             return False
 
         return True
@@ -82,6 +95,10 @@ class RateLimiter:
         """
         tracker = self._get_tracker(provider_name)
         current_time = time.time()
+
+        # Record rate limit in stats
+        if self.stats_collector:
+            self.stats_collector.record_rate_limit(provider_name)
 
         # Clean up old rate limits outside the window
         while (
@@ -97,8 +114,12 @@ class RateLimiter:
         if len(tracker.recent_rate_limits) >= self.consecutive_threshold:
             # Start cooldown
             tracker.cooldown_until = current_time + self.cooldown_seconds
+            tracker.cooldown_start_time = current_time
             # Clear the rate limits since we're now in cooldown
             tracker.recent_rate_limits.clear()
+            # Record cooldown start in stats
+            if self.stats_collector:
+                self.stats_collector.record_cooldown_start(provider_name)
 
     def record_success(self, provider_name: str) -> None:
         """
@@ -112,6 +133,9 @@ class RateLimiter:
         tracker = self._get_tracker(provider_name)
         # Clear rate limits on success - provider is healthy again
         tracker.recent_rate_limits.clear()
+        # Update stats to reset recent count
+        if self.stats_collector:
+            self.stats_collector.update_rate_limit_status(provider_name, 0, None)
 
     def get_cooldown_end_time(self, provider_name: str) -> float | None:
         """
@@ -163,3 +187,19 @@ class RateLimiter:
             tracker.recent_rate_limits.popleft()
 
         return len(tracker.recent_rate_limits)
+
+    def update_rate_limit_stats(self, provider_name: str) -> None:
+        """
+        Update rate limit stats in the stats collector.
+
+        Args:
+            provider_name: Name of the provider to update stats for
+        """
+        recent_count = self.get_recent_rate_limit_count(provider_name)
+        cooldown_remaining = self.get_cooldown_remaining_seconds(provider_name)
+
+        # Update stats if we have a stats collector
+        if self.stats_collector:
+            self.stats_collector.update_rate_limit_status(
+                provider_name, recent_count, cooldown_remaining
+            )

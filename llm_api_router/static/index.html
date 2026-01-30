@@ -351,6 +351,25 @@
                     </div>
             `;
 
+            // Rate limit metrics
+            if (stats.rate_limits) {
+                const rateLimits = stats.rate_limits;
+                const cooldownClass = rateLimits.in_cooldown ? 'warning' : '';
+                html += `
+                    <div class="section">
+                        <h3>Rate Limits</h3>
+                        <div class="two-col">
+                            ${renderMetric('Total Rate Limits', formatNumber(rateLimits.total_rate_limits))}
+                            ${renderMetric('Recent (1m)', formatNumber(rateLimits.recent_rate_limits), { warning: rateLimits.recent_rate_limits > 0 })}
+                            ${renderMetric('Cooldowns', formatNumber(rateLimits.cooldown_count))}
+                            ${renderMetric('Total Cooldown Time', formatDuration(rateLimits.total_cooldown_time_seconds || 0))}
+                        </div>
+                        ${rateLimits.in_cooldown ? renderMetric('Status', 'In Cooldown (' + Math.round(rateLimits.cooldown_remaining_seconds) + 's remaining)', { warning: true }) : ''}
+                        ${rateLimits.last_cooldown_start_time ? renderMetric('Last Cooldown', formatTime(rateLimits.last_cooldown_start_time)) : ''}
+                    </div>
+                `;
+            }
+
             // Non-streaming metrics
             if (stats.non_streaming && stats.non_streaming.requests > 0) {
                 html += `

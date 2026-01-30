@@ -50,7 +50,7 @@ class LLMRouter:
         self.stats = StatsCollector()
 
         # Initialize rate limiter for tracking provider cooldowns
-        self.rate_limiter = RateLimiter()
+        self.rate_limiter = RateLimiter(stats_collector=self.stats)
 
         # Log configuration
         provider_details = []
@@ -143,6 +143,9 @@ class LLMRouter:
         for provider_config in self.providers:
             attempt += 1
             provider_name = provider_config.display_name
+
+            # Update rate limit status in stats (before checking cooldown)
+            self.rate_limiter.update_rate_limit_stats(provider_name)
 
             # Check if provider is in cooldown
             if self.rate_limiter.is_in_cooldown(provider_name):
@@ -266,7 +269,7 @@ class LLMRouter:
                     provider_name, f"Rate limit error: {error_msg}"
                 )
 
-                # Record rate limit for cooldown tracking
+                # Record rate limit for cooldown tracking (also updates stats)
                 self.rate_limiter.record_rate_limit(provider_name)
 
                 self.logger.log_error(
@@ -477,6 +480,9 @@ class LLMRouter:
             attempt += 1
             provider_name = provider_config.display_name
 
+            # Update rate limit status in stats (before checking cooldown)
+            self.rate_limiter.update_rate_limit_stats(provider_name)
+
             # Check if provider is in cooldown
             if self.rate_limiter.is_in_cooldown(provider_name):
                 remaining = self.rate_limiter.get_cooldown_remaining_seconds(
@@ -579,7 +585,7 @@ class LLMRouter:
                     provider_name, f"Rate limit error: {error_msg}"
                 )
 
-                # Record rate limit for cooldown tracking
+                # Record rate limit for cooldown tracking (also updates stats)
                 self.rate_limiter.record_rate_limit(provider_name)
 
                 self.logger.log_error(
