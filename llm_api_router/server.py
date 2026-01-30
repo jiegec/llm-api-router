@@ -124,9 +124,9 @@ def _create_stats_tracking_generator(
             # parse "data: {...}" SSE format
             for line in full_resp.splitlines():
                 try:
-                    if line.startswith("data: "):
-                        # Split by "data: " and process each chunk
-                        data_str = line.removeprefix("data: ").strip()
+                    if line.startswith("data:"):
+                        # Split by "data:" and process each chunk
+                        data_str = line.removeprefix("data:").strip()
                         if not data_str or data_str == "[DONE]":
                             continue
 
