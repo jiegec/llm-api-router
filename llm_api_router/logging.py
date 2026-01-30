@@ -228,7 +228,8 @@ class RouterLogger:
             else "N/A"
         )
         self.logger.info(
-            f"Response {request_id[:8]} from {provider_name}: "
+            f"Response from {provider_name}: "
+            f"model={model}, "
             f"duration={duration_ms:.0f}ms, "
             f"tokens={token_desc}, "
             f"response_id={response_id[:8] if response_id else 'N/A'}"
