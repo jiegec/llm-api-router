@@ -100,8 +100,14 @@
             background: #1e293b;
             border-radius: 12px;
             padding: 20px;
-            border: 1px solid #334155;
+            border-left: 4px solid #334155;
             margin-bottom: 20px;
+        }
+        .provider-section.openai .provider-card {
+            border-left-color: #10b981;
+        }
+        .provider-section.anthropic .provider-card {
+            border-left-color: #f59e0b;
         }
         .provider-header {
             display: flex;
@@ -115,14 +121,6 @@
             font-size: 1.25rem;
             font-weight: 600;
             color: #f8fafc;
-        }
-        .provider-type {
-            font-size: 0.75rem;
-            padding: 4px 10px;
-            background: #334155;
-            border-radius: 4px;
-            color: #94a3b8;
-            text-transform: uppercase;
         }
         .section {
             margin-bottom: 20px;
@@ -199,6 +197,54 @@
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+        .provider-section {
+            margin-bottom: 40px;
+            padding: 25px;
+            border-radius: 16px;
+            border: 2px solid #334155;
+        }
+        .provider-section.openai {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-color: #10b981;
+        }
+        .provider-section.anthropic {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-color: #f59e0b;
+        }
+        .provider-section-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #334155;
+        }
+        .provider-section-header h2 {
+            font-size: 1.5rem;
+            color: #f8fafc;
+            margin: 0;
+        }
+        .provider-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .provider-badge.openai {
+            background: #064e3b;
+            color: #10b981;
+        }
+        .provider-badge.anthropic {
+            background: #451a03;
+            color: #f59e0b;
+        }
+        .provider-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
         }
     </style>
 </head>
@@ -280,7 +326,6 @@
                 <div class="provider-card">
                     <div class="provider-header">
                         <span class="provider-name">${name}</span>
-                        <span class="provider-type">${type}</span>
                     </div>
 
                     <div class="two-col">
@@ -355,17 +400,28 @@
                 return '<div class="card"><h2>Statistics</h2><p style="color: #64748b;">No statistics available yet.</p></div>';
             }
 
-            let html = '<h2 style="margin-bottom: 20px; color: #f8fafc;">Statistics</h2>';
+            let html = '<h2 style="margin-bottom: 25px; color: #f8fafc;">Statistics</h2>';
 
             // Stats is an object with keys like "openai", "anthropic"
             for (const [providerType, providerStats] of Object.entries(stats)) {
                 if (!providerStats) continue;
 
+                // Start provider section with colored border
+                html += `<div class="provider-section ${providerType}">`;
+
+                // Section header with badge
+                html += `
+                    <div class="provider-section-header">
+                        <h2>${providerType.toUpperCase()}</h2>
+                        <span class="provider-badge ${providerType}">${providerType}</span>
+                    </div>
+                `;
+
                 // Overall stats for this provider type
                 html += `
-                    <div class="grid" style="margin-bottom: 30px;">
+                    <div class="provider-grid">
                         <div class="card">
-                            <h2>${providerType.toUpperCase()} Overview</h2>
+                            <h2>Overview</h2>
                             ${renderMetric('Uptime', formatDuration(providerStats.uptime_seconds))}
                             ${renderMetric('Total Requests', formatNumber(providerStats.total_requests), { highlight: true })}
                             ${renderMetric('Input Tokens', formatNumber(providerStats.total_input_tokens))}
@@ -373,7 +429,7 @@
                             ${renderMetric('Cached Tokens', formatNumber(providerStats.total_cached_tokens))}
                         </div>
                         <div class="card">
-                            <h2>${providerType.toUpperCase()} Performance</h2>
+                            <h2>Performance</h2>
                             ${renderMetric('Most Used Provider', providerStats.most_used_provider || '-')}
                             ${renderMetric('Fastest Provider', providerStats.fastest_provider || '-')}
                         </div>
@@ -382,11 +438,14 @@
 
                 // Provider details
                 if (providerStats.providers && Object.keys(providerStats.providers).length > 0) {
-                    html += `<h3 style="margin-bottom: 15px; color: #94a3b8;">${providerType.toUpperCase()} Provider Details</h3>`;
+                    html += `<h3 style="margin-bottom: 15px; color: #94a3b8;">Provider Details</h3>`;
                     for (const [name, pstats] of Object.entries(providerStats.providers)) {
                         html += renderProviderStats(name, pstats, providerType);
                     }
                 }
+
+                // Close provider section
+                html += '</div>';
             }
 
             return html;
