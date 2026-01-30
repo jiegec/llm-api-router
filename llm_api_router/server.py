@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import RouterConfig, load_default_config
@@ -259,6 +259,7 @@ class LLMAPIServer:
                     "anthropic_count_tokens": "/anthropic/v1/messages/count_tokens",
                     "health": "/health",
                     "status": "/status",
+                    "metrics": "/metrics",
                 },
             }
 
@@ -310,6 +311,236 @@ class LLMAPIServer:
                 },
                 "statistics": stats_data if stats_data else None,
             }
+
+        @self.app.get("/metrics", response_class=PlainTextResponse)
+        async def metrics() -> str:
+            """Prometheus-compatible metrics endpoint."""
+            lines: list[str] = []
+
+            # Collect stats from both routers
+            all_stats: dict[str, Any] = {}
+            for router_name, router in [
+                ("openai", self.openai_router),
+                ("anthropic", self.anthropic_router),
+            ]:
+                try:
+                    if router:
+                        all_stats[router_name] = router.get_stats()
+                except Exception:
+                    pass
+
+            if not all_stats:
+                return "# No metrics available\n"
+
+            # Helper to format metric lines
+            def metric(
+                name: str,
+                value: float | int,
+                labels: dict[str, str] | None = None,
+                help_text: str | None = None,
+                metric_type: str | None = None,
+            ) -> None:
+                if help_text:
+                    lines.append(f"# HELP {name} {help_text}")
+                if metric_type:
+                    lines.append(f"# TYPE {name} {metric_type}")
+                label_str = ""
+                if labels:
+                    label_parts = [f'{k}="{v}"' for k, v in labels.items()]
+                    label_str = "{" + ",".join(label_parts) + "}"
+                lines.append(f"{name}{label_str} {value}")
+
+            # Router info
+            metric(
+                "llm_router_info",
+                1,
+                {"version": "0.1.0"},
+                "LLM API Router information",
+                "gauge",
+            )
+
+            # Per-provider-type metrics
+            for provider_type, stats in all_stats.items():
+                # Uptime
+                metric(
+                    "llm_router_uptime_seconds",
+                    stats.uptime_seconds,
+                    {"provider_type": provider_type},
+                    "Router uptime in seconds",
+                    "gauge",
+                )
+
+                # Overall totals
+                metric(
+                    "llm_router_requests_total",
+                    stats.total_requests,
+                    {"provider_type": provider_type},
+                    "Total number of requests",
+                    "counter",
+                )
+                metric(
+                    "llm_router_input_tokens_total",
+                    stats.total_input_tokens,
+                    {"provider_type": provider_type},
+                    "Total number of input tokens",
+                    "counter",
+                )
+                metric(
+                    "llm_router_output_tokens_total",
+                    stats.total_output_tokens,
+                    {"provider_type": provider_type},
+                    "Total number of output tokens",
+                    "counter",
+                )
+                metric(
+                    "llm_router_cached_tokens_total",
+                    stats.total_cached_tokens,
+                    {"provider_type": provider_type},
+                    "Total number of cached tokens",
+                    "counter",
+                )
+
+                # Per-provider metrics
+                if stats.providers:
+                    for provider_name, pstats in stats.providers.items():
+                        labels = {
+                            "provider_type": provider_type,
+                            "provider": provider_name,
+                        }
+
+                        # Request counts
+                        metric(
+                            "llm_router_provider_requests_total",
+                            pstats.total_requests,
+                            labels,
+                            "Total requests per provider",
+                            "counter",
+                        )
+                        metric(
+                            "llm_router_provider_requests_in_progress",
+                            pstats.in_progress_requests,
+                            labels,
+                            "In-progress requests per provider",
+                            "gauge",
+                        )
+                        metric(
+                            "llm_router_provider_requests_successful",
+                            pstats.successful_requests,
+                            labels,
+                            "Successful requests per provider",
+                            "counter",
+                        )
+                        metric(
+                            "llm_router_provider_requests_failed",
+                            pstats.failed_requests,
+                            labels,
+                            "Failed requests per provider",
+                            "counter",
+                        )
+
+                        # Token counts
+                        metric(
+                            "llm_router_provider_input_tokens_total",
+                            pstats.total_input_tokens,
+                            labels,
+                            "Input tokens per provider",
+                            "counter",
+                        )
+                        metric(
+                            "llm_router_provider_output_tokens_total",
+                            pstats.total_output_tokens,
+                            labels,
+                            "Output tokens per provider",
+                            "counter",
+                        )
+                        metric(
+                            "llm_router_provider_cached_tokens_total",
+                            pstats.total_cached_tokens,
+                            labels,
+                            "Cached tokens per provider",
+                            "counter",
+                        )
+
+                        # Streaming metrics
+                        metric(
+                            "llm_router_provider_streaming_requests_total",
+                            pstats.streaming_requests,
+                            labels,
+                            "Streaming requests per provider",
+                            "counter",
+                        )
+                        metric(
+                            "llm_router_provider_non_streaming_requests_total",
+                            pstats.non_streaming_requests,
+                            labels,
+                            "Non-streaming requests per provider",
+                            "counter",
+                        )
+
+                        # Latency metrics (in seconds for Prometheus convention)
+                        if pstats.average_latency_ms > 0:
+                            metric(
+                                "llm_router_provider_latency_seconds",
+                                pstats.average_latency_ms / 1000,
+                                labels,
+                                "Average latency per provider",
+                                "gauge",
+                            )
+                        if pstats.streaming_average_latency_ms > 0:
+                            metric(
+                                "llm_router_provider_streaming_latency_seconds",
+                                pstats.streaming_average_latency_ms / 1000,
+                                labels,
+                                "Average streaming latency per provider",
+                                "gauge",
+                            )
+                        if pstats.non_streaming_average_latency_ms > 0:
+                            metric(
+                                "llm_router_provider_non_streaming_latency_seconds",
+                                pstats.non_streaming_average_latency_ms / 1000,
+                                labels,
+                                "Average non-streaming latency per provider",
+                                "gauge",
+                            )
+
+                        # Time to first token
+                        if pstats.streaming_average_time_to_first_token_ms > 0:
+                            metric(
+                                "llm_router_provider_time_to_first_token_seconds",
+                                pstats.streaming_average_time_to_first_token_ms / 1000,
+                                labels,
+                                "Average time to first token",
+                                "gauge",
+                            )
+
+                        # Tokens per second
+                        if pstats.tokens_per_second > 0:
+                            metric(
+                                "llm_router_provider_tokens_per_second",
+                                pstats.tokens_per_second,
+                                labels,
+                                "Average tokens per second",
+                                "gauge",
+                            )
+                        if pstats.streaming_tokens_per_second_with_first_token > 0:
+                            metric(
+                                "llm_router_provider_streaming_tokens_per_second",
+                                pstats.streaming_tokens_per_second_with_first_token,
+                                labels,
+                                "Streaming tokens per second (with TTFT)",
+                                "gauge",
+                            )
+
+                        # Success rate
+                        metric(
+                            "llm_router_provider_success_rate",
+                            pstats.success_rate / 100,
+                            labels,
+                            "Success rate (0-1)",
+                            "gauge",
+                        )
+
+            return "\n".join(lines) + "\n"
 
         @self.app.post("/openai/chat/completions", response_model=None)
         async def openai_chat_completion(

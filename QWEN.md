@@ -10,6 +10,7 @@ LLM API router with unified OpenAI/Anthropic endpoints, priority-based fallback,
 | `/anthropic/v1/messages` | Anthropic | `anthropic` Python client |
 | `/anthropic/v1/messages/count_tokens` | Anthropic | `anthropic` Python client |
 | `/web` | HTML | Browser |
+| `/metrics` | Prometheus | Monitoring |
 
 ## Architecture
 

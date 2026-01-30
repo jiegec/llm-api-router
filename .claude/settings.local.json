@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(poetry run pytest:*)",
+      "Bash(poetry run mypy:*)",
+      "Bash(poetry run python3:*)",
+      "Bash(poetry run ruff check:*)",
+      "Bash(poetry run black:*)"
+    ]
+  }
+}
