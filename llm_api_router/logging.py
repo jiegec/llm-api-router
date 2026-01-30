@@ -172,6 +172,9 @@ class RouterLogger:
                     prompt_tokens=usage_data.get("prompt_tokens", 0),
                     completion_tokens=usage_data.get("completion_tokens", 0),
                     total_tokens=usage_data.get("total_tokens", 0),
+                    cached_tokens=usage_data.get("prompt_tokens_details", {}).get(
+                        "cached_tokens", 0
+                    ),
                 )
             else:
                 # Anthropic format
@@ -179,6 +182,7 @@ class RouterLogger:
                     prompt_tokens=usage_data.get("input_tokens", 0),
                     completion_tokens=usage_data.get("output_tokens", 0),
                     total_tokens=0,
+                    cached_tokens=usage_data.get("cache_read_input_tokens", 0),
                 )
                 usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
         else:
@@ -207,6 +211,7 @@ class RouterLogger:
                     "prompt_tokens": usage.prompt_tokens,
                     "completion_tokens": usage.completion_tokens,
                     "total_tokens": usage.total_tokens,
+                    "cached_tokens": usage.cached_tokens,
                 }
                 if usage
                 else None
@@ -217,10 +222,15 @@ class RouterLogger:
 
         self.json_logger.debug(json.dumps(log_entry))
 
+        token_desc = (
+            f"{usage.prompt_tokens}(I)/{usage.completion_tokens}(O)/{usage.total_tokens}(T)/{usage.cached_tokens}(C)"
+            if usage
+            else "N/A"
+        )
         self.logger.info(
             f"Response {request_id[:8]} from {provider_name}: "
             f"duration={duration_ms:.0f}ms, "
-            f"tokens={usage.total_tokens if usage else 'N/A'}, "
+            f"tokens={token_desc}, "
             f"response_id={response_id[:8] if response_id else 'N/A'}"
         )
 

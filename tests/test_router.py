@@ -101,6 +101,7 @@ async def test_router_chat_completion_success(
                 prompt_tokens=10,
                 completion_tokens=8,
                 total_tokens=18,
+                cached_tokens=0,
             ),
             provider=ProviderType.OPENAI,
         )
@@ -187,6 +188,7 @@ async def test_router_fallback_on_failure(
                 prompt_tokens=10,
                 completion_tokens=8,
                 total_tokens=18,
+                cached_tokens=0,
             ),
             provider=ProviderType.ANTHROPIC,
         )
@@ -278,6 +280,7 @@ async def test_router_fallback_on_rate_limit(
                 prompt_tokens=10,
                 completion_tokens=8,
                 total_tokens=18,
+                cached_tokens=0,
             ),
             provider=ProviderType.ANTHROPIC,
         )
@@ -369,6 +372,7 @@ async def test_router_fallback_on_authentication_error(
                 prompt_tokens=10,
                 completion_tokens=8,
                 total_tokens=18,
+                cached_tokens=0,
             ),
             provider=ProviderType.ANTHROPIC,
         )

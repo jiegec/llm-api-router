@@ -134,7 +134,7 @@ def test_chat_completion_response():
     """Test ChatCompletionResponse model."""
     message = Message(role=Role.ASSISTANT, content="Hello there")
     choice = Choice(index=0, message=message, finish_reason="stop")
-    usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+    usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15, cached_tokens=0)
 
     response = ChatCompletionResponse(
         id="chatcmpl-123",
@@ -155,7 +155,7 @@ def test_chat_completion_response():
 
 def test_usage_model():
     """Test Usage model."""
-    usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+    usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15, cached_tokens=0)
     assert usage.prompt_tokens == 10
     assert usage.completion_tokens == 5
     assert usage.total_tokens == 15
