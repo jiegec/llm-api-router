@@ -351,34 +351,41 @@
         }
 
         function renderStatistics(stats) {
-            if (!stats) return '<div class="card"><h2>Statistics</h2><p style="color: #64748b;">No statistics available yet.</p></div>';
+            if (!stats || Object.keys(stats).length === 0) {
+                return '<div class="card"><h2>Statistics</h2><p style="color: #64748b;">No statistics available yet.</p></div>';
+            }
 
             let html = '<h2 style="margin-bottom: 20px; color: #f8fafc;">Statistics</h2>';
 
-            // Overall stats
-            html += `
-                <div class="grid" style="margin-bottom: 30px;">
-                    <div class="card">
-                        <h2>Overview</h2>
-                        ${renderMetric('Uptime', formatDuration(stats.uptime_seconds))}
-                        ${renderMetric('Total Requests', formatNumber(stats.total_requests), { highlight: true })}
-                        ${renderMetric('Input Tokens', formatNumber(stats.total_input_tokens))}
-                        ${renderMetric('Output Tokens', formatNumber(stats.total_output_tokens))}
-                        ${renderMetric('Cached Tokens', formatNumber(stats.total_cached_tokens))}
-                    </div>
-                    <div class="card">
-                        <h2>Performance</h2>
-                        ${renderMetric('Most Used Provider', stats.most_used_provider || '-')}
-                        ${renderMetric('Fastest Provider', stats.fastest_provider || '-')}
-                    </div>
-                </div>
-            `;
+            // Stats is an object with keys like "openai", "anthropic"
+            for (const [providerType, providerStats] of Object.entries(stats)) {
+                if (!providerStats) continue;
 
-            // Provider stats
-            if (stats.providers) {
-                html += '<h3 style="margin-bottom: 15px; color: #94a3b8;">Provider Details</h3>';
-                for (const [name, providerStats] of Object.entries(stats.providers)) {
-                    html += renderProviderStats(name, providerStats, 'Provider');
+                // Overall stats for this provider type
+                html += `
+                    <div class="grid" style="margin-bottom: 30px;">
+                        <div class="card">
+                            <h2>${providerType.toUpperCase()} Overview</h2>
+                            ${renderMetric('Uptime', formatDuration(providerStats.uptime_seconds))}
+                            ${renderMetric('Total Requests', formatNumber(providerStats.total_requests), { highlight: true })}
+                            ${renderMetric('Input Tokens', formatNumber(providerStats.total_input_tokens))}
+                            ${renderMetric('Output Tokens', formatNumber(providerStats.total_output_tokens))}
+                            ${renderMetric('Cached Tokens', formatNumber(providerStats.total_cached_tokens))}
+                        </div>
+                        <div class="card">
+                            <h2>${providerType.toUpperCase()} Performance</h2>
+                            ${renderMetric('Most Used Provider', providerStats.most_used_provider || '-')}
+                            ${renderMetric('Fastest Provider', providerStats.fastest_provider || '-')}
+                        </div>
+                    </div>
+                `;
+
+                // Provider details
+                if (providerStats.providers && Object.keys(providerStats.providers).length > 0) {
+                    html += `<h3 style="margin-bottom: 15px; color: #94a3b8;">${providerType.toUpperCase()} Provider Details</h3>`;
+                    for (const [name, pstats] of Object.entries(providerStats.providers)) {
+                        html += renderProviderStats(name, pstats, providerType);
+                    }
                 }
             }
 
