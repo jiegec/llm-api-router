@@ -90,7 +90,8 @@ The server runs on port **8000** by default.
 
 - `GET /` - Server information and available endpoints
 - `GET /health` - Health check endpoint
-- `GET /status` - Status endpoint
+- `GET /status` - Status endpoint (JSON)
+- `GET /web` - Status dashboard (web UI)
 - `POST /openai/chat/completions` - OpenAI-compatible chat completion
 - `POST /anthropic/v1/messages` - Anthropic-compatible chat completion
 
