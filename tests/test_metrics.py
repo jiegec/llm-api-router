@@ -1,13 +1,12 @@
 """Tests for the Prometheus metrics endpoint."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
-import pytest
 from fastapi.testclient import TestClient
 
 from llm_api_router.config import RouterConfig
 from llm_api_router.server import LLMAPIServer
-from llm_api_router.stats import RouterStats, StatsCollector
+from llm_api_router.stats import RouterStats
 
 
 def test_metrics_endpoint_basic():
