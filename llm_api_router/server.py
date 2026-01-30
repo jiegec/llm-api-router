@@ -333,6 +333,8 @@ class LLMAPIServer:
                 return "# No metrics available\n"
 
             # Helper to format metric lines
+            declared_metrics: set[str] = set()
+
             def metric(
                 name: str,
                 value: float | int,
@@ -340,15 +342,17 @@ class LLMAPIServer:
                 help_text: str | None = None,
                 metric_type: str | None = None,
             ) -> None:
-                if help_text:
+                # Only write HELP and TYPE once per unique metric name
+                if help_text and name not in declared_metrics:
                     lines.append(f"# HELP {name} {help_text}")
-                if metric_type:
+                if metric_type and name not in declared_metrics:
                     lines.append(f"# TYPE {name} {metric_type}")
                 label_str = ""
                 if labels:
                     label_parts = [f'{k}="{v}"' for k, v in labels.items()]
                     label_str = "{" + ",".join(label_parts) + "}"
                 lines.append(f"{name}{label_str} {value}")
+                declared_metrics.add(name)
 
             # Router info
             metric(
@@ -424,14 +428,14 @@ class LLMAPIServer:
                             "gauge",
                         )
                         metric(
-                            "llm_router_provider_requests_successful",
+                            "llm_router_provider_requests_successful_total",
                             pstats.successful_requests,
                             labels,
                             "Successful requests per provider",
                             "counter",
                         )
                         metric(
-                            "llm_router_provider_requests_failed",
+                            "llm_router_provider_requests_failed_total",
                             pstats.failed_requests,
                             labels,
                             "Failed requests per provider",

@@ -164,8 +164,8 @@ def test_metrics_endpoint_with_provider_stats():
         # Check for provider-specific metrics
         assert 'provider="openai-primary"' in content
         assert "llm_router_provider_requests_total" in content
-        assert "llm_router_provider_requests_successful" in content
-        assert "llm_router_provider_requests_failed" in content
+        assert "llm_router_provider_requests_successful_total" in content
+        assert "llm_router_provider_requests_failed_total" in content
         assert "llm_router_provider_input_tokens_total" in content
         assert "llm_router_provider_streaming_requests_total" in content
         assert "llm_router_provider_non_streaming_requests_total" in content
