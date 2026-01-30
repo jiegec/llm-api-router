@@ -89,9 +89,15 @@ class AnthropicProvider(BaseProvider):
     def extract_tokens_from_response(
         self, response: dict[str, Any]
     ) -> tuple[int, int, int]:
-        """Extract token counts from Anthropic response."""
+        """Extract token counts from Anthropic response.
+
+        Anthropic's API returns input_tokens that excludes cached tokens.
+        To maintain the semantic that prompt_tokens includes cached_tokens
+        (matching OpenAI), we add cached_tokens to input_tokens.
+        """
         usage = response.get("usage", {})
         input_tokens = usage.get("input_tokens", 0)
         output_tokens = usage.get("output_tokens", 0)
         cached_tokens = usage.get("cache_read_input_tokens", 0)
-        return input_tokens, output_tokens, cached_tokens
+        # prompt_tokens includes cached_tokens
+        return input_tokens + cached_tokens, output_tokens, cached_tokens

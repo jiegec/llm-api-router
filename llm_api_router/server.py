@@ -208,6 +208,7 @@ def _create_stats_tracking_generator(
                 response=response_dict,
                 provider_name=provider.provider_name,
                 duration_ms=duration_ms,
+                provider=provider,
             )
 
     return stats_tracking_generator()

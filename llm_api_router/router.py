@@ -194,6 +194,7 @@ class LLMRouter:
                             response=response,  # Use raw response instead of parsed
                             provider_name=provider_name,
                             duration_ms=provider_duration,
+                            provider=provider,
                         )
 
                         # Record statistics for successful request
@@ -513,6 +514,7 @@ class LLMRouter:
                         response=result,
                         provider_name=provider_name,
                         duration_ms=provider_duration,
+                        provider=provider,
                     )
 
                     # Record statistics for successful request

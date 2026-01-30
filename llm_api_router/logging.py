@@ -5,10 +5,13 @@ import logging
 import logging.handlers
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from .models import Usage
+
+if TYPE_CHECKING:
+    from .providers.base import BaseProvider
 
 
 class RouterLogger:
@@ -132,6 +135,7 @@ class RouterLogger:
         response: dict[str, Any],
         provider_name: str,
         duration_ms: float,
+        provider: "BaseProvider",
     ) -> None:
         """Log a successful response."""
         # Check if this is a count_tokens response
@@ -164,29 +168,17 @@ class RouterLogger:
         # Extract values from response (now always a dict)
         model = response.get("model", "")
         response_id = response.get("id", "")
-        usage_data = response.get("usage")
-        if usage_data:
-            if "prompt_tokens" in usage_data:
-                # OpenAI format
-                usage = Usage(
-                    prompt_tokens=usage_data.get("prompt_tokens", 0),
-                    completion_tokens=usage_data.get("completion_tokens", 0),
-                    total_tokens=usage_data.get("total_tokens", 0),
-                    cached_tokens=usage_data.get("prompt_tokens_details", {}).get(
-                        "cached_tokens", 0
-                    ),
-                )
-            else:
-                # Anthropic format
-                usage = Usage(
-                    prompt_tokens=usage_data.get("input_tokens", 0),
-                    completion_tokens=usage_data.get("output_tokens", 0),
-                    total_tokens=0,
-                    cached_tokens=usage_data.get("cache_read_input_tokens", 0),
-                )
-                usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
-        else:
-            usage = None
+
+        # Use provider's extract_tokens_from_response
+        input_tokens, output_tokens, cached_tokens = (
+            provider.extract_tokens_from_response(response)
+        )
+        usage = Usage(
+            prompt_tokens=input_tokens,
+            completion_tokens=output_tokens,
+            total_tokens=input_tokens + output_tokens,
+            cached_tokens=cached_tokens,
+        )
         if "choices" in response:
             # OpenAI format
             choices = response.get("choices", [])

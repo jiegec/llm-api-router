@@ -40,7 +40,11 @@ class ProviderConfig(BaseModel):
 
 
 class Usage(BaseModel):
-    """Token usage information."""
+    """Token usage information.
+
+    Note: prompt_tokens includes cached_tokens (i.e., cached tokens are a subset
+    of prompt_tokens, not a separate addition). This matches the OpenAI semantic.
+    """
 
     prompt_tokens: int
     completion_tokens: int
