@@ -3,10 +3,12 @@
 import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import RouterConfig, load_default_config
 from .exceptions import (
@@ -348,6 +350,13 @@ class LLMAPIServer:
                     status_code=500,
                     detail=f"Internal server error: {str(e)}",
                 ) from e
+
+        # Mount static files for status dashboard
+        static_dir = Path(__file__).parent / "static"
+        if static_dir.exists():
+            self.app.mount(
+                "/web", StaticFiles(directory=str(static_dir), html=True), name="static"
+            )
 
     def _setup_middleware(self) -> None:
         """Setup middleware for error handling."""
