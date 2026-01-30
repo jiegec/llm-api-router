@@ -152,9 +152,14 @@ def test_router_stats_fastest_provider():
     assert stats.fastest_provider is None
 
     # Add providers with different latencies
-    stats.providers["provider1"] = ProviderStats(average_latency_ms=100)
-    stats.providers["provider2"] = ProviderStats(average_latency_ms=50)
-    stats.providers["provider3"] = ProviderStats(average_latency_ms=200)
+    # average_latency_ms is now a computed property, so we need to set the underlying fields
+    provider1 = ProviderStats(successful_requests=1, total_latency_ms=100)
+    provider2 = ProviderStats(successful_requests=1, total_latency_ms=50)
+    provider3 = ProviderStats(successful_requests=1, total_latency_ms=200)
+
+    stats.providers["provider1"] = provider1
+    stats.providers["provider2"] = provider2
+    stats.providers["provider3"] = provider3
 
     assert stats.fastest_provider == "provider2"
 
@@ -380,3 +385,137 @@ def test_tokens_per_second_uses_only_output_tokens():
     assert provider_stats.tokens_per_second == pytest.approx(1000, rel=0.3)
     assert provider_stats.total_input_tokens == 1000
     assert provider_stats.total_output_tokens == 10
+
+
+def test_non_streaming_metrics():
+    """Test non-streaming specific metrics."""
+    collector = StatsCollector()
+
+    # Record non-streaming request
+    start_time = time.time()
+    time.sleep(0.01)
+    collector.record_request_success(
+        "test_provider",
+        start_time,
+        input_tokens=50,
+        output_tokens=100,
+        is_streaming=False,
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["test_provider"]
+
+    assert provider_stats.non_streaming_requests == 1
+    assert provider_stats.streaming_requests == 0
+    assert provider_stats.non_streaming_average_latency_ms > 0
+    assert provider_stats.non_streaming_tokens_per_second > 0
+
+    # Legacy metrics should also be set
+    assert provider_stats.average_latency_ms > 0
+    assert provider_stats.tokens_per_second > 0
+
+
+def test_streaming_metrics():
+    """Test streaming specific metrics including time to first token."""
+    collector = StatsCollector()
+
+    # Simulate streaming request
+    start_time = time.time()
+    time.sleep(0.01)  # Simulate time to first token
+    time.sleep(0.05)  # Simulate rest of streaming
+
+    # Record with time_to_first_token (e.g., 10ms)
+    collector.record_request_success(
+        "test_provider",
+        start_time,
+        input_tokens=50,
+        output_tokens=100,
+        is_streaming=True,
+        time_to_first_token_ms=10.0,
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["test_provider"]
+
+    assert provider_stats.streaming_requests == 1
+    assert provider_stats.non_streaming_requests == 0
+    assert provider_stats.streaming_average_time_to_first_token_ms == 10.0
+    assert provider_stats.streaming_average_latency_ms > 0
+
+    # Both tokens/s metrics should be calculated
+    assert provider_stats.streaming_tokens_per_second_with_first_token > 0
+    assert provider_stats.streaming_tokens_per_second_without_first_token > 0
+
+    # Without first token should be faster (same tokens, less time)
+    assert (
+        provider_stats.streaming_tokens_per_second_without_first_token
+        > provider_stats.streaming_tokens_per_second_with_first_token
+    )
+
+
+def test_streaming_metrics_without_ttft():
+    """Test streaming metrics when time_to_first_token is not provided."""
+    collector = StatsCollector()
+
+    start_time = time.time()
+    time.sleep(0.01)
+    collector.record_request_success(
+        "test_provider",
+        start_time,
+        input_tokens=50,
+        output_tokens=100,
+        is_streaming=True,
+        time_to_first_token_ms=None,
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["test_provider"]
+
+    assert provider_stats.streaming_requests == 1
+    assert provider_stats.streaming_average_time_to_first_token_ms == 0.0
+    # tokens/s without first token should remain 0 since we don't have TTFT
+    assert provider_stats.streaming_tokens_per_second_without_first_token == 0.0
+    # tokens/s with first token should still be calculated
+    assert provider_stats.streaming_tokens_per_second_with_first_token > 0
+
+
+def test_mixed_streaming_and_non_streaming():
+    """Test that streaming and non-streaming metrics are tracked separately."""
+    collector = StatsCollector()
+
+    # Record non-streaming request
+    start_time1 = collector.record_request_start("test_provider")
+    time.sleep(0.01)
+    collector.record_request_success(
+        "test_provider",
+        start_time1,
+        input_tokens=50,
+        output_tokens=100,
+        is_streaming=False,
+    )
+
+    # Record streaming request
+    start_time2 = collector.record_request_start("test_provider")
+    time.sleep(0.01)
+    collector.record_request_success(
+        "test_provider",
+        start_time2,
+        input_tokens=50,
+        output_tokens=100,
+        is_streaming=True,
+        time_to_first_token_ms=5.0,
+    )
+
+    stats = collector.get_stats()
+    provider_stats = stats.providers["test_provider"]
+
+    assert provider_stats.total_requests == 2
+    assert provider_stats.non_streaming_requests == 1
+    assert provider_stats.streaming_requests == 1
+    assert provider_stats.successful_requests == 2
+    assert provider_stats.in_progress_requests == 0
+
+    # Each should have its own metrics
+    assert provider_stats.non_streaming_average_latency_ms > 0
+    assert provider_stats.streaming_average_latency_ms > 0
+    assert provider_stats.streaming_average_time_to_first_token_ms == 5.0

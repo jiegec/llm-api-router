@@ -15,21 +15,47 @@ class ProviderStats(BaseModel):
     successful_requests: int = Field(default=0, description="Successful requests")
     failed_requests: int = Field(default=0, description="Failed requests")
 
+    # Request type counts
+    streaming_requests: int = Field(default=0, description="Total streaming requests")
+    non_streaming_requests: int = Field(
+        default=0, description="Total non-streaming requests"
+    )
+
     # Token usage
     total_input_tokens: int = Field(default=0, description="Total input tokens")
     total_output_tokens: int = Field(default=0, description="Total output tokens")
     total_tokens: int = Field(default=0, description="Total tokens (input + output)")
     total_cached_tokens: int = Field(default=0, description="Total cached tokens")
 
-    # Performance metrics
+    # Non-streaming performance metrics
+    non_streaming_total_latency_ms: float = Field(
+        default=0.0, description="Total latency for non-streaming requests in ms"
+    )
+    non_streaming_output_tokens: int = Field(
+        default=0, description="Total output tokens for non-streaming requests"
+    )
+
+    # Streaming performance metrics
+    streaming_total_latency_ms: float = Field(
+        default=0.0, description="Total latency for streaming requests in ms"
+    )
+    streaming_output_tokens: int = Field(
+        default=0, description="Total output tokens for streaming requests"
+    )
+    streaming_time_to_first_token_ms: float = Field(
+        default=0.0, description="Total time to first token for streaming in ms"
+    )
+    streaming_time_to_first_token_count: int = Field(
+        default=0, description="Count of requests with TTFT recorded"
+    )
+    # Time spent on token generation excluding TTFT
+    streaming_generation_time_ms: float = Field(
+        default=0.0, description="Total generation time excluding TTFT in ms"
+    )
+
+    # Legacy performance metrics (kept for backward compatibility)
     total_latency_ms: float = Field(
         default=0.0, description="Total latency in milliseconds"
-    )
-    average_latency_ms: float = Field(
-        default=0.0, description="Average latency in milliseconds"
-    )
-    tokens_per_second: float = Field(
-        default=0.0, description="Average output tokens per second"
     )
 
     # Last request info
@@ -56,6 +82,72 @@ class ProviderStats(BaseModel):
         if completed_requests == 0:
             return 0.0
         return (self.failed_requests / completed_requests) * 100
+
+    # Non-streaming computed properties
+    @property
+    def non_streaming_average_latency_ms(self) -> float:
+        """Calculate average latency for non-streaming requests."""
+        if self.non_streaming_requests == 0:
+            return 0.0
+        return self.non_streaming_total_latency_ms / self.non_streaming_requests
+
+    @property
+    def non_streaming_tokens_per_second(self) -> float:
+        """Calculate tokens/s for non-streaming requests."""
+        if self.non_streaming_total_latency_ms <= 0:
+            return 0.0
+        duration_seconds = self.non_streaming_total_latency_ms / 1000
+        return self.non_streaming_output_tokens / duration_seconds
+
+    # Streaming computed properties
+    @property
+    def streaming_average_latency_ms(self) -> float:
+        """Calculate average latency for streaming requests."""
+        if self.streaming_requests == 0:
+            return 0.0
+        return self.streaming_total_latency_ms / self.streaming_requests
+
+    @property
+    def streaming_average_time_to_first_token_ms(self) -> float:
+        """Calculate average time to first token."""
+        if self.streaming_time_to_first_token_count == 0:
+            return 0.0
+        return (
+            self.streaming_time_to_first_token_ms
+            / self.streaming_time_to_first_token_count
+        )
+
+    @property
+    def streaming_tokens_per_second_with_first_token(self) -> float:
+        """Calculate tokens/s including time to first token."""
+        if self.streaming_total_latency_ms <= 0:
+            return 0.0
+        duration_seconds = self.streaming_total_latency_ms / 1000
+        return self.streaming_output_tokens / duration_seconds
+
+    @property
+    def streaming_tokens_per_second_without_first_token(self) -> float:
+        """Calculate tokens/s excluding time to first token."""
+        if self.streaming_generation_time_ms <= 0:
+            return 0.0
+        duration_seconds = self.streaming_generation_time_ms / 1000
+        return self.streaming_output_tokens / duration_seconds
+
+    # Legacy computed properties
+    @property
+    def average_latency_ms(self) -> float:
+        """Calculate average latency across all requests."""
+        if self.successful_requests == 0:
+            return 0.0
+        return self.total_latency_ms / self.successful_requests
+
+    @property
+    def tokens_per_second(self) -> float:
+        """Calculate average output tokens/s across all requests."""
+        if self.total_latency_ms <= 0:
+            return 0.0
+        duration_seconds = self.total_latency_ms / 1000
+        return self.total_output_tokens / duration_seconds
 
 
 class RouterStats(BaseModel):
@@ -153,8 +245,21 @@ class StatsCollector:
         input_tokens: int = 0,
         output_tokens: int = 0,
         cached_tokens: int = 0,
+        is_streaming: bool = False,
+        time_to_first_token_ms: float | None = None,
     ) -> None:
-        """Record a successful request."""
+        """Record a successful request.
+
+        Args:
+            provider_name: Name of the provider
+            start_time: Request start timestamp (from time.time())
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+            cached_tokens: Number of cached tokens
+            is_streaming: Whether this was a streaming request
+            time_to_first_token_ms: Time to first output token in milliseconds
+                                     (only for streaming requests)
+        """
         stats = self._provider_stats[provider_name]
         stats.in_progress_requests -= 1
         stats.successful_requests += 1
@@ -165,22 +270,34 @@ class StatsCollector:
         stats.last_success_time = time.time()
         stats.last_error = None
 
-        # Update performance metrics
-        latency_ms = (time.time() - start_time) * 1000
-        stats.total_latency_ms += latency_ms
-        stats.average_latency_ms = stats.total_latency_ms / stats.successful_requests
+        # Note: total_requests is incremented in record_request_start
 
-        # Calculate average tokens per second (output tokens only)
-        # Average of (output_tokens / request_duration) across all successful requests
-        if latency_ms > 0 and output_tokens > 0:
-            duration_seconds = latency_ms / 1000
-            current_tokens_per_second = output_tokens / duration_seconds
-            # Recalculate average across all successful requests
-            # New average = (old_average * (n-1) + new_value) / n
-            stats.tokens_per_second = (
-                stats.tokens_per_second * (stats.successful_requests - 1)
-                + current_tokens_per_second
-            ) / stats.successful_requests
+        # Calculate total latency
+        total_latency_ms = (time.time() - start_time) * 1000
+
+        # Update legacy/generic metrics (for backward compatibility)
+        stats.total_latency_ms += total_latency_ms
+
+        if is_streaming:
+            # Update streaming-specific metrics
+            stats.streaming_requests += 1
+            stats.streaming_total_latency_ms += total_latency_ms
+            stats.streaming_output_tokens += output_tokens
+
+            # Time to first token metrics
+            if time_to_first_token_ms is not None and time_to_first_token_ms > 0:
+                stats.streaming_time_to_first_token_ms += time_to_first_token_ms
+                stats.streaming_time_to_first_token_count += 1
+
+                # Track generation time excluding TTFT for speed calculation
+                generation_time_ms = total_latency_ms - time_to_first_token_ms
+                if generation_time_ms > 0:
+                    stats.streaming_generation_time_ms += generation_time_ms
+        else:
+            # Update non-streaming specific metrics
+            stats.non_streaming_requests += 1
+            stats.non_streaming_total_latency_ms += total_latency_ms
+            stats.non_streaming_output_tokens += output_tokens
 
     def record_request_failure(self, provider_name: str, error_message: str) -> None:
         """Record a failed request."""

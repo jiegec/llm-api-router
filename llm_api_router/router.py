@@ -208,6 +208,7 @@ class LLMRouter:
                             input_tokens,
                             output_tokens,
                             cached_tokens,
+                            is_streaming=False,
                         )
 
                         # Reset rate limit counter on success
@@ -522,6 +523,7 @@ class LLMRouter:
                         input_tokens,
                         0,  # No output tokens for count_tokens
                         0,  # No cached tokens for count_tokens
+                        is_streaming=False,
                     )
 
                 # Log total request duration

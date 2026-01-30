@@ -73,11 +73,36 @@ def _format_stats(stats: Any) -> dict[str, Any]:
                 "total_output_tokens": stat.total_output_tokens,
                 "total_tokens": stat.total_tokens,
                 "total_cached_tokens": stat.total_cached_tokens,
-                "average_latency_ms": round(stat.average_latency_ms, 2),
-                "tokens_per_second": round(stat.tokens_per_second, 2),
                 "last_request_time": _format_timestamp(stat.last_request_time),
                 "last_success_time": _format_timestamp(stat.last_success_time),
                 "last_error": stat.last_error,
+                # Non-streaming metrics
+                "non_streaming": {
+                    "requests": stat.non_streaming_requests,
+                    "average_latency_ms": round(
+                        stat.non_streaming_average_latency_ms, 2
+                    ),
+                    "tokens_per_second": round(stat.non_streaming_tokens_per_second, 2),
+                },
+                # Streaming metrics
+                "streaming": {
+                    "requests": stat.streaming_requests,
+                    "average_time_to_first_token_ms": round(
+                        stat.streaming_average_time_to_first_token_ms, 2
+                    ),
+                    "average_total_latency_ms": round(
+                        stat.streaming_average_latency_ms, 2
+                    ),
+                    "tokens_per_second_with_first_token": round(
+                        stat.streaming_tokens_per_second_with_first_token, 2
+                    ),
+                    "tokens_per_second_without_first_token": round(
+                        stat.streaming_tokens_per_second_without_first_token, 2
+                    ),
+                },
+                # Legacy metrics (kept for backward compatibility)
+                "average_latency_ms": round(stat.average_latency_ms, 2),
+                "tokens_per_second": round(stat.tokens_per_second, 2),
             }
             for name, stat in stats.providers.items()
         },
@@ -97,15 +122,25 @@ def _create_stats_tracking_generator(
     async def stats_tracking_generator() -> Any:
         """Generator that tracks statistics while yielding chunks."""
         accumulated_chunks = []
+        first_chunk_time: float | None = None
 
         try:
             async for chunk in original_generator:
+                # Track time when first chunk is received (time to first token)
+                if first_chunk_time is None:
+                    first_chunk_time = time.time()
                 accumulated_chunks.append(chunk)
                 # Yield original chunk
                 yield chunk
         finally:
             # Calculate duration
-            duration_ms = (time.time() - request_start_time) * 1000
+            end_time = time.time()
+            duration_ms = (end_time - request_start_time) * 1000
+
+            # Calculate time to first token
+            time_to_first_token_ms: float | None = None
+            if first_chunk_time is not None:
+                time_to_first_token_ms = (first_chunk_time - request_start_time) * 1000
 
             # Log the streaming response
             # Try to reconstruct a response dict from accumulated chunks for logging
@@ -159,6 +194,8 @@ def _create_stats_tracking_generator(
                 total_input_tokens,
                 total_output_tokens,
                 cached_tokens,
+                is_streaming=True,
+                time_to_first_token_ms=time_to_first_token_ms,
             )
 
             # Log the response
