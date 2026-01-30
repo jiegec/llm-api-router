@@ -20,6 +20,7 @@ from .models import (
     ProviderType,
 )
 from .providers import BaseProvider, create_provider
+from .rate_limiter import RateLimiter
 from .stats import RouterStats, StatsCollector
 
 
@@ -47,6 +48,9 @@ class LLMRouter:
 
         # Initialize statistics collection
         self.stats = StatsCollector()
+
+        # Initialize rate limiter for tracking provider cooldowns
+        self.rate_limiter = RateLimiter()
 
         # Log configuration
         provider_details = []
@@ -140,6 +144,17 @@ class LLMRouter:
             attempt += 1
             provider_name = provider_config.display_name
 
+            # Check if provider is in cooldown
+            if self.rate_limiter.is_in_cooldown(provider_name):
+                remaining = self.rate_limiter.get_cooldown_remaining_seconds(
+                    provider_name
+                )
+                self.logger.logger.info(
+                    f"Skipping {provider_name} - in cooldown for {remaining:.0f}s"
+                )
+                errors.append((provider_name, f"In cooldown for {remaining:.0f}s"))
+                continue
+
             # Log request to this specific provider
             self.logger.log_request(
                 request_id=request_id,
@@ -195,6 +210,9 @@ class LLMRouter:
                             cached_tokens,
                         )
 
+                        # Reset rate limit counter on success
+                        self.rate_limiter.record_success(provider_name)
+
                     # Log total request duration
                     total_duration = (time.time() - start_time) * 1000
                     self.logger.logger.info(
@@ -245,6 +263,9 @@ class LLMRouter:
                 self.stats.record_request_failure(
                     provider_name, f"Rate limit error: {error_msg}"
                 )
+
+                # Record rate limit for cooldown tracking
+                self.rate_limiter.record_rate_limit(provider_name)
 
                 self.logger.log_error(
                     request_id=request_id,
@@ -454,6 +475,17 @@ class LLMRouter:
             attempt += 1
             provider_name = provider_config.display_name
 
+            # Check if provider is in cooldown
+            if self.rate_limiter.is_in_cooldown(provider_name):
+                remaining = self.rate_limiter.get_cooldown_remaining_seconds(
+                    provider_name
+                )
+                self.logger.logger.info(
+                    f"Skipping {provider_name} - in cooldown for {remaining:.0f}s"
+                )
+                errors.append((provider_name, f"In cooldown for {remaining:.0f}s"))
+                continue
+
             # Log request to this specific provider
             self.logger.log_request(
                 request_id=request_id,
@@ -542,6 +574,9 @@ class LLMRouter:
                 self.stats.record_request_failure(
                     provider_name, f"Rate limit error: {error_msg}"
                 )
+
+                # Record rate limit for cooldown tracking
+                self.rate_limiter.record_rate_limit(provider_name)
 
                 self.logger.log_error(
                     request_id=request_id,
@@ -742,3 +777,27 @@ class LLMRouter:
             if provider_name_value == provider_name:
                 return provider.priority
         return None
+
+    def get_rate_limiter_status(self) -> dict[str, dict[str, float | int | None]]:
+        """
+        Get the current status of the rate limiter for all providers.
+
+        Returns:
+            Dict mapping provider names to their rate limiter status:
+            - in_cooldown: Whether the provider is in cooldown
+            - cooldown_remaining: Seconds remaining in cooldown (None if not in cooldown)
+            - recent_rate_limits: Number of rate limits in the current window
+        """
+        status = {}
+        for provider in self.providers:
+            provider_name = provider.display_name
+            status[provider_name] = {
+                "in_cooldown": self.rate_limiter.is_in_cooldown(provider_name),
+                "cooldown_remaining": self.rate_limiter.get_cooldown_remaining_seconds(
+                    provider_name
+                ),
+                "recent_rate_limits": self.rate_limiter.get_recent_rate_limit_count(
+                    provider_name
+                ),
+            }
+        return status
