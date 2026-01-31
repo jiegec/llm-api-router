@@ -360,12 +360,12 @@
                         <h3>Rate Limits</h3>
                         <div class="two-col">
                             ${renderMetric('Total Rate Limits', formatNumber(rateLimits.total_rate_limits))}
-                            ${renderMetric('Recent (1m)', formatNumber(rateLimits.recent_rate_limits), { warning: rateLimits.recent_rate_limits > 0 })}
+                            ${renderMetric('Recent Rate Limits', formatNumber(rateLimits.recent_rate_limits), { warning: rateLimits.recent_rate_limits > 0 })}
                             ${renderMetric('Cooldowns', formatNumber(rateLimits.cooldown_count))}
-                            ${renderMetric('Total Cooldown Time', formatDuration(rateLimits.total_cooldown_time_seconds || 0))}
+                            ${renderMetric('Total Cooldown Duration', formatDuration(rateLimits.total_cooldown_time_seconds || 0))}
                         </div>
                         ${rateLimits.in_cooldown ? renderMetric('Status', 'In Cooldown (' + Math.round(rateLimits.cooldown_remaining_seconds) + 's remaining)', { warning: true }) : ''}
-                        ${rateLimits.last_cooldown_start_time ? renderMetric('Last Cooldown', formatTime(rateLimits.last_cooldown_start_time)) : ''}
+                        ${rateLimits.last_cooldown_start_time ? renderMetric('Last Cooldown Time', formatTime(rateLimits.last_cooldown_start_time)) : ''}
                     </div>
                 `;
             }
@@ -377,8 +377,8 @@
                         <h3>Non-Streaming</h3>
                         <div class="two-col">
                             ${renderMetric('Requests', formatNumber(stats.non_streaming.requests))}
-                            ${renderMetric('Avg Latency', (stats.non_streaming.average_latency_ms || 0).toFixed(0) + ' ms')}
-                            ${renderMetric('Tokens/sec', (stats.non_streaming.tokens_per_second || 0).toFixed(1))}
+                            ${renderMetric('Average Latency', (stats.non_streaming.average_latency_ms || 0).toFixed(0) + ' ms')}
+                            ${renderMetric('Tokens/s', (stats.non_streaming.tokens_per_second || 0).toFixed(1))}
                         </div>
                     </div>
                 `;
@@ -391,10 +391,10 @@
                         <h3>Streaming</h3>
                         <div class="two-col">
                             ${renderMetric('Requests', formatNumber(stats.streaming.requests))}
-                            ${renderMetric('Time to First Token', (stats.streaming.average_time_to_first_token_ms || 0).toFixed(0) + ' ms')}
-                            ${renderMetric('Avg Total Latency', (stats.streaming.average_total_latency_ms || 0).toFixed(0) + ' ms')}
-                            ${renderMetric('Tokens/sec (with TTFT)', (stats.streaming.tokens_per_second_with_first_token || 0).toFixed(1))}
-                            ${renderMetric('Tokens/sec (gen only)', (stats.streaming.tokens_per_second_without_first_token || 0).toFixed(1))}
+                            ${renderMetric('Average TTFT (Time to First Token)', (stats.streaming.average_time_to_first_token_ms || 0).toFixed(0) + ' ms')}
+                            ${renderMetric('Average Latency (incl. TTFT)', (stats.streaming.average_total_latency_ms || 0).toFixed(0) + ' ms')}
+                            ${renderMetric('Tokens/s (w/ TTFT)', (stats.streaming.tokens_per_second_with_first_token || 0).toFixed(1))}
+                            ${renderMetric('Tokens/s (w/o TTFT)', (stats.streaming.tokens_per_second_without_first_token || 0).toFixed(1))}
                         </div>
                     </div>
                 `;
@@ -404,9 +404,9 @@
             html += `
                 <div class="section">
                     <h3>Activity</h3>
-                    ${renderMetric('Last Request', formatTime(stats.last_request_time))}
-                    ${renderMetric('Last Success', formatTime(stats.last_success_time))}
-                    ${stats.last_error ? renderMetric('Last Error', stats.last_error, { warning: true }) : ''}
+                    ${renderMetric('Last Request Time', formatTime(stats.last_request_time))}
+                    ${renderMetric('Last Success Time', formatTime(stats.last_success_time))}
+                    ${stats.last_error ? renderMetric('Last Error Message', stats.last_error, { warning: true }) : ''}
                 </div>
             `;
 
