@@ -347,12 +347,23 @@ class StatsCollector:
         stats.in_cooldown = True
         stats.last_cooldown_start_time = time.time()
 
-    def record_cooldown_end(self, provider_name: str) -> None:
-        """Record when a provider exits cooldown."""
+    def record_cooldown_end(self, provider_name: str, cooldown_deadline: float) -> None:
+        """Record when a provider exits cooldown.
+
+        Args:
+            provider_name: Name of the provider
+            cooldown_deadline: The intended end time of the cooldown. If current
+                time exceeds this deadline, duration is capped at (deadline - start).
+        """
         stats = self._provider_stats[provider_name]
         if stats.last_cooldown_start_time:
-            cooldown_duration = time.time() - stats.last_cooldown_start_time
-            stats.total_cooldown_time_seconds += cooldown_duration
+            current_time = time.time()
+            # If current time exceeded the deadline, cap the duration
+            if current_time > cooldown_deadline:
+                cooldown_duration = cooldown_deadline - stats.last_cooldown_start_time
+            else:
+                cooldown_duration = current_time - stats.last_cooldown_start_time
+            stats.total_cooldown_time_seconds += max(0.0, cooldown_duration)
         stats.in_cooldown = False
         stats.last_cooldown_start_time = None
 

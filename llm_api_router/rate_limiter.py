@@ -77,11 +77,14 @@ class RateLimiter:
             return False
 
         # Check if cooldown has expired
-        if time.time() >= tracker.cooldown_until:
-            tracker.cooldown_until = None
-            # Record cooldown end in stats
+        current_time = time.time()
+        if current_time >= tracker.cooldown_until:
+            # Record cooldown end with deadline for proper duration calculation
             if self.stats_collector:
-                self.stats_collector.record_cooldown_end(provider_name)
+                self.stats_collector.record_cooldown_end(
+                    provider_name, cooldown_deadline=tracker.cooldown_until
+                )
+            tracker.cooldown_until = None
             return False
 
         return True

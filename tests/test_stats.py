@@ -559,8 +559,9 @@ def test_record_cooldown_end():
     collector.record_cooldown_start("provider1")
     time.sleep(0.1)  # Simulate some cooldown time
 
-    # End cooldown
-    collector.record_cooldown_end("provider1")
+    # End cooldown with a deadline in the future (not exceeded)
+    deadline = time.time() + 1.0
+    collector.record_cooldown_end("provider1", deadline)
 
     stats = collector.get_stats()
     provider_stats = stats.providers["provider1"]
@@ -619,12 +620,12 @@ def test_multiple_cooldowns():
     # First cooldown cycle
     collector.record_cooldown_start("provider1")
     time.sleep(0.05)
-    collector.record_cooldown_end("provider1")
+    collector.record_cooldown_end("provider1", time.time() + 1.0)
 
     # Second cooldown cycle
     collector.record_cooldown_start("provider1")
     time.sleep(0.05)
-    collector.record_cooldown_end("provider1")
+    collector.record_cooldown_end("provider1", time.time() + 1.0)
 
     stats = collector.get_stats()
     provider_stats = stats.providers["provider1"]
