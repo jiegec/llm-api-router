@@ -96,7 +96,9 @@ class AnthropicProvider(BaseProvider):
         (matching OpenAI), we add cached_tokens to input_tokens.
         """
         usage = response.get("usage", {})
-        input_tokens = usage.get("input_tokens", 0)
+        input_tokens = usage.get("input_tokens", 0) + usage.get(
+            "cache_creation_input_tokens", 0
+        )
         output_tokens = usage.get("output_tokens", 0)
         cached_tokens = usage.get("cache_read_input_tokens", 0)
         # prompt_tokens includes cached_tokens
