@@ -198,6 +198,7 @@ class LLMRouter:
                             provider_name=provider_name,
                             duration_ms=provider_duration,
                             provider=provider,
+                            is_streaming=False,
                         )
 
                         # Record statistics for successful request

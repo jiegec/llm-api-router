@@ -226,6 +226,8 @@ def _create_stats_tracking_generator(
                 provider_name=provider.provider_name,
                 duration_ms=duration_ms,
                 provider=provider,
+                time_to_first_token_ms=time_to_first_token_ms,
+                is_streaming=True,
             )
 
     return stats_tracking_generator()
@@ -278,6 +280,7 @@ class LLMAPIServer:
                     "health": "/health",
                     "status": "/status",
                     "metrics": "/metrics",
+                    "web": "/web",
                 },
             }
 

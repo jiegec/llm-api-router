@@ -1,5 +1,6 @@
 """Logging system for LLM API Router."""
 
+import csv
 import json
 import logging
 import logging.handlers
@@ -16,6 +17,19 @@ if TYPE_CHECKING:
 
 class RouterLogger:
     """Logger for LLM API Router requests, responses, and retries."""
+
+    # CSV header columns
+    CSV_COLUMNS = [
+        "timestamp",
+        "provider_type",
+        "provider_name",
+        "latency_ms",
+        "is_streaming",
+        "time_to_first_token_ms",
+        "input_tokens",
+        "output_tokens",
+        "cached_tokens",
+    ]
 
     def __init__(self, log_dir: str = "logs", log_level: str = "INFO"):
         """Initialize the logger.
@@ -36,6 +50,9 @@ class RouterLogger:
 
         # Set up structured logging
         self._setup_logging(log_level)
+
+        # Set up CSV logging
+        self._setup_csv_logging()
 
     def _setup_logging(self, log_level: str) -> None:
         """Set up logging configuration."""
@@ -84,6 +101,71 @@ class RouterLogger:
 
         self.logger.info(f"Logging initialized. Session ID: {self.session_id}")
         self.logger.info(f"Log files: {log_file}, {error_file}")
+
+    def _setup_csv_logging(self) -> None:
+        """Set up CSV logging for request statistics.
+
+        Creates the CSV file with headers if it doesn't exist.
+        Uses append mode for all subsequent writes.
+        """
+        self.csv_file = self.log_dir / "request_stats.csv"
+
+        # Create file with header if it doesn't exist
+        if not self.csv_file.exists():
+            with open(self.csv_file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=self.CSV_COLUMNS)
+                writer.writeheader()
+
+        self.logger.info(f"Stats CSV: {self.csv_file}")
+
+    def _log_stats_to_csv(
+        self,
+        timestamp: str,
+        provider_type: str,
+        provider_name: str,
+        latency_ms: float,
+        is_streaming: bool,
+        time_to_first_token_ms: float | None,
+        input_tokens: int,
+        output_tokens: int,
+        cached_tokens: int,
+    ) -> None:
+        """Log request statistics to CSV file.
+
+        Args:
+            timestamp: ISO format timestamp
+            provider_type: The provider type (openai/anthropic)
+            provider_name: The provider name
+            latency_ms: Total latency in milliseconds
+            is_streaming: Whether this was a streaming request
+            time_to_first_token_ms: Time to first token in ms (for streaming)
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+            cached_tokens: Number of cached tokens
+        """
+        try:
+            with open(self.csv_file, "a", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=self.CSV_COLUMNS)
+                writer.writerow(
+                    {
+                        "timestamp": timestamp,
+                        "provider_type": provider_type,
+                        "provider_name": provider_name,
+                        "latency_ms": round(latency_ms, 2),
+                        "is_streaming": is_streaming,
+                        "time_to_first_token_ms": (
+                            round(time_to_first_token_ms, 2)
+                            if time_to_first_token_ms is not None
+                            else ""
+                        ),
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "cached_tokens": cached_tokens,
+                    }
+                )
+        except Exception as e:
+            # Don't fail the request if CSV logging fails
+            self.logger.warning(f"Failed to write to CSV log: {e}")
 
     def log_request(
         self,
@@ -136,8 +218,21 @@ class RouterLogger:
         provider_name: str,
         duration_ms: float,
         provider: "BaseProvider",
+        time_to_first_token_ms: float | None = None,
+        is_streaming: bool = False,
     ) -> None:
-        """Log a successful response."""
+        """Log a successful response.
+
+        Args:
+            request_id: Unique request identifier
+            endpoint: API endpoint
+            response: The response data
+            provider_name: Name of the provider
+            duration_ms: Total latency in milliseconds
+            provider: The provider instance
+            time_to_first_token_ms: Time to first token (for streaming requests)
+            is_streaming: Whether this was a streaming request
+        """
         # Check if this is a count_tokens response
         if "input_tokens" in response and "model" not in response:
             # count_tokens response format: {"input_tokens": 42}
@@ -164,6 +259,13 @@ class RouterLogger:
                 f"input_tokens={input_tokens}"
             )
             return
+
+        # Determine provider type from endpoint
+        provider_type = "unknown"
+        if endpoint.startswith("openai"):
+            provider_type = "openai"
+        elif endpoint.startswith("anthropic"):
+            provider_type = "anthropic"
 
         # Extract values from response (now always a dict)
         model = response.get("model", "")
@@ -225,6 +327,20 @@ class RouterLogger:
             f"duration={duration_ms:.0f}ms, "
             f"tokens={token_desc}, "
             f"response_id={response_id[:8] if response_id else 'N/A'}"
+        )
+
+        # Log statistics to CSV (skip count_tokens which was handled above)
+        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        self._log_stats_to_csv(
+            timestamp=timestamp,
+            provider_type=provider_type,
+            provider_name=provider_name,
+            latency_ms=duration_ms,
+            is_streaming=is_streaming,
+            time_to_first_token_ms=time_to_first_token_ms,
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            cached_tokens=usage.cached_tokens if usage else 0,
         )
 
     def log_retry(
