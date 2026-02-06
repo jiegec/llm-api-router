@@ -215,7 +215,7 @@ async def test_router_statistics_integration():
         model_mapping={"gpt-3.5-turbo": "gpt-3.5-turbo"},
     )
 
-    router = LLMRouter([provider_config])
+    router = LLMRouter([provider_config], log_dir="/tmp/logs")
 
     # Mock the provider creation to use our mock
     router._provider_instances["openai"] = mock_provider

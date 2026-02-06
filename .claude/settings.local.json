@@ -5,7 +5,9 @@
       "Bash(poetry run mypy:*)",
       "Bash(poetry run python3:*)",
       "Bash(poetry run ruff check:*)",
-      "Bash(poetry run black:*)"
+      "Bash(poetry run black:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

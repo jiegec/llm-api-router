@@ -5,6 +5,7 @@ from unittest.mock import Mock
 from fastapi.testclient import TestClient
 
 from llm_api_router.config import RouterConfig
+from llm_api_router.logging import get_logger
 from llm_api_router.server import LLMAPIServer
 from llm_api_router.stats import RouterStats
 
@@ -21,6 +22,9 @@ def test_metrics_endpoint_basic():
             ]
         }
     )
+
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
 
     server = LLMAPIServer(config)
     app = server.app
@@ -75,6 +79,9 @@ def test_metrics_endpoint_with_anthropic():
         }
     )
 
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
+
     server = LLMAPIServer(config)
     app = server.app
 
@@ -124,6 +131,9 @@ def test_metrics_endpoint_with_provider_stats():
             ]
         }
     )
+
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
 
     server = LLMAPIServer(config)
     app = server.app
@@ -176,6 +186,9 @@ def test_metrics_endpoint_no_providers():
     """Test metrics endpoint when no providers are configured."""
     config = RouterConfig.from_dict({})
 
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
+
     server = LLMAPIServer(config)
     app = server.app
 
@@ -192,6 +205,9 @@ def test_metrics_endpoint_no_providers():
 def test_metrics_endpoint_in_root_response():
     """Test that metrics endpoint is listed in root endpoint."""
     config = RouterConfig.from_dict({})
+
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
 
     server = LLMAPIServer(config)
     app = server.app

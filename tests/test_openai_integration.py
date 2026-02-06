@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from httpx import Response
 
 from llm_api_router.config import RouterConfig
+from llm_api_router.logging import get_logger
 from llm_api_router.server import LLMAPIServer
 
 
@@ -49,6 +50,9 @@ def test_openai_client_compatibility():
             ]
         }
     )
+
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
 
     # Create FastAPI app
     server = LLMAPIServer(config)
@@ -121,6 +125,9 @@ def test_openai_client_headers():
         }
     )
 
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
+
     server = LLMAPIServer(config)
     app = server.app
 
@@ -168,6 +175,9 @@ def test_multiple_providers_fallback_integration():
             ]
         }
     )
+
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
 
     server = LLMAPIServer(config)
     app = server.app
@@ -226,6 +236,9 @@ def test_anthropic_endpoint_compatibility():
             ]
         }
     )
+
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
 
     server = LLMAPIServer(config)
     app = server.app

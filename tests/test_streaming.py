@@ -43,7 +43,7 @@ async def test_router_streaming_response():
         mock_create.return_value = mock_provider
 
         # Create router
-        router = LLMRouter(providers=[config])
+        router = LLMRouter(providers=[config], log_dir="/tmp/logs")
 
         async with router:
             response = await router.chat_completion(streaming_request)
@@ -103,7 +103,7 @@ async def test_router_streaming_fallback():
         )
 
         # Create router
-        router = LLMRouter(providers=[config1, config2])
+        router = LLMRouter(providers=[config1, config2], log_dir="/tmp/logs")
 
         async with router:
             response = await router.chat_completion(streaming_request)

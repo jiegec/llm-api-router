@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from openai import OpenAI
 
 from llm_api_router.config import RouterConfig
+from llm_api_router.logging import get_logger
 from llm_api_router.server import LLMAPIServer
 
 
@@ -54,6 +55,9 @@ def test_real_openai_client_with_testclient():
             ]
         }
     )
+
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
 
     # Create FastAPI app
     server = LLMAPIServer(config)
@@ -166,6 +170,9 @@ def test_real_openai_client_fallback():
             ]
         }
     )
+
+    # force the global logger to use temporary log folder
+    get_logger("/tmp/logs", force_new=True)
 
     server = LLMAPIServer(config)
     app = server.app

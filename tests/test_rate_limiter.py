@@ -172,7 +172,7 @@ class TestRateLimiterWithRouter:
         config = ProviderConfig(
             name=ProviderType.OPENAI, api_key="test-key", priority=1
         )
-        router = LLMRouter([config], endpoint="openai")
+        router = LLMRouter([config], endpoint="openai", log_dir="/tmp/logs")
         assert router.rate_limiter is not None
         assert isinstance(router.rate_limiter, RateLimiter)
 
@@ -189,7 +189,7 @@ class TestRateLimiterWithRouter:
             priority=2,
             provider_name="anthropic-backup",
         )
-        router = LLMRouter([config1, config2], endpoint="openai")
+        router = LLMRouter([config1, config2], endpoint="openai", log_dir="/tmp/logs")
         status = router.get_rate_limiter_status()
 
         assert "openai-priority-1" in status

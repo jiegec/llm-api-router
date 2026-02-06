@@ -27,7 +27,12 @@ from .stats import RouterStats, StatsCollector
 class LLMRouter:
     """LLM API router with priority-based fallback."""
 
-    def __init__(self, providers: list[ProviderConfig], endpoint: str = "unknown"):
+    def __init__(
+        self,
+        providers: list[ProviderConfig],
+        endpoint: str = "unknown",
+        log_dir: str | None = None,
+    ):
         """
         Initialize the router with provider configurations.
 
@@ -35,6 +40,7 @@ class LLMRouter:
             providers: List of provider configurations, sorted by priority
                       (lower priority number = higher priority)
             endpoint: The API endpoint this router serves (e.g., "openai", "anthropic")
+            log_dir: Directory to store log files (None uses default "logs")
         """
         if not providers:
             raise ValueError("At least one provider must be configured")
@@ -44,7 +50,7 @@ class LLMRouter:
         self.endpoint = endpoint
         self._provider_instances: dict[str, BaseProvider] = {}
         self._exit_stack = AsyncExitStack()
-        self.logger = get_logger()
+        self.logger = get_logger(log_dir=log_dir if log_dir is not None else "logs")
 
         # Initialize statistics collection
         self.stats = StatsCollector()
