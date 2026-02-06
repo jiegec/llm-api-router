@@ -1030,7 +1030,7 @@
             data.forEach(provider => {
                 html += `
                     <div class="card">
-                        <h2>${provider.provider_name || provider.provider_type}</h2>
+                        <h2>${provider.provider_type} - ${provider.provider_name}</h2>
                         ${renderMetric('Requests', formatNumber(provider.request_count), { highlight: true })}
                         ${renderMetric('Total Tokens', formatNumber(provider.total_tokens))}
                         ${renderMetric('Input Tokens', formatNumber(provider.input_tokens))}
