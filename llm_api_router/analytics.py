@@ -108,6 +108,7 @@ class AnalyticsQuery:
 
         # Use prepared statements for hours and provider_type
         # Generate complete time series and LEFT JOIN actual data
+        # Note: range() stop is exclusive, so add one step to include current bucket
         query = f"""
             WITH time_series AS (
                 SELECT date_trunc('{interval}', ts) AS timestamp
@@ -115,7 +116,7 @@ class AnalyticsQuery:
                     SELECT timestamp AS ts
                     FROM range(
                         date_trunc('{interval}', NOW() - INTERVAL {int(hours)} hours),
-                        date_trunc('{interval}', NOW()),
+                        date_trunc('{interval}', NOW() + {step}),
                         {step}
                     ) AS t(timestamp)
                 )
@@ -171,6 +172,7 @@ class AnalyticsQuery:
 
         # Use prepared statements for hours and provider_type
         # Generate complete time series and LEFT JOIN actual data
+        # Note: range() stop is exclusive, so add one step to include current bucket
         query = f"""
             WITH time_series AS (
                 SELECT date_trunc('{interval}', ts) AS timestamp
@@ -178,7 +180,7 @@ class AnalyticsQuery:
                     SELECT timestamp AS ts
                     FROM range(
                         date_trunc('{interval}', NOW() - INTERVAL {int(hours)} hours),
-                        date_trunc('{interval}', NOW()),
+                        date_trunc('{interval}', NOW() + {step}),
                         {step}
                     ) AS t(timestamp)
                 )
@@ -240,6 +242,7 @@ class AnalyticsQuery:
 
         # Use prepared statements for hours and provider_type
         # Generate complete time series and LEFT JOIN actual data
+        # Note: range() stop is exclusive, so add one step to include current bucket
         query = f"""
             WITH time_series AS (
                 SELECT date_trunc('{interval}', ts) AS timestamp
@@ -247,7 +250,7 @@ class AnalyticsQuery:
                     SELECT timestamp AS ts
                     FROM range(
                         date_trunc('{interval}', NOW() - INTERVAL {int(hours)} hours),
-                        date_trunc('{interval}', NOW()),
+                        date_trunc('{interval}', NOW() + {step}),
                         {step}
                     ) AS t(timestamp)
                 )
