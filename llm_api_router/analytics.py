@@ -1,9 +1,12 @@
 """Analytics module for querying request statistics using DuckDB."""
 
+import logging
 from pathlib import Path
 from typing import Any
 
 import duckdb
+
+logger = logging.getLogger("llm_api_router.analytics")
 
 
 class AnalyticsQuery:
@@ -53,6 +56,12 @@ class AnalyticsQuery:
         Returns:
             List of dictionaries representing query results
         """
+        # Log SQL query to stderr
+        if parameters:
+            logger.info(f"SQL: {query} | Parameters: {parameters}")
+        else:
+            logger.info(f"SQL: {query}")
+
         if not self.csv_path.exists():
             return []
 
