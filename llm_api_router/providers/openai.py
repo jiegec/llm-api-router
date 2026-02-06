@@ -67,7 +67,10 @@ class OpenAIProvider(BaseProvider):
                     if "content" in delta:
                         existing_message["content"] += delta["content"]
                     # Accumulate reasoning content (for reasoning models)
-                    if "reasoning_content" in delta:
+                    if (
+                        "reasoning_content" in delta
+                        and delta["reasoning_content"] is not None
+                    ):
                         if "reasoning_content" not in existing_message:
                             existing_message["reasoning_content"] = ""
                         existing_message["reasoning_content"] += delta[
