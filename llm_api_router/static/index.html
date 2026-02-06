@@ -866,10 +866,19 @@
             const inputTokens = data.map(d => d.input_tokens || 0);
             const outputTokens = data.map(d => d.output_tokens || 0);
             const cachedTokens = data.map(d => d.cached_tokens || 0);
+            const totalTokens = data.map(d => d.total_tokens || 0);
 
             tokensChart = createChart('tokens-chart', 'line', {
                 labels: labels,
                 datasets: [
+                    {
+                        label: 'Total Tokens',
+                        data: totalTokens,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
                     {
                         label: 'Input Tokens',
                         data: inputTokens,
