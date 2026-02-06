@@ -1037,8 +1037,8 @@
                         ${renderMetric('Output Tokens', formatNumber(provider.output_tokens))}
                         ${renderMetric('Cached Tokens', formatNumber(provider.cached_tokens))}
                         ${renderMetric('Avg Latency', (provider.avg_latency_ms || 0).toFixed(0) + ' ms')}
-                        ${renderMetric('Streaming', formatNumber(provider.streaming_count))}
-                        ${renderMetric('Non-Streaming', formatNumber(provider.non_streaming_count))}
+                        ${renderMetric('Streaming Requests', formatNumber(provider.streaming_count))}
+                        ${renderMetric('Non-Streaming Requests', formatNumber(provider.non_streaming_count))}
                     </div>
                 `;
             });
