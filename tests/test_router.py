@@ -117,7 +117,9 @@ async def test_router_chat_completion_success(
             mock_openai_provider if config.name == ProviderType.OPENAI else AsyncMock()
         )
 
-        router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
+        router = LLMRouter(
+            providers=[openai_config, anthropic_config], log_dir="/tmp/logs"
+        )
         async with router:
             response = await router.chat_completion(sample_request)
 
@@ -202,7 +204,9 @@ async def test_router_fallback_on_failure(
             else mock_anthropic_provider
         )
 
-        router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
+        router = LLMRouter(
+            providers=[openai_config, anthropic_config], log_dir="/tmp/logs"
+        )
         async with router:
             response = await router.chat_completion(sample_request)
 
@@ -294,7 +298,9 @@ async def test_router_fallback_on_rate_limit(
             else mock_anthropic_provider
         )
 
-        router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
+        router = LLMRouter(
+            providers=[openai_config, anthropic_config], log_dir="/tmp/logs"
+        )
         async with router:
             response = await router.chat_completion(sample_request)
 
@@ -386,7 +392,9 @@ async def test_router_fallback_on_authentication_error(
             else mock_anthropic_provider
         )
 
-        router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
+        router = LLMRouter(
+            providers=[openai_config, anthropic_config], log_dir="/tmp/logs"
+        )
         async with router:
             response = await router.chat_completion(sample_request)
 
@@ -420,7 +428,9 @@ async def test_router_all_providers_fail(
             else mock_anthropic_provider
         )
 
-        router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
+        router = LLMRouter(
+            providers=[openai_config, anthropic_config], log_dir="/tmp/logs"
+        )
         async with router:
             with pytest.raises(NoAvailableProviderError) as exc_info:
                 await router.chat_completion(sample_request)
@@ -538,7 +548,9 @@ async def test_router_count_tokens_fallback_on_failure(
             else mock_anthropic_provider
         )
 
-        router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
+        router = LLMRouter(
+            providers=[openai_config, anthropic_config], log_dir="/tmp/logs"
+        )
         count_request = {
             "model": "claude-3-opus",
             "messages": [{"role": "user", "content": "Hello"}],
@@ -581,7 +593,9 @@ async def test_router_count_tokens_fallback_on_rate_limit(
             else mock_anthropic_provider
         )
 
-        router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
+        router = LLMRouter(
+            providers=[openai_config, anthropic_config], log_dir="/tmp/logs"
+        )
         count_request = {
             "model": "claude-3-opus",
             "messages": [{"role": "user", "content": "Hello"}],

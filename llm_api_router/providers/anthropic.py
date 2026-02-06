@@ -101,5 +101,12 @@ class AnthropicProvider(BaseProvider):
         )
         output_tokens = usage.get("output_tokens", 0)
         cached_tokens = usage.get("cache_read_input_tokens", 0)
+
+        # workaround for kimi for coding api bug:
+        # cached_tokens in stored under key "cached_tokens"
+        # input_tokens contains all cached/uncached tokens
+        cached_tokens += usage.get("cached_tokens", 0)
+        input_tokens -= usage.get("cached_tokens", 0)
+
         # prompt_tokens includes cached_tokens
         return input_tokens + cached_tokens, output_tokens, cached_tokens
