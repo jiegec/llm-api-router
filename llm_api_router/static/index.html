@@ -625,7 +625,12 @@
         loadStatus();
 
         // Auto-refresh every 5 seconds
-        setInterval(loadStatus, 5000);
+        setInterval(() => {
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab && activeTab.dataset.tab === 'status') {
+                loadStatus();
+            }
+        }, 5000);
 
         // ===== Analytics Functions =====
 
@@ -669,12 +674,6 @@
         function createChart(canvasId, type, data, options) {
             const canvas = document.getElementById(canvasId);
             if (!canvas) return null;
-
-            // Destroy existing chart if any
-            const existingChart = Chart.getChart(canvas);
-            if (existingChart) {
-                existingChart.destroy();
-            }
 
             return new Chart(canvas, {
                 type: type,
@@ -814,43 +813,50 @@
             }
 
             if (!data || data.length === 0) {
-                document.getElementById('requests-chart-container').innerHTML = '<div class="no-data">No data available</div>';
+                container.innerHTML = '<div class="no-data">No data available</div>';
                 return;
             }
 
             const labels = data.map(d => new Date(d.timestamp).toLocaleString());
             const values = data.map(d => d.count);
 
-            requestsChart = createChart('requests-chart', 'line', {
-                labels: labels,
-                datasets: [{
-                    label: 'Requests',
-                    data: values,
-                    borderColor: '#38bdf8',
-                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            }, {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: { color: '#94a3b8' }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: { color: '#64748b' },
-                        grid: { color: '#334155' }
+            // Update existing chart or create new one
+            if (requestsChart) {
+                requestsChart.data.labels = labels;
+                requestsChart.data.datasets[0].data = values;
+                requestsChart.update('default'); // Animate to new values
+            } else {
+                requestsChart = createChart('requests-chart', 'line', {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Requests',
+                        data: values,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                }, {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#94a3b8' }
+                        }
                     },
-                    y: {
-                        ticks: { color: '#64748b' },
-                        grid: { color: '#334155' },
-                        beginAtZero: true
+                    scales: {
+                        x: {
+                            ticks: { color: '#64748b' },
+                            grid: { color: '#334155' }
+                        },
+                        y: {
+                            ticks: { color: '#64748b' },
+                            grid: { color: '#334155' },
+                            beginAtZero: true
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         function renderTokensChart(data) {
@@ -868,62 +874,72 @@
             const cachedTokens = data.map(d => d.cached_tokens || 0);
             const totalTokens = data.map(d => d.total_tokens || 0);
 
-            tokensChart = createChart('tokens-chart', 'line', {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Total Tokens',
-                        data: totalTokens,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4
+            // Update existing chart or create new one
+            if (tokensChart) {
+                tokensChart.data.labels = labels;
+                tokensChart.data.datasets[0].data = totalTokens;
+                tokensChart.data.datasets[1].data = inputTokens;
+                tokensChart.data.datasets[2].data = outputTokens;
+                tokensChart.data.datasets[3].data = cachedTokens;
+                tokensChart.update('default'); // Animate to new values
+            } else {
+                tokensChart = createChart('tokens-chart', 'line', {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Total Tokens',
+                            data: totalTokens,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Input Tokens',
+                            data: inputTokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Output Tokens',
+                            data: outputTokens,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Cached Tokens',
+                            data: cachedTokens,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                }, {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#94a3b8' }
+                        }
                     },
-                    {
-                        label: 'Input Tokens',
-                        data: inputTokens,
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Output Tokens',
-                        data: outputTokens,
-                        borderColor: '#f59e0b',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Cached Tokens',
-                        data: cachedTokens,
-                        borderColor: '#8b5cf6',
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4
+                    scales: {
+                        x: {
+                            ticks: { color: '#64748b' },
+                            grid: { color: '#334155' }
+                        },
+                        y: {
+                            ticks: { color: '#64748b' },
+                            grid: { color: '#334155' },
+                            beginAtZero: true
+                        }
                     }
-                ]
-            }, {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: { color: '#94a3b8' }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: { color: '#64748b' },
-                        grid: { color: '#334155' }
-                    },
-                    y: {
-                        ticks: { color: '#64748b' },
-                        grid: { color: '#334155' },
-                        beginAtZero: true
-                    }
-                }
-            });
+                });
+            }
         }
 
         function renderLatencyChart(data) {
@@ -941,54 +957,64 @@
             const p95Latency = data.map(d => d.p95_latency_ms || 0);
             const p99Latency = data.map(d => d.p99_latency_ms || 0);
 
-            latencyChart = createChart('latency-chart', 'line', {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Average',
-                        data: avgLatency,
-                        borderColor: '#38bdf8',
-                        tension: 0.4
+            // Update existing chart or create new one
+            if (latencyChart) {
+                latencyChart.data.labels = labels;
+                latencyChart.data.datasets[0].data = avgLatency;
+                latencyChart.data.datasets[1].data = p50Latency;
+                latencyChart.data.datasets[2].data = p95Latency;
+                latencyChart.data.datasets[3].data = p99Latency;
+                latencyChart.update('default'); // Animate to new values
+            } else {
+                latencyChart = createChart('latency-chart', 'line', {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Average',
+                            data: avgLatency,
+                            borderColor: '#38bdf8',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'P50',
+                            data: p50Latency,
+                            borderColor: '#10b981',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'P95',
+                            data: p95Latency,
+                            borderColor: '#f59e0b',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'P99',
+                            data: p99Latency,
+                            borderColor: '#ef4444',
+                            tension: 0.4
+                        }
+                    ]
+                }, {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#94a3b8' }
+                        }
                     },
-                    {
-                        label: 'P50',
-                        data: p50Latency,
-                        borderColor: '#10b981',
-                        tension: 0.4
-                    },
-                    {
-                        label: 'P95',
-                        data: p95Latency,
-                        borderColor: '#f59e0b',
-                        tension: 0.4
-                    },
-                    {
-                        label: 'P99',
-                        data: p99Latency,
-                        borderColor: '#ef4444',
-                        tension: 0.4
+                    scales: {
+                        x: {
+                            ticks: { color: '#64748b' },
+                            grid: { color: '#334155' }
+                        },
+                        y: {
+                            ticks: { color: '#64748b' },
+                            grid: { color: '#334155' },
+                            beginAtZero: true
+                        }
                     }
-                ]
-            }, {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: { color: '#94a3b8' }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: { color: '#64748b' },
-                        grid: { color: '#334155' }
-                    },
-                    y: {
-                        ticks: { color: '#64748b' },
-                        grid: { color: '#334155' },
-                        beginAtZero: true
-                    }
-                }
-            });
+                });
+            }
         }
 
         function renderAnalyticsSummary(data) {
@@ -1023,6 +1049,14 @@
         function refreshAnalytics() {
             loadAnalytics();
         }
+
+        // Auto-refresh analytics every 5 seconds when analytics tab is active
+        setInterval(() => {
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab && activeTab.dataset.tab === 'analytics') {
+                loadAnalytics();
+            }
+        }, 5000);
     </script>
 </body>
 </html>
