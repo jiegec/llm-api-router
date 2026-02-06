@@ -211,6 +211,95 @@ def test_merge_openai_chunk_reasoning_content():
     assert completion.choices[0].message.content == "Hello world"
 
 
+def test_merge_openai_chunk_reasoning_content_none():
+    """Test that merge_streaming_chunk handles None reasoning_content correctly.
+
+    Regression test for bug where reasoning_content field present but set to None
+    would cause errors when trying to concatenate with existing reasoning_content.
+    """
+    provider = _get_provider()
+
+    # Chunk with reasoning_content explicitly set to None
+    chunk = ChatCompletionChunk(
+        id="chatcmpl-123",
+        object="chat.completion.chunk",
+        created=1234567890,
+        model="o1-preview",  # Reasoning model
+        choices=[
+            {
+                "index": 0,
+                "delta": {
+                    "content": "Hello",
+                    "reasoning_content": None,
+                },
+                "finish_reason": None,
+            }
+        ],
+    )
+
+    data = _chat_completion_chunk_to_dict(chunk)
+    # This should not raise an error
+    result = provider.merge_streaming_chunk({}, data)
+
+    # Verify content is accumulated
+    assert result["choices"][0]["message"]["content"] == "Hello"
+    # reasoning_content should not be set when None values are received
+    assert "reasoning_content" not in result["choices"][0]["message"]
+
+
+def test_merge_openai_chunk_reasoning_content_mixed_none():
+    """Test that merge_streaming_chunk handles mixed None and actual reasoning_content."""
+    provider = _get_provider()
+
+    # First chunk with actual reasoning_content
+    chunk1 = ChatCompletionChunk(
+        id="chatcmpl-123",
+        object="chat.completion.chunk",
+        created=1234567890,
+        model="o1-preview",
+        choices=[
+            {
+                "index": 0,
+                "delta": {
+                    "content": "Hello",
+                    "reasoning_content": "Let me think",
+                },
+                "finish_reason": None,
+            }
+        ],
+    )
+
+    # Second chunk with reasoning_content set to None
+    chunk2 = ChatCompletionChunk(
+        id="chatcmpl-123",
+        object="chat.completion.chunk",
+        created=1234567890,
+        model="o1-preview",
+        choices=[
+            {
+                "index": 0,
+                "delta": {
+                    "content": " world",
+                    "reasoning_content": None,
+                },
+                "finish_reason": None,
+            }
+        ],
+    )
+
+    data1 = _chat_completion_chunk_to_dict(chunk1)
+    result = provider.merge_streaming_chunk({}, data1)
+
+    data2 = _chat_completion_chunk_to_dict(chunk2)
+    # This should not raise an error
+    result = provider.merge_streaming_chunk(result, data2)
+
+    # Verify content is accumulated
+    assert result["choices"][0]["message"]["content"] == "Hello world"
+    # reasoning_content from first chunk should be preserved
+    assert result["choices"][0]["message"]["reasoning_content"] == "Let me think"
+
+
 def test_merge_openai_chunk_tool_calls():
     """Test that merge_streaming_chunk accumulates tool_calls correctly."""
     provider = _get_provider()
