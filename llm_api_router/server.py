@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from .analytics import AnalyticsQuery
 from .config import RouterConfig, load_default_config
 from .exceptions import (
     AuthenticationError,
@@ -281,6 +282,11 @@ class LLMAPIServer:
                     "status": "/status",
                     "metrics": "/metrics",
                     "web": "/web",
+                    "analytics_requests": "/analytics/requests",
+                    "analytics_tokens": "/analytics/tokens",
+                    "analytics_latency": "/analytics/latency",
+                    "analytics_summary": "/analytics/summary",
+                    "analytics_timerange": "/analytics/timerange",
                 },
             }
 
@@ -618,6 +624,64 @@ class LLMAPIServer:
                             )
 
             return "\n".join(lines) + "\n"
+
+        @self.app.get("/analytics/requests")
+        async def analytics_requests(
+            interval: str = "hour", hours: int = 24, provider_type: str | None = None
+        ) -> list[dict[str, Any]]:
+            """Get request count analytics over time.
+
+            Args:
+                interval: Time bucket size - 'minute', 'hour', or 'day'
+                hours: Number of hours to look back
+                provider_type: Optional filter by provider type ('openai', 'anthropic')
+            """
+            analytics = AnalyticsQuery()
+            return analytics.get_requests_over_time(interval, hours, provider_type)
+
+        @self.app.get("/analytics/tokens")
+        async def analytics_tokens(
+            interval: str = "hour", hours: int = 24, provider_type: str | None = None
+        ) -> list[dict[str, Any]]:
+            """Get token count analytics over time.
+
+            Args:
+                interval: Time bucket size - 'minute', 'hour', or 'day'
+                hours: Number of hours to look back
+                provider_type: Optional filter by provider type ('openai', 'anthropic')
+            """
+            analytics = AnalyticsQuery()
+            return analytics.get_tokens_over_time(interval, hours, provider_type)
+
+        @self.app.get("/analytics/latency")
+        async def analytics_latency(
+            interval: str = "hour", hours: int = 24, provider_type: str | None = None
+        ) -> list[dict[str, Any]]:
+            """Get latency analytics over time.
+
+            Args:
+                interval: Time bucket size - 'minute', 'hour', or 'day'
+                hours: Number of hours to look back
+                provider_type: Optional filter by provider type ('openai', 'anthropic')
+            """
+            analytics = AnalyticsQuery()
+            return analytics.get_latency_over_time(interval, hours, provider_type)
+
+        @self.app.get("/analytics/summary")
+        async def analytics_summary(hours: int = 24) -> list[dict[str, Any]]:
+            """Get summary statistics by provider.
+
+            Args:
+                hours: Number of hours to look back
+            """
+            analytics = AnalyticsQuery()
+            return analytics.get_provider_summary(hours)
+
+        @self.app.get("/analytics/timerange")
+        async def analytics_timerange() -> dict[str, Any] | None:
+            """Get the available time range of analytics data."""
+            analytics = AnalyticsQuery()
+            return analytics.get_available_time_range()
 
         @self.app.post("/openai/chat/completions", response_model=None)
         async def openai_chat_completion(

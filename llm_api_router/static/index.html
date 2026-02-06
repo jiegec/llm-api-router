@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM API Router Status</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -246,6 +247,70 @@
             gap: 20px;
             margin-bottom: 25px;
         }
+        .analytics-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .analytics-controls select,
+        .analytics-controls button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            background: #1e293b;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .analytics-controls button:hover {
+            background: #334155;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .analytics-section {
+            margin-bottom: 40px;
+        }
+        .analytics-section h2 {
+            font-size: 1.5rem;
+            color: #f8fafc;
+            margin-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #334155;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            color: #94a3b8;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .tab:hover {
+            color: #f8fafc;
+        }
+        .tab.active {
+            color: #38bdf8;
+            border-bottom-color: #38bdf8;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
     </style>
 </head>
 <body>
@@ -255,10 +320,23 @@
             <div id="status-badge" class="status-badge status-healthy">Loading...</div>
         </header>
 
+        <div class="tabs">
+            <div class="tab active" data-tab="status">Status</div>
+            <div class="tab" data-tab="analytics">Analytics</div>
+        </div>
+
         <div id="content">
-            <div class="loading">
-                <div class="spinner"></div>
-                <div>Loading status...</div>
+            <div id="status-tab" class="tab-content active">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading status...</div>
+                </div>
+            </div>
+            <div id="analytics-tab" class="tab-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading analytics...</div>
+                </div>
             </div>
         </div>
 
@@ -478,7 +556,7 @@
 
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
-                    const contentDiv = document.getElementById('content');
+                    const contentDiv = document.getElementById('status-tab');
                     const statusBadge = document.getElementById('status-badge');
                     const lastUpdated = document.getElementById('last-updated');
 
@@ -527,7 +605,7 @@
 
             xhr.onerror = function() {
                 const statusBadge = document.getElementById('status-badge');
-                const contentDiv = document.getElementById('content');
+                const contentDiv = document.getElementById('status-tab');
                 const lastUpdated = document.getElementById('last-updated');
 
                 statusBadge.className = 'status-badge status-error';
@@ -548,6 +626,394 @@
 
         // Auto-refresh every 5 seconds
         setInterval(loadStatus, 5000);
+
+        // ===== Analytics Functions =====
+
+        let requestsChart = null;
+        let tokensChart = null;
+        let latencyChart = null;
+        let currentAnalyticsInterval = 'hour';
+        let currentAnalyticsHours = 24;
+        let currentAnalyticsProvider = '';
+
+        function switchTab(tabName) {
+            // Update tab styling
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.tab === tabName) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // Update content visibility
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            // Load analytics data if switching to analytics tab
+            if (tabName === 'analytics') {
+                loadAnalytics();
+            }
+        }
+
+        // Tab click handlers - wait for DOM to be ready
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    switchTab(tab.dataset.tab);
+                });
+            });
+        });
+
+        function createChart(canvasId, type, data, options) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return null;
+
+            // Destroy existing chart if any
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
+            return new Chart(canvas, {
+                type: type,
+                data: data,
+                options: options
+            });
+        }
+
+        function loadAnalytics() {
+            const contentDiv = document.getElementById('analytics-tab');
+            const lastUpdated = document.getElementById('last-updated');
+            lastUpdated.textContent = new Date().toLocaleString();
+
+            // Load requests data
+            loadRequestsChart();
+
+            // Load tokens data
+            loadTokensChart();
+
+            // Load latency data
+            loadLatencyChart();
+
+            // Load summary
+            loadAnalyticsSummary();
+        }
+
+        function loadRequestsChart() {
+            const url = `/analytics/requests?interval=${currentAnalyticsInterval}&hours=${currentAnalyticsHours}&provider_type=${currentAnalyticsProvider}`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    renderRequestsChart(data);
+                })
+                .catch(err => {
+                    console.error('Failed to load requests data:', err);
+                });
+        }
+
+        function loadTokensChart() {
+            const url = `/analytics/tokens?interval=${currentAnalyticsInterval}&hours=${currentAnalyticsHours}&provider_type=${currentAnalyticsProvider}`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    renderTokensChart(data);
+                })
+                .catch(err => {
+                    console.error('Failed to load tokens data:', err);
+                });
+        }
+
+        function loadLatencyChart() {
+            const url = `/analytics/latency?interval=${currentAnalyticsInterval}&hours=${currentAnalyticsHours}&provider_type=${currentAnalyticsProvider}`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    renderLatencyChart(data);
+                })
+                .catch(err => {
+                    console.error('Failed to load latency data:', err);
+                });
+        }
+
+        function loadAnalyticsSummary() {
+            fetch(`/analytics/summary?hours=${currentAnalyticsHours}`)
+                .then(response => response.json())
+                .then(data => {
+                    renderAnalyticsSummary(data);
+                })
+                .catch(err => {
+                    console.error('Failed to load summary:', err);
+                });
+        }
+
+        function renderRequestsChart(data) {
+            const container = document.getElementById('requests-chart-container');
+            if (!container) {
+                // Create container if it doesn't exist
+                const analyticsTab = document.getElementById('analytics-tab');
+                analyticsTab.innerHTML = `
+                    <div class="analytics-controls">
+                        <select id="interval-select">
+                            <option value="minute" ${currentAnalyticsInterval === 'minute' ? 'selected' : ''}>Minute</option>
+                            <option value="hour" ${currentAnalyticsInterval === 'hour' ? 'selected' : ''}>Hour</option>
+                            <option value="day" ${currentAnalyticsInterval === 'day' ? 'selected' : ''}>Day</option>
+                        </select>
+                        <select id="hours-select">
+                            <option value="1" ${currentAnalyticsHours === 1 ? 'selected' : ''}>Last 1 hour</option>
+                            <option value="6" ${currentAnalyticsHours === 6 ? 'selected' : ''}>Last 6 hours</option>
+                            <option value="24" ${currentAnalyticsHours === 24 ? 'selected' : ''}>Last 24 hours</option>
+                            <option value="168" ${currentAnalyticsHours === 168 ? 'selected' : ''}>Last 7 days</option>
+                            <option value="720" ${currentAnalyticsHours === 720 ? 'selected' : ''}>Last 30 days</option>
+                        </select>
+                        <select id="provider-select">
+                            <option value="" ${currentAnalyticsProvider === '' ? 'selected' : ''}>All Providers</option>
+                            <option value="openai" ${currentAnalyticsProvider === 'openai' ? 'selected' : ''}>OpenAI</option>
+                            <option value="anthropic" ${currentAnalyticsProvider === 'anthropic' ? 'selected' : ''}>Anthropic</option>
+                        </select>
+                        <button onclick="refreshAnalytics()">Refresh</button>
+                    </div>
+                    <div class="analytics-section">
+                        <h2>Requests Over Time</h2>
+                        <div id="requests-chart-container" class="chart-container">
+                            <canvas id="requests-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="analytics-section">
+                        <h2>Tokens Over Time</h2>
+                        <div id="tokens-chart-container" class="chart-container">
+                            <canvas id="tokens-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="analytics-section">
+                        <h2>Latency Over Time</h2>
+                        <div id="latency-chart-container" class="chart-container">
+                            <canvas id="latency-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="analytics-section">
+                        <h2>Provider Summary</h2>
+                        <div id="summary-container"></div>
+                    </div>
+                `;
+
+                // Add event listeners
+                document.getElementById('interval-select').addEventListener('change', (e) => {
+                    currentAnalyticsInterval = e.target.value;
+                    loadAnalytics();
+                });
+                document.getElementById('hours-select').addEventListener('change', (e) => {
+                    currentAnalyticsHours = parseInt(e.target.value);
+                    loadAnalytics();
+                });
+                document.getElementById('provider-select').addEventListener('change', (e) => {
+                    currentAnalyticsProvider = e.target.value;
+                    loadAnalytics();
+                });
+            }
+
+            if (!data || data.length === 0) {
+                document.getElementById('requests-chart-container').innerHTML = '<div class="no-data">No data available</div>';
+                return;
+            }
+
+            const labels = data.map(d => new Date(d.timestamp).toLocaleString());
+            const values = data.map(d => d.count);
+
+            requestsChart = createChart('requests-chart', 'line', {
+                labels: labels,
+                datasets: [{
+                    label: 'Requests',
+                    data: values,
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            }, {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#94a3b8' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' }
+                    },
+                    y: {
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' },
+                        beginAtZero: true
+                    }
+                }
+            });
+        }
+
+        function renderTokensChart(data) {
+            const container = document.getElementById('tokens-chart-container');
+            if (!container) return;
+
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="no-data">No data available</div>';
+                return;
+            }
+
+            const labels = data.map(d => new Date(d.timestamp).toLocaleString());
+            const inputTokens = data.map(d => d.input_tokens || 0);
+            const outputTokens = data.map(d => d.output_tokens || 0);
+            const cachedTokens = data.map(d => d.cached_tokens || 0);
+
+            tokensChart = createChart('tokens-chart', 'line', {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Input Tokens',
+                        data: inputTokens,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Output Tokens',
+                        data: outputTokens,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Cached Tokens',
+                        data: cachedTokens,
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            }, {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#94a3b8' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' }
+                    },
+                    y: {
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' },
+                        beginAtZero: true
+                    }
+                }
+            });
+        }
+
+        function renderLatencyChart(data) {
+            const container = document.getElementById('latency-chart-container');
+            if (!container) return;
+
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="no-data">No data available</div>';
+                return;
+            }
+
+            const labels = data.map(d => new Date(d.timestamp).toLocaleString());
+            const avgLatency = data.map(d => d.avg_latency_ms || 0);
+            const p50Latency = data.map(d => d.p50_latency_ms || 0);
+            const p95Latency = data.map(d => d.p95_latency_ms || 0);
+            const p99Latency = data.map(d => d.p99_latency_ms || 0);
+
+            latencyChart = createChart('latency-chart', 'line', {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Average',
+                        data: avgLatency,
+                        borderColor: '#38bdf8',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'P50',
+                        data: p50Latency,
+                        borderColor: '#10b981',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'P95',
+                        data: p95Latency,
+                        borderColor: '#f59e0b',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'P99',
+                        data: p99Latency,
+                        borderColor: '#ef4444',
+                        tension: 0.4
+                    }
+                ]
+            }, {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#94a3b8' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' }
+                    },
+                    y: {
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' },
+                        beginAtZero: true
+                    }
+                }
+            });
+        }
+
+        function renderAnalyticsSummary(data) {
+            const container = document.getElementById('summary-container');
+            if (!container) return;
+
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="no-data">No data available</div>';
+                return;
+            }
+
+            let html = '<div class="grid">';
+            data.forEach(provider => {
+                html += `
+                    <div class="card">
+                        <h2>${provider.provider_name || provider.provider_type}</h2>
+                        ${renderMetric('Requests', formatNumber(provider.request_count), { highlight: true })}
+                        ${renderMetric('Total Tokens', formatNumber(provider.total_tokens))}
+                        ${renderMetric('Input Tokens', formatNumber(provider.input_tokens))}
+                        ${renderMetric('Output Tokens', formatNumber(provider.output_tokens))}
+                        ${renderMetric('Cached Tokens', formatNumber(provider.cached_tokens))}
+                        ${renderMetric('Avg Latency', (provider.avg_latency_ms || 0).toFixed(0) + ' ms')}
+                        ${renderMetric('Streaming', formatNumber(provider.streaming_count))}
+                        ${renderMetric('Non-Streaming', formatNumber(provider.non_streaming_count))}
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function refreshAnalytics() {
+            loadAnalytics();
+        }
     </script>
 </body>
 </html>
