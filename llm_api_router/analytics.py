@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Any
-import logging
+
 import duckdb
 
 
@@ -59,10 +59,8 @@ class AnalyticsQuery:
         con = duckdb.connect(":memory:")
         try:
             if parameters:
-                print(f"Running query {query} with parameters {parameters}")
                 result = con.execute(query, parameters=parameters).fetchall()
             else:
-                print(f"Running query {query}")
                 result = con.execute(query).fetchall()
             columns = [desc[0] for desc in con.description]
             return [dict(zip(columns, row, strict=True)) for row in result]
@@ -88,26 +86,49 @@ class AnalyticsQuery:
         # Validate interval (can't be parameterized in date_trunc)
         interval = self._validate_interval(interval)
 
-        if len(provider_type) == 0:
+        if provider_type == "":
             provider_type = None
 
+        # Determine the step for generating time series
+        if interval == "minute":
+            step = "INTERVAL 1 minute"
+        elif interval == "hour":
+            step = "INTERVAL 1 hour"
+        else:  # day
+            step = "INTERVAL 1 day"
+
         # Use prepared statements for hours and provider_type
+        # Generate complete time series and LEFT JOIN actual data
         query = f"""
-            SELECT
-                date_trunc('{interval}', ts) AS timestamp,
-                COUNT(*) AS count
-            FROM (
-                SELECT timestamp AS ts FROM read_csv_auto('{self.csv_path}', header=True)
-                WHERE ts >= NOW() - INTERVAL {int(hours)} hours
-                AND ($1 IS NULL OR provider_type = $1)
+            WITH time_series AS (
+                SELECT date_trunc('{interval}', ts) AS timestamp
+                FROM (
+                    SELECT timestamp AS ts
+                    FROM range(
+                        date_trunc('{interval}', NOW() - INTERVAL {int(hours)} hours),
+                        date_trunc('{interval}', NOW()),
+                        {step}
+                    ) AS t(timestamp)
+                )
+            ),
+            actual_data AS (
+                SELECT
+                    date_trunc('{interval}', timestamp) AS timestamp,
+                    COUNT(*) AS count
+                FROM read_csv_auto('{self.csv_path}', header=True)
+                WHERE timestamp >= NOW() - INTERVAL {int(hours)} hours
+                  AND ($1 IS NULL OR provider_type = $1)
+                GROUP BY date_trunc('{interval}', timestamp)
             )
-            GROUP BY timestamp
-            ORDER BY timestamp
+            SELECT
+                ts.timestamp,
+                COALESCE(ad.count, 0) AS count
+            FROM time_series ts
+            LEFT JOIN actual_data ad ON ts.timestamp = ad.timestamp
+            ORDER BY ts.timestamp
         """
 
-        return self._execute_query(
-            query, parameters=[provider_type]
-        )
+        return self._execute_query(query, parameters=[provider_type])
 
     def get_tokens_over_time(
         self,
@@ -128,31 +149,55 @@ class AnalyticsQuery:
         # Validate interval (can't be parameterized in date_trunc)
         interval = self._validate_interval(interval)
 
-        if len(provider_type) == 0:
+        if provider_type == "":
             provider_type = None
 
+        # Determine the step for generating time series
+        if interval == "minute":
+            step = "INTERVAL 1 minute"
+        elif interval == "hour":
+            step = "INTERVAL 1 hour"
+        else:  # day
+            step = "INTERVAL 1 day"
+
         # Use prepared statements for hours and provider_type
+        # Generate complete time series and LEFT JOIN actual data
         query = f"""
-            SELECT
-                date_trunc('{interval}', ts) AS timestamp,
-                SUM(input_tokens) AS input_tokens,
-                SUM(output_tokens) AS output_tokens,
-                SUM(cached_tokens) AS cached_tokens,
-                SUM(input_tokens + output_tokens) AS total_tokens
-            FROM (
-                SELECT timestamp as ts,
-                    input_tokens, output_tokens, cached_tokens
+            WITH time_series AS (
+                SELECT date_trunc('{interval}', ts) AS timestamp
+                FROM (
+                    SELECT timestamp AS ts
+                    FROM range(
+                        date_trunc('{interval}', NOW() - INTERVAL {int(hours)} hours),
+                        date_trunc('{interval}', NOW()),
+                        {step}
+                    ) AS t(timestamp)
+                )
+            ),
+            actual_data AS (
+                SELECT
+                    date_trunc('{interval}', timestamp) AS timestamp,
+                    SUM(input_tokens) AS input_tokens,
+                    SUM(output_tokens) AS output_tokens,
+                    SUM(cached_tokens) AS cached_tokens,
+                    SUM(input_tokens + output_tokens) AS total_tokens
                 FROM read_csv_auto('{self.csv_path}', header=True)
-                WHERE ts >= NOW() - INTERVAL {int(hours)} hours
-                AND ($1 IS NULL OR provider_type = $1)
+                WHERE timestamp >= NOW() - INTERVAL {int(hours)} hours
+                  AND ($1 IS NULL OR provider_type = $1)
+                GROUP BY date_trunc('{interval}', timestamp)
             )
-            GROUP BY timestamp
-            ORDER BY timestamp
+            SELECT
+                ts.timestamp,
+                COALESCE(ad.input_tokens, 0) AS input_tokens,
+                COALESCE(ad.output_tokens, 0) AS output_tokens,
+                COALESCE(ad.cached_tokens, 0) AS cached_tokens,
+                COALESCE(ad.total_tokens, 0) AS total_tokens
+            FROM time_series ts
+            LEFT JOIN actual_data ad ON ts.timestamp = ad.timestamp
+            ORDER BY ts.timestamp
         """
 
-        return self._execute_query(
-            query, parameters=[provider_type]
-        )
+        return self._execute_query(query, parameters=[provider_type])
 
     def get_latency_over_time(
         self,
@@ -173,31 +218,55 @@ class AnalyticsQuery:
         # Validate interval (can't be parameterized in date_trunc)
         interval = self._validate_interval(interval)
 
-        if len(provider_type) == 0:
+        if provider_type == "":
             provider_type = None
 
+        # Determine the step for generating time series
+        if interval == "minute":
+            step = "INTERVAL 1 minute"
+        elif interval == "hour":
+            step = "INTERVAL 1 hour"
+        else:  # day
+            step = "INTERVAL 1 day"
+
         # Use prepared statements for hours and provider_type
+        # Generate complete time series and LEFT JOIN actual data
         query = f"""
-            SELECT
-                date_trunc('{interval}', ts) AS timestamp,
-                AVG(latency_ms) AS avg_latency_ms,
-                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50_latency_ms,
-                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) AS p95_latency_ms,
-                PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms) AS p99_latency_ms
-            FROM (
-                SELECT timestamp as ts,
-                    latency_ms
+            WITH time_series AS (
+                SELECT date_trunc('{interval}', ts) AS timestamp
+                FROM (
+                    SELECT timestamp AS ts
+                    FROM range(
+                        date_trunc('{interval}', NOW() - INTERVAL {int(hours)} hours),
+                        date_trunc('{interval}', NOW()),
+                        {step}
+                    ) AS t(timestamp)
+                )
+            ),
+            actual_data AS (
+                SELECT
+                    date_trunc('{interval}', timestamp) AS timestamp,
+                    AVG(latency_ms) AS avg_latency_ms,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50_latency_ms,
+                    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) AS p95_latency_ms,
+                    PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms) AS p99_latency_ms
                 FROM read_csv_auto('{self.csv_path}', header=True)
-                WHERE ts >= NOW() - INTERVAL {int(hours)} hours
-                AND ($1 IS NULL OR provider_type = $1)
+                WHERE timestamp >= NOW() - INTERVAL {int(hours)} hours
+                  AND ($1 IS NULL OR provider_type = $1)
+                GROUP BY date_trunc('{interval}', timestamp)
             )
-            GROUP BY timestamp
-            ORDER BY timestamp
+            SELECT
+                ts.timestamp,
+                ad.avg_latency_ms,
+                ad.p50_latency_ms,
+                ad.p95_latency_ms,
+                ad.p99_latency_ms
+            FROM time_series ts
+            LEFT JOIN actual_data ad ON ts.timestamp = ad.timestamp
+            ORDER BY ts.timestamp
         """
 
-        return self._execute_query(
-            query, parameters=[provider_type]
-        )
+        return self._execute_query(query, parameters=[provider_type])
 
     def get_provider_summary(self, hours: int = 24) -> list[dict[str, Any]]:
         """Get summary statistics by provider.
