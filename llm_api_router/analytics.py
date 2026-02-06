@@ -2,12 +2,15 @@
 
 from pathlib import Path
 from typing import Any
-
+import logging
 import duckdb
 
 
 class AnalyticsQuery:
     """Analytics query engine using DuckDB."""
+
+    # Valid values for enum-like parameters (those that can't be parameterized)
+    VALID_INTERVALS = {"minute", "hour", "day"}
 
     def __init__(self, csv_path: str | Path = "logs/request_stats.csv"):
         """Initialize the analytics query engine.
@@ -15,13 +18,37 @@ class AnalyticsQuery:
         Args:
             csv_path: Path to the CSV file containing request statistics
         """
-        self.csv_path = Path(csv_path)
+        self.csv_path = Path(csv_path).resolve()
 
-    def _execute_query(self, query: str) -> list[dict[str, Any]]:
-        """Execute a DuckDB query and return results as a list of dicts.
+    def _validate_interval(self, interval: str) -> str:
+        """Validate interval parameter.
+
+        Note: date_trunc() requires a literal string, so we validate
+        via whitelist rather than using a parameter.
 
         Args:
-            query: SQL query to execute
+            interval: The interval to validate
+
+        Returns:
+            The validated interval
+
+        Raises:
+            ValueError: If interval is not valid
+        """
+        if interval not in self.VALID_INTERVALS:
+            raise ValueError(
+                f"Invalid interval '{interval}'. Must be one of: {self.VALID_INTERVALS}"
+            )
+        return interval
+
+    def _execute_query(
+        self, query: str, parameters: list[Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """Execute a DuckDB query with optional parameters.
+
+        Args:
+            query: SQL query with ? placeholders for parameters
+            parameters: Optional list of parameters for prepared statement
 
         Returns:
             List of dictionaries representing query results
@@ -31,7 +58,12 @@ class AnalyticsQuery:
 
         con = duckdb.connect(":memory:")
         try:
-            result = con.execute(query).fetchall()
+            if parameters:
+                print(f"Running query {query} with parameters {parameters}")
+                result = con.execute(query, parameters=parameters).fetchall()
+            else:
+                print(f"Running query {query}")
+                result = con.execute(query).fetchall()
             columns = [desc[0] for desc in con.description]
             return [dict(zip(columns, row, strict=True)) for row in result]
         finally:
@@ -53,26 +85,29 @@ class AnalyticsQuery:
         Returns:
             List of dicts with 'timestamp' and 'count' keys
         """
-        # Map interval to DuckDB date_trunc part
-        truncation = interval  # minute, hour, day work directly with date_trunc
+        # Validate interval (can't be parameterized in date_trunc)
+        interval = self._validate_interval(interval)
 
-        # Build query with time filter and optional provider filter
-        provider_filter = (
-            f"AND provider_type = '{provider_type}'" if provider_type else ""
-        )
+        if len(provider_type) == 0:
+            provider_type = None
 
+        # Use prepared statements for hours and provider_type
         query = f"""
             SELECT
-                date_trunc('{truncation}', timestamp) AS timestamp,
+                date_trunc('{interval}', ts) AS timestamp,
                 COUNT(*) AS count
-            FROM read_csv_auto('{self.csv_path}', header=True)
-            WHERE timestamp >= NOW() - INTERVAL '{hours} hours'
-              {provider_filter}
+            FROM (
+                SELECT timestamp AS ts FROM read_csv_auto('{self.csv_path}', header=True)
+                WHERE ts >= NOW() - INTERVAL {int(hours)} hours
+                AND ($1 IS NULL OR provider_type = $1)
+            )
             GROUP BY timestamp
             ORDER BY timestamp
         """
 
-        return self._execute_query(query)
+        return self._execute_query(
+            query, parameters=[provider_type]
+        )
 
     def get_tokens_over_time(
         self,
@@ -90,29 +125,34 @@ class AnalyticsQuery:
         Returns:
             List of dicts with 'timestamp', 'input_tokens', 'output_tokens', 'cached_tokens', 'total_tokens' keys
         """
-        # Map interval to DuckDB date_trunc part
-        truncation = interval  # minute, hour, day work directly with date_trunc
+        # Validate interval (can't be parameterized in date_trunc)
+        interval = self._validate_interval(interval)
 
-        # Build query with time filter and optional provider filter
-        provider_filter = (
-            f"AND provider_type = '{provider_type}'" if provider_type else ""
-        )
+        if len(provider_type) == 0:
+            provider_type = None
 
+        # Use prepared statements for hours and provider_type
         query = f"""
             SELECT
-                date_trunc('{truncation}', timestamp) AS timestamp,
+                date_trunc('{interval}', ts) AS timestamp,
                 SUM(input_tokens) AS input_tokens,
                 SUM(output_tokens) AS output_tokens,
                 SUM(cached_tokens) AS cached_tokens,
                 SUM(input_tokens + output_tokens) AS total_tokens
-            FROM read_csv_auto('{self.csv_path}', header=True)
-            WHERE timestamp >= NOW() - INTERVAL '{hours} hours'
-              {provider_filter}
+            FROM (
+                SELECT timestamp as ts,
+                    input_tokens, output_tokens, cached_tokens
+                FROM read_csv_auto('{self.csv_path}', header=True)
+                WHERE ts >= NOW() - INTERVAL {int(hours)} hours
+                AND ($1 IS NULL OR provider_type = $1)
+            )
             GROUP BY timestamp
             ORDER BY timestamp
         """
 
-        return self._execute_query(query)
+        return self._execute_query(
+            query, parameters=[provider_type]
+        )
 
     def get_latency_over_time(
         self,
@@ -130,29 +170,34 @@ class AnalyticsQuery:
         Returns:
             List of dicts with 'timestamp', 'avg_latency_ms', 'p50_latency_ms', 'p95_latency_ms', 'p99_latency_ms' keys
         """
-        # Map interval to DuckDB date_trunc part
-        truncation = interval  # minute, hour, day work directly with date_trunc
+        # Validate interval (can't be parameterized in date_trunc)
+        interval = self._validate_interval(interval)
 
-        # Build query with time filter and optional provider filter
-        provider_filter = (
-            f"AND provider_type = '{provider_type}'" if provider_type else ""
-        )
+        if len(provider_type) == 0:
+            provider_type = None
 
+        # Use prepared statements for hours and provider_type
         query = f"""
             SELECT
-                date_trunc('{truncation}', timestamp) AS timestamp,
+                date_trunc('{interval}', ts) AS timestamp,
                 AVG(latency_ms) AS avg_latency_ms,
                 PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50_latency_ms,
                 PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) AS p95_latency_ms,
                 PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms) AS p99_latency_ms
-            FROM read_csv_auto('{self.csv_path}', header=True)
-            WHERE timestamp >= NOW() - INTERVAL '{hours} hours'
-              {provider_filter}
+            FROM (
+                SELECT timestamp as ts,
+                    latency_ms
+                FROM read_csv_auto('{self.csv_path}', header=True)
+                WHERE ts >= NOW() - INTERVAL {int(hours)} hours
+                AND ($1 IS NULL OR provider_type = $1)
+            )
             GROUP BY timestamp
             ORDER BY timestamp
         """
 
-        return self._execute_query(query)
+        return self._execute_query(
+            query, parameters=[provider_type]
+        )
 
     def get_provider_summary(self, hours: int = 24) -> list[dict[str, Any]]:
         """Get summary statistics by provider.
@@ -163,6 +208,7 @@ class AnalyticsQuery:
         Returns:
             List of dicts with provider stats
         """
+        # Use prepared statement for hours
         query = f"""
             SELECT
                 provider_type,
@@ -176,12 +222,12 @@ class AnalyticsQuery:
                 SUM(CASE WHEN is_streaming = 'true' THEN 1 ELSE 0 END) AS streaming_count,
                 SUM(CASE WHEN is_streaming = 'false' THEN 1 ELSE 0 END) AS non_streaming_count
             FROM read_csv_auto('{self.csv_path}', header=True)
-            WHERE timestamp >= NOW() - INTERVAL '{hours} hours'
+            WHERE timestamp >= NOW() - INTERVAL {int(hours)} hours
             GROUP BY provider_type, provider_name
             ORDER BY request_count DESC
         """
 
-        return self._execute_query(query)
+        return self._execute_query(query, parameters=[])
 
     def get_available_time_range(self) -> dict[str, str] | None:
         """Get the available time range of data in the CSV.
@@ -192,6 +238,7 @@ class AnalyticsQuery:
         if not self.csv_path.exists():
             return None
 
+        # No user input, no parameters needed
         query = f"""
             SELECT
                 MIN(timestamp) AS min_timestamp,
