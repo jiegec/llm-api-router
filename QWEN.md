@@ -9,7 +9,9 @@ LLM API router with unified OpenAI/Anthropic endpoints, priority-based fallback,
 | `/openai/chat/completions` | OpenAI | `openai` Python client |
 | `/anthropic/v1/messages` | Anthropic | `anthropic` Python client |
 | `/anthropic/v1/messages/count_tokens` | Anthropic | `anthropic` Python client |
-| `/web` | HTML | Browser |
+| `/web` | HTML | Browser (analytics dashboard) |
+| `/status` | JSON | Monitoring |
+| `/analytics/*` | JSON | Analytics API |
 | `/metrics` | Prometheus | Monitoring |
 
 ## Architecture
@@ -27,7 +29,8 @@ llm_api_router/
 │   ├── openai.py       # OpenAI provider
 │   └── anthropic.py   # Anthropic provider
 ├── router.py           # Router with fallback
-└── stats.py            # Statistics collection
+├── stats.py            # Statistics collection
+└── analytics.py        # Analytics queries with DuckDB
 ```
 
 **Stack**: Python 3.10+, Poetry, FastAPI/uvicorn, httpx, openai/anthropic clients, Pydantic, pytest, black, ruff, mypy
@@ -96,6 +99,25 @@ poetry run ruff check --fix llm_api_router tests
 - **Format**: JSON lines
 - **Location**: `logs/` directory
 - **Per request**: request body, response body, usage stats, response time, provider, retry attempts, errors
+- **CSV logging**: `logs/request_stats.csv` with request statistics for analytics
+
+## Analytics
+
+The `/web` endpoint provides an analytics dashboard with time-series charts powered by DuckDB.
+
+**Analytics API endpoints**:
+- `/analytics/requests?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Request count over time
+- `/analytics/tokens?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Token usage over time
+- `/analytics/latency?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Latency percentiles over time
+- `/analytics/summary?hours={1-720}` - Provider summary statistics
+
+**Data source**: Reads from `logs/request_stats.csv` using DuckDB's `read_csv_auto()`
+
+**Features**:
+- Time-series queries with configurable intervals (minute, hour, day)
+- Provider filtering by type (OpenAI, Anthropic, or all)
+- SQL injection protection via prepared statements and whitelist validation
+- Complete time series generation - missing intervals show as zeros (requests/tokens) or NULL (latency)
 
 ## Deployment
 
