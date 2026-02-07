@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [0.1.0] - 2026-02-07
 
 ### Added
@@ -32,4 +34,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SQL injection protection for analytics queries via prepared statements
 - Complete time series generation for analytics charts (missing intervals show as zeros/NULL)
 
+[Unreleased]: https://github.com/jiegec/llm-api-router/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/jiegec/llm-api-router/releases/tag/v0.1.0
