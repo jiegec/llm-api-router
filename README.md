@@ -13,6 +13,7 @@ A FastAPI-based LLM API router server that provides separate endpoints for OpenA
 - **Priority-based routing**: Configure priority order for API providers within each endpoint
 - **Automatic fallback**: When a high-priority provider fails or is rate-limited, automatically switches to the next available provider
 - **Error handling**: Comprehensive error detection and HTTP error responses
+- **Reasoning model support**: OpenAI reasoning models (o1, o3, etc.) with `reasoning_content` in streaming responses
 
 ## Installation
 
@@ -92,9 +93,23 @@ The server runs on port **8000** by default.
 - `GET /health` - Health check endpoint
 - `GET /status` - Status endpoint (JSON)
 - `GET /metrics` - Prometheus metrics endpoint
-- `GET /web` - Status dashboard (web UI)
+- `GET /web` - Status dashboard (web UI with auto-refreshing analytics)
 - `POST /openai/chat/completions` - OpenAI-compatible chat completion
 - `POST /anthropic/v1/messages` - Anthropic-compatible chat completion
+
+### Analytics API
+
+The router provides analytics endpoints for monitoring usage (used by the web dashboard):
+
+- `GET /analytics/requests?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Request count over time
+- `GET /analytics/tokens?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Token usage over time
+- `GET /analytics/latency?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Latency percentiles over time
+- `GET /analytics/summary?hours={1-720}` - Provider summary statistics
+
+Parameters:
+- `interval`: Time bucket size (`minute`, `hour`, `day`)
+- `hours`: Lookback period in hours (1-720, default 24)
+- `provider_type`: Filter by provider type (`openai`, `anthropic`, or omit for all)
 
 ## Client Configuration
 
@@ -133,6 +148,16 @@ Configure Claude Code to use this router:
 }
 ```
 
+
+## Web Dashboard
+
+The `/web` endpoint provides a real-time analytics dashboard with:
+
+- **Status tab**: Current provider health and status (auto-refreshes every 5 seconds)
+- **Analytics tab**: Time-series charts for requests, tokens, and latency with animated updates
+- **Auto-refresh**: Dashboard automatically refreshes data every 5 seconds when viewing either tab
+
+Data is sourced from `logs/request_stats.csv` and aggregated using DuckDB.
 
 ## Logging
 

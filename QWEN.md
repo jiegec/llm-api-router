@@ -9,7 +9,7 @@ LLM API router with unified OpenAI/Anthropic endpoints, priority-based fallback,
 | `/openai/chat/completions` | OpenAI | `openai` Python client |
 | `/anthropic/v1/messages` | Anthropic | `anthropic` Python client |
 | `/anthropic/v1/messages/count_tokens` | Anthropic | `anthropic` Python client |
-| `/web` | HTML | Browser (analytics dashboard) |
+| `/web` | HTML | Browser (analytics dashboard with auto-refresh) |
 | `/status` | JSON | Monitoring |
 | `/analytics/*` | JSON | Analytics API |
 | `/metrics` | Prometheus | Monitoring |
@@ -103,7 +103,7 @@ poetry run ruff check --fix llm_api_router tests
 
 ## Analytics
 
-The `/web` endpoint provides an analytics dashboard with time-series charts powered by DuckDB.
+The `/web` endpoint provides an analytics dashboard with auto-refreshing time-series charts powered by DuckDB.
 
 **Analytics API endpoints**:
 - `/analytics/requests?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Request count over time
