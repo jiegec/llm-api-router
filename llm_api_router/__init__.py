@@ -17,7 +17,7 @@ from .models import (
 from .rate_limiter import RateLimiter
 from .router import LLMRouter
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "LLMRouter",
     "ProviderConfig",

@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import __version__
 from .analytics import AnalyticsQuery
 from .config import RouterConfig, load_default_config
 from .exceptions import (
@@ -241,7 +242,7 @@ class LLMAPIServer:
         self.app = FastAPI(
             title="LLM API Router",
             description="Router for OpenAI and Anthropic APIs with provider fallback",
-            version="0.1.0",
+            version=__version__,
         )
 
         # Load configuration
@@ -273,7 +274,7 @@ class LLMAPIServer:
         async def root() -> dict[str, Any]:
             return {
                 "name": "LLM API Router",
-                "version": "0.1.0",
+                "version": __version__,
                 "endpoints": {
                     "openai": "/openai/chat/completions",
                     "anthropic": "/anthropic/v1/messages",
@@ -295,7 +296,7 @@ class LLMAPIServer:
             """Health check endpoint."""
             return {
                 "status": "healthy",
-                "version": "0.1.0",
+                "version": __version__,
                 "providers": {
                     "openai": len(self.config.openai_providers) > 0,
                     "anthropic": len(self.config.anthropic_providers) > 0,
@@ -385,7 +386,7 @@ class LLMAPIServer:
             metric(
                 "llm_router_info",
                 1,
-                {"version": "0.1.0"},
+                {"version": __version__},
                 "LLM API Router information",
                 "gauge",
             )
