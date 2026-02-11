@@ -691,9 +691,7 @@ class LLMAPIServer:
         ) -> dict[str, Any] | StreamingResponse:
             """OpenAI-compatible chat completion endpoint."""
             user_agent = http_request.headers.get("user-agent")
-            return await self._handle_chat_completion(
-                request, router, user_agent
-            )
+            return await self._handle_chat_completion(request, router, user_agent)
 
         @self.app.post("/anthropic/v1/messages", response_model=None)
         async def anthropic_chat_completion(
@@ -703,9 +701,7 @@ class LLMAPIServer:
         ) -> dict[str, Any] | StreamingResponse:
             """Anthropic-compatible chat completion endpoint."""
             user_agent = http_request.headers.get("user-agent")
-            return await self._handle_chat_completion(
-                request, router, user_agent
-            )
+            return await self._handle_chat_completion(request, router, user_agent)
 
         @self.app.post(
             "/anthropic/v1/messages/count_tokens", response_model=dict[str, Any]
