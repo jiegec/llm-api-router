@@ -124,7 +124,9 @@ async def test_router_chat_completion_success(
             response = await router.chat_completion(sample_request)
 
         # Should use OpenAI (higher priority)
-        mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
+        mock_openai_provider.chat_completion.assert_called_once_with(
+            sample_request, user_agent=None
+        )
         # Router returns the raw response dict
         assert response["id"] == "chatcmpl-123"
         # Note: provider field is not added to response anymore
@@ -211,8 +213,12 @@ async def test_router_fallback_on_failure(
             response = await router.chat_completion(sample_request)
 
         # Should try OpenAI first, then fall back to Anthropic
-        mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
-        mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
+        mock_openai_provider.chat_completion.assert_called_once_with(
+            sample_request, user_agent=None
+        )
+        mock_anthropic_provider.chat_completion.assert_called_once_with(
+            sample_request, user_agent=None
+        )
         # Router returns the raw response dict
         assert response["id"] == "msg_123"
         # Note: provider field is not added to response anymore
@@ -305,8 +311,12 @@ async def test_router_fallback_on_rate_limit(
             response = await router.chat_completion(sample_request)
 
         # Should try OpenAI first, then fall back to Anthropic
-        mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
-        mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
+        mock_openai_provider.chat_completion.assert_called_once_with(
+            sample_request, user_agent=None
+        )
+        mock_anthropic_provider.chat_completion.assert_called_once_with(
+            sample_request, user_agent=None
+        )
         # Router returns the raw response dict
         assert response["id"] == "msg_456"
         # Note: provider field is not added to response anymore
@@ -399,8 +409,12 @@ async def test_router_fallback_on_authentication_error(
             response = await router.chat_completion(sample_request)
 
         # Should try OpenAI first, then fall back to Anthropic
-        mock_openai_provider.chat_completion.assert_called_once_with(sample_request)
-        mock_anthropic_provider.chat_completion.assert_called_once_with(sample_request)
+        mock_openai_provider.chat_completion.assert_called_once_with(
+            sample_request, user_agent=None
+        )
+        mock_anthropic_provider.chat_completion.assert_called_once_with(
+            sample_request, user_agent=None
+        )
         # Router returns the raw response dict
         assert response["id"] == "msg_789"
         # Note: provider field is not added to response anymore
@@ -498,7 +512,9 @@ async def test_router_schedule_retry(openai_config, sample_request):
         await asyncio.sleep(0.2)
 
         # Provider should have been called once
-        mock_provider.chat_completion.assert_called_once_with(sample_request)
+        mock_provider.chat_completion.assert_called_once_with(
+            sample_request, user_agent=None
+        )
 
 
 @pytest.mark.asyncio
@@ -523,7 +539,9 @@ async def test_router_count_tokens_success(anthropic_config):
             response = await router.count_tokens(count_request)
 
         # Should use Anthropic provider
-        mock_anthropic_provider.count_tokens.assert_called_once_with(count_request)
+        mock_anthropic_provider.count_tokens.assert_called_once_with(
+            count_request, user_agent=None
+        )
         assert response["input_tokens"] == 42
 
 
@@ -561,8 +579,12 @@ async def test_router_count_tokens_fallback_on_failure(
                 await router.count_tokens(count_request)
 
         # Should try both providers
-        mock_openai_provider.count_tokens.assert_called_once_with(count_request)
-        mock_anthropic_provider.count_tokens.assert_called_once_with(count_request)
+        mock_openai_provider.count_tokens.assert_called_once_with(
+            count_request, user_agent=None
+        )
+        mock_anthropic_provider.count_tokens.assert_called_once_with(
+            count_request, user_agent=None
+        )
 
 
 @pytest.mark.asyncio
@@ -606,5 +628,9 @@ async def test_router_count_tokens_fallback_on_rate_limit(
                 await router.count_tokens(count_request)
 
         # Should try both providers
-        mock_openai_provider.count_tokens.assert_called_once_with(count_request)
-        mock_anthropic_provider.count_tokens.assert_called_once_with(count_request)
+        mock_openai_provider.count_tokens.assert_called_once_with(
+            count_request, user_agent=None
+        )
+        mock_anthropic_provider.count_tokens.assert_called_once_with(
+            count_request, user_agent=None
+        )

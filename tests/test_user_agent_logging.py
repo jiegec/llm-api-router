@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from llm_api_router.logging import RouterLogger
+from llm_api_router.logging import RouterLogger, get_logger
 from llm_api_router.server import LLMAPIServer
 
 
@@ -286,6 +286,9 @@ class TestServerUserAgentExtraction:
                 router_module.LLMRouter, "chat_completion", wrapped_chat_completion
             )
 
+            # force the global logger to use temporary log folder
+            get_logger("/tmp/logs", force_new=True)
+
             server = LLMAPIServer(config)
             client = TestClient(server.app)
 
@@ -346,6 +349,9 @@ class TestServerUserAgentExtraction:
             monkeypatch.setattr(
                 router_module.LLMRouter, "chat_completion", wrapped_chat_completion
             )
+
+            # force the global logger to use temporary log folder
+            get_logger("/tmp/logs", force_new=True)
 
             server = LLMAPIServer(config)
             client = TestClient(server.app)
@@ -410,6 +416,9 @@ class TestServerUserAgentExtraction:
             monkeypatch.setattr(
                 router_module.LLMRouter, "chat_completion", wrapped_chat_completion
             )
+
+            # force the global logger to use temporary log folder
+            get_logger("/tmp/logs", force_new=True)
 
             server = LLMAPIServer(config)
             client = TestClient(server.app)

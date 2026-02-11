@@ -114,8 +114,12 @@ async def test_router_streaming_fallback():
             assert response.get("_provider") == "openai-priority-2"
 
             # Verify both providers were called
-            mock_provider1.chat_completion.assert_called_once_with(streaming_request)
-            mock_provider2.chat_completion.assert_called_once_with(streaming_request)
+            mock_provider1.chat_completion.assert_called_once_with(
+                streaming_request, user_agent=None
+            )
+            mock_provider2.chat_completion.assert_called_once_with(
+                streaming_request, user_agent=None
+            )
 
             print("✓ Router streaming fallback test passed")
 

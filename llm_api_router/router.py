@@ -183,7 +183,7 @@ class LLMRouter:
             try:
                 provider = await self._get_provider(provider_config)
                 provider_start_time = time.time()
-                result = await provider.chat_completion(request)
+                result = await provider.chat_completion(request, user_agent=user_agent)
                 provider_duration = (time.time() - provider_start_time) * 1000
 
                 # Check if this is a streaming response
@@ -449,12 +449,15 @@ class LLMRouter:
 
         raise NoAvailableProviderError(f"All providers failed:\n{error_details}")
 
-    async def count_tokens(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def count_tokens(
+        self, request: dict[str, Any], user_agent: str | None = None
+    ) -> dict[str, Any]:
         """
         Send a count_tokens request using priority-based routing.
 
         Args:
             request: Count tokens request
+            user_agent: Optional client user agent string
 
         Returns:
             Count tokens response from the first successful provider
@@ -512,6 +515,7 @@ class LLMRouter:
                 request=request,
                 provider_name=provider_name,
                 provider_priority=provider_config.priority,
+                user_agent=user_agent,
             )
 
             # Record request start for statistics
@@ -520,7 +524,7 @@ class LLMRouter:
             try:
                 provider = await self._get_provider(provider_config)
                 provider_start_time = time.time()
-                result = await provider.count_tokens(request)
+                result = await provider.count_tokens(request, user_agent=user_agent)
                 provider_duration = (time.time() - provider_start_time) * 1000
 
                 # Log successful response

@@ -273,7 +273,7 @@ async def test_anthropic_provider_count_tokens(anthropic_config, mock_httpx_clie
         ],
     }
 
-    response = await provider.count_tokens(count_request)
+    response = await provider.count_tokens(count_request, user_agent=None)
 
     # Verify request
     mock_httpx_client.post.assert_called_once()
@@ -377,7 +377,7 @@ async def test_anthropic_provider_count_tokens_retry(
         "messages": [{"role": "user", "content": "Hello"}],
     }
 
-    response = await provider.count_tokens(count_request)
+    response = await provider.count_tokens(count_request, user_agent=None)
 
     # Should have retried once
     assert mock_httpx_client.post.call_count == 2

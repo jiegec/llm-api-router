@@ -23,7 +23,6 @@ class BaseProvider(ABC):
         self.config = config
         self.client = AsyncClient(
             timeout=Timeout(timeout=config.timeout),
-            headers=self._get_headers(),
             base_url=config.base_url or self._get_default_base_url(),
         )
         self.logger = get_logger()
@@ -53,8 +52,18 @@ class BaseProvider(ABC):
         """Get the API endpoint for counting tokens."""
         pass
 
-    async def count_tokens(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Count tokens for a request without actually generating a response."""
+    async def count_tokens(
+        self, request: dict[str, Any], user_agent: str | None = None
+    ) -> dict[str, Any]:
+        """Count tokens for a request without actually generating a response.
+
+        Args:
+            request: Count tokens request
+            user_agent: Optional user agent to pass to upstream API
+
+        Returns:
+            Count tokens response
+        """
         # Extract model from request
         model = request.get("model", "")
         provider_model = self._map_model(model)
@@ -65,6 +74,11 @@ class BaseProvider(ABC):
 
         # Remove None values
         payload = {k: v for k, v in payload.items() if v is not None}
+
+        # Build headers with user agent override if provided
+        headers = dict(self._get_headers())
+        if user_agent:
+            headers["User-Agent"] = user_agent
 
         # Log the API call
         self.logger.logger.debug(
@@ -83,7 +97,7 @@ class BaseProvider(ABC):
 
                 start_time = time.time()
                 response = await self.client.post(
-                    self._get_count_tokens_endpoint(), json=payload
+                    self._get_count_tokens_endpoint(), json=payload, headers=headers
                 )
                 duration = (time.time() - start_time) * 1000
 
@@ -168,18 +182,28 @@ class BaseProvider(ABC):
                 status_code,
             )
 
-    async def chat_completion(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Send a chat completion request to the provider."""
+    async def chat_completion(
+        self, request: dict[str, Any], user_agent: str | None = None
+    ) -> dict[str, Any]:
+        """Send a chat completion request to the provider.
+
+        Args:
+            request: Chat completion request
+            user_agent: Optional user agent to pass to upstream API
+
+        Returns:
+            Response dict or streaming dict with generator
+        """
         # Check if streaming is requested
         stream = request.get("stream", False)
 
         if stream:
-            return await self._chat_completion_stream(request)
+            return await self._chat_completion_stream(request, user_agent)
         else:
-            return await self._chat_completion_non_stream(request)
+            return await self._chat_completion_non_stream(request, user_agent)
 
     async def _chat_completion_non_stream(
-        self, request: dict[str, Any]
+        self, request: dict[str, Any], user_agent: str | None = None
     ) -> dict[str, Any]:
         """Send a non-streaming chat completion request to the provider."""
         # Extract model from request
@@ -193,7 +217,12 @@ class BaseProvider(ABC):
         # Remove None values
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        # Log the API call
+        # Build headers with user agent override if provided
+        headers = dict(self._get_headers())
+        if user_agent:
+            headers["User-Agent"] = user_agent
+
+        # Log API call
         self.logger.logger.debug(
             f"Provider {self.provider_name}: "
             f"Sending non-streaming request for model {model} -> {provider_model}, "
@@ -209,7 +238,9 @@ class BaseProvider(ABC):
                 )
 
                 start_time = time.time()
-                response = await self.client.post(self._get_endpoint(), json=payload)
+                response = await self.client.post(
+                    self._get_endpoint(), json=payload, headers=headers
+                )
                 duration = (time.time() - start_time) * 1000
 
                 if response.status_code == 200:
@@ -267,13 +298,15 @@ class BaseProvider(ABC):
                 )
                 await asyncio.sleep(backoff_time)
 
-        # This should never be reached due to the raise statements above
+        # This should never be reached due to raise statements above
         raise ProviderError(
             "Unexpected error: max retries exhausted without raising exception",
             self.config.name.value,
         )
 
-    async def _chat_completion_stream(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def _chat_completion_stream(
+        self, request: dict[str, Any], user_agent: str | None = None
+    ) -> dict[str, Any]:
         """Send a streaming chat completion request to the provider."""
         # Extract model from request
         model = request.get("model", "")
@@ -287,7 +320,12 @@ class BaseProvider(ABC):
         # Remove None values
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        # Log the API call
+        # Build headers with user agent override if provided
+        headers = dict(self._get_headers())
+        if user_agent:
+            headers["User-Agent"] = user_agent
+
+        # Log API call
         self.logger.logger.debug(
             f"Provider {self.provider_name}: "
             f"Sending streaming request for model {model} -> {provider_model}, "
@@ -304,8 +342,8 @@ class BaseProvider(ABC):
 
                 start_time = time.time()
 
-                # We need to verify the provider is available before returning
-                # a streaming generator. We'll make the request and check the
+                # We need to verify provider is available before returning
+                # a streaming generator. We'll make request and check
                 # initial response, then create a generator that streams.
                 import asyncio
 
@@ -317,7 +355,7 @@ class BaseProvider(ABC):
                 chunk_iterator = None
 
                 async def check_streaming() -> None:
-                    """Check if streaming works by making the request and reading first chunk."""
+                    """Check if streaming works by making request and reading first chunk."""
                     nonlocal check_error, response_obj, first_chunk, chunk_iterator
 
                     # Make streaming request
@@ -335,7 +373,7 @@ class BaseProvider(ABC):
 
                         # Check response status
                         if response.status_code != 200:
-                            # Read the error response
+                            # Read error response
                             try:
                                 response_content = await response.aread()
                                 try:
@@ -376,7 +414,7 @@ class BaseProvider(ABC):
                             f"status: {response.status_code}"
                         )
 
-                        # Get the chunk iterator
+                        # Get chunk iterator
                         chunk_iterator = response.aiter_bytes()
 
                         # Try to read the first chunk to verify streaming works
@@ -488,7 +526,7 @@ class BaseProvider(ABC):
                 )
                 await asyncio.sleep(backoff_time)
 
-        # This should never be reached due to the raise statements above
+        # This should never be reached due to raise statements above
         raise ProviderError(
             "Unexpected error: max retries exhausted without raising exception",
             self.config.name.value,
