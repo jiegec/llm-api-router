@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -687,21 +687,25 @@ class LLMAPIServer:
         @self.app.post("/openai/chat/completions", response_model=None)
         async def openai_chat_completion(
             request: dict[str, Any],
+            http_request: Request,
             router: LLMRouter = Depends(self._get_openai_router),
         ) -> dict[str, Any] | StreamingResponse:
             """OpenAI-compatible chat completion endpoint."""
+            user_agent = http_request.headers.get("user-agent")
             return await self._handle_chat_completion(
-                request, router, ProviderType.OPENAI
+                request, router, ProviderType.OPENAI, user_agent
             )
 
         @self.app.post("/anthropic/v1/messages", response_model=None)
         async def anthropic_chat_completion(
             request: dict[str, Any],
+            http_request: Request,
             router: LLMRouter = Depends(self._get_anthropic_router),
         ) -> dict[str, Any] | StreamingResponse:
             """Anthropic-compatible chat completion endpoint."""
+            user_agent = http_request.headers.get("user-agent")
             return await self._handle_chat_completion(
-                request, router, ProviderType.ANTHROPIC
+                request, router, ProviderType.ANTHROPIC, user_agent
             )
 
         @self.app.post(
@@ -838,10 +842,11 @@ class LLMAPIServer:
         request: dict[str, Any],
         router: LLMRouter,
         expected_provider: ProviderType,
+        user_agent: str | None = None,
     ) -> dict[str, Any] | StreamingResponse:
         """Handle chat completion request with error handling."""
         try:
-            response = await router.chat_completion(request)
+            response = await router.chat_completion(request, user_agent=user_agent)
 
             # Check if this is a streaming response
             if isinstance(response, dict) and response.get("_streaming"):

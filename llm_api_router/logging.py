@@ -174,6 +174,7 @@ class RouterLogger:
         request: dict[str, Any],
         provider_name: str,
         provider_priority: int,
+        user_agent: str | None = None,
     ) -> None:
         """Log an incoming request."""
         # Extract values from request dict
@@ -196,6 +197,7 @@ class RouterLogger:
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": stream,
+            "user_agent": user_agent,
             "full_request": request,  # Log the complete request
         }
 

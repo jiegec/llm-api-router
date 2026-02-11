@@ -108,12 +108,15 @@ class LLMRouter:
             await self._exit_stack.enter_async_context(provider)
         return self._provider_instances[provider_key]
 
-    async def chat_completion(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def chat_completion(
+        self, request: dict[str, Any], user_agent: str | None = None
+    ) -> dict[str, Any]:
         """
         Send a chat completion request using priority-based routing.
 
         Args:
             request: Chat completion request
+            user_agent: Optional client user agent string
 
         Returns:
             Chat completion response from the first successful provider
@@ -171,6 +174,7 @@ class LLMRouter:
                 request=request,
                 provider_name=provider_name,
                 provider_priority=provider_config.priority,
+                user_agent=user_agent,
             )
 
             # Record request start for statistics
