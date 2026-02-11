@@ -22,7 +22,6 @@ from .exceptions import (
     RateLimitError,
 )
 from .logging import get_logger
-from .models import ProviderType
 from .providers import BaseProvider
 from .router import LLMRouter
 from .stats import StatsCollector
@@ -693,7 +692,7 @@ class LLMAPIServer:
             """OpenAI-compatible chat completion endpoint."""
             user_agent = http_request.headers.get("user-agent")
             return await self._handle_chat_completion(
-                request, router, ProviderType.OPENAI, user_agent
+                request, router, user_agent
             )
 
         @self.app.post("/anthropic/v1/messages", response_model=None)
@@ -705,7 +704,7 @@ class LLMAPIServer:
             """Anthropic-compatible chat completion endpoint."""
             user_agent = http_request.headers.get("user-agent")
             return await self._handle_chat_completion(
-                request, router, ProviderType.ANTHROPIC, user_agent
+                request, router, user_agent
             )
 
         @self.app.post(
@@ -841,7 +840,6 @@ class LLMAPIServer:
         self,
         request: dict[str, Any],
         router: LLMRouter,
-        expected_provider: ProviderType,
         user_agent: str | None = None,
     ) -> dict[str, Any] | StreamingResponse:
         """Handle chat completion request with error handling."""
