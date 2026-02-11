@@ -364,7 +364,7 @@ class BaseProvider(ABC):
                         self._get_endpoint(),
                         json=payload,
                         headers={
-                            **self._get_headers(),
+                            **headers,
                             "Accept": "text/event-stream",
                         },
                     ) as response:
