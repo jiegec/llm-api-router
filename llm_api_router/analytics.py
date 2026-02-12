@@ -280,6 +280,105 @@ class AnalyticsQuery:
 
         return self._execute_query(query, parameters=[provider_type])
 
+    def get_streaming_speed_over_time(
+        self,
+        interval: str = "hour",
+        hours: int = 24,
+        provider_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get streaming token throughput (tokens/s without TTFT) aggregated over time intervals.
+
+        This metric measures how fast tokens are generated after the first token is received.
+        Calculation: output_tokens / (latency_ms - time_to_first_token_ms) * 1000
+
+        Args:
+            interval: Time bucket size - 'minute', 'hour', or 'day'
+            hours: Number of hours to look back (default: 24)
+            provider_type: Filter by provider type ('openai', 'anthropic', or None for all)
+
+        Returns:
+            List of dicts with 'timestamp', 'avg_tokens_per_second', 'p50_tokens_per_second',
+            'p95_tokens_per_second', 'p99_tokens_per_second' keys
+        """
+        # Validate interval (can't be parameterized in date_trunc)
+        interval = self._validate_interval(interval)
+
+        if provider_type == "":
+            provider_type = None
+
+        # Determine the step for generating time series
+        if interval == "minute":
+            step = "INTERVAL 1 minute"
+        elif interval == "hour":
+            step = "INTERVAL 1 hour"
+        else:  # day
+            step = "INTERVAL 1 day"
+
+        # Use prepared statements for hours and provider_type
+        # Generate complete time series and LEFT JOIN actual data
+        # Note: range() stop is exclusive, so add one step to include current bucket
+        query = f"""
+            WITH time_series AS (
+                SELECT date_trunc('{interval}', ts) AS timestamp
+                FROM (
+                    SELECT timestamp AS ts
+                    FROM range(
+                        date_trunc('{interval}', NOW() - INTERVAL {int(hours)} hours),
+                        date_trunc('{interval}', NOW() + {step}),
+                        {step}
+                    ) AS t(timestamp)
+                )
+            ),
+            actual_data AS (
+                SELECT
+                    date_trunc('{interval}', timestamp) AS timestamp,
+                    AVG(
+                        CASE
+                            WHEN (latency_ms - time_to_first_token_ms) > 0 THEN
+                                output_tokens * 1000.0 / (latency_ms - time_to_first_token_ms)
+                            ELSE NULL
+                        END
+                    ) AS avg_tokens_per_second,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY
+                        CASE
+                            WHEN (latency_ms - time_to_first_token_ms) > 0 THEN
+                                output_tokens * 1000.0 / (latency_ms - time_to_first_token_ms)
+                            ELSE NULL
+                        END
+                    ) AS p50_tokens_per_second,
+                    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY
+                        CASE
+                            WHEN (latency_ms - time_to_first_token_ms) > 0 THEN
+                                output_tokens * 1000.0 / (latency_ms - time_to_first_token_ms)
+                            ELSE NULL
+                        END
+                    ) AS p95_tokens_per_second,
+                    PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY
+                        CASE
+                            WHEN (latency_ms - time_to_first_token_ms) > 0 THEN
+                                output_tokens * 1000.0 / (latency_ms - time_to_first_token_ms)
+                            ELSE NULL
+                        END
+                    ) AS p99_tokens_per_second
+                FROM read_csv_auto('{self.csv_path}', header=True)
+                WHERE timestamp >= NOW() - INTERVAL {int(hours)} hours
+                  AND is_streaming = 'true'
+                  AND ($1 IS NULL OR provider_type = $1)
+                GROUP BY date_trunc('{interval}', timestamp)
+            )
+            SELECT
+                ts.timestamp,
+                ad.avg_tokens_per_second,
+                ad.p50_tokens_per_second,
+                ad.p95_tokens_per_second,
+                ad.p99_tokens_per_second
+            FROM time_series ts
+            LEFT JOIN actual_data ad ON ts.timestamp = ad.timestamp
+            ORDER BY ts.timestamp
+        """
+
+        return self._execute_query(query, parameters=[provider_type])
+
     def get_provider_summary(self, hours: int = 24) -> list[dict[str, Any]]:
         """Get summary statistics by provider.
 

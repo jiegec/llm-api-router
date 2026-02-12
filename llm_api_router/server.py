@@ -667,6 +667,23 @@ class LLMAPIServer:
             analytics = AnalyticsQuery()
             return analytics.get_latency_over_time(interval, hours, provider_type)
 
+        @self.app.get("/analytics/streaming_speed")
+        async def analytics_streaming_speed(
+            interval: str = "hour", hours: int = 24, provider_type: str | None = None
+        ) -> list[dict[str, Any]]:
+            """Get streaming token throughput (tokens/s without TTFT) over time.
+
+            This measures how fast tokens are generated after the first token.
+            Calculation: output_tokens / (total_latency_ms - ttft_ms) * 1000
+
+            Args:
+                interval: Time bucket size - 'minute', 'hour', or 'day'
+                hours: Number of hours to look back
+                provider_type: Optional filter by provider type ('openai', 'anthropic')
+            """
+            analytics = AnalyticsQuery()
+            return analytics.get_streaming_speed_over_time(interval, hours, provider_type)
+
         @self.app.get("/analytics/summary")
         async def analytics_summary(hours: int = 24) -> list[dict[str, Any]]:
             """Get summary statistics by provider.
