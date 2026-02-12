@@ -636,7 +636,6 @@
 
         let requestsChart = null;
         let tokensChart = null;
-        let latencyChart = null;
         let currentAnalyticsInterval = 'hour';
         let currentAnalyticsHours = 24;
         let currentAnalyticsProvider = '';
@@ -712,9 +711,6 @@
             // Load tokens data
             loadTokensChart();
 
-            // Load latency data
-            loadLatencyChart();
-
             // Load summary
             loadAnalyticsSummary();
         }
@@ -740,18 +736,6 @@
                 })
                 .catch(err => {
                     console.error('Failed to load tokens data:', err);
-                });
-        }
-
-        function loadLatencyChart() {
-            const url = `/analytics/latency?interval=${currentAnalyticsInterval}&hours=${currentAnalyticsHours}&provider_type=${currentAnalyticsProvider}`;
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    renderLatencyChart(data);
-                })
-                .catch(err => {
-                    console.error('Failed to load latency data:', err);
                 });
         }
 
@@ -802,12 +786,6 @@
                         <h2>Tokens Over Time</h2>
                         <div id="tokens-chart-container" class="chart-container">
                             <canvas id="tokens-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="analytics-section">
-                        <h2>Latency Over Time</h2>
-                        <div id="latency-chart-container" class="chart-container">
-                            <canvas id="latency-chart"></canvas>
                         </div>
                     </div>
                     <div class="analytics-section">
@@ -935,81 +913,6 @@
                             borderColor: '#8b5cf6',
                             backgroundColor: 'rgba(139, 92, 246, 0.1)',
                             fill: true,
-                            tension: 0.4
-                        }
-                    ]
-                }, {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: { color: '#94a3b8' }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: { color: '#64748b' },
-                            grid: { color: '#334155' }
-                        },
-                        y: {
-                            ticks: { color: '#64748b' },
-                            grid: { color: '#334155' },
-                            beginAtZero: true
-                        }
-                    }
-                });
-            }
-        }
-
-        function renderLatencyChart(data) {
-            const container = document.getElementById('latency-chart-container');
-            if (!container) return;
-
-            if (!data || data.length === 0) {
-                container.innerHTML = '<div class="no-data">No data available</div>';
-                return;
-            }
-
-            const labels = data.map(d => new Date(d.timestamp).toLocaleString());
-            const avgLatency = data.map(d => d.avg_latency_ms || 0);
-            const p50Latency = data.map(d => d.p50_latency_ms || 0);
-            const p95Latency = data.map(d => d.p95_latency_ms || 0);
-            const p99Latency = data.map(d => d.p99_latency_ms || 0);
-
-            // Update existing chart or create new one
-            if (latencyChart) {
-                latencyChart.data.labels = labels;
-                latencyChart.data.datasets[0].data = avgLatency;
-                latencyChart.data.datasets[1].data = p50Latency;
-                latencyChart.data.datasets[2].data = p95Latency;
-                latencyChart.data.datasets[3].data = p99Latency;
-                latencyChart.update('default'); // Animate to new values
-            } else {
-                latencyChart = createChart('latency-chart', 'line', {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Average',
-                            data: avgLatency,
-                            borderColor: '#38bdf8',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'P50',
-                            data: p50Latency,
-                            borderColor: '#10b981',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'P95',
-                            data: p95Latency,
-                            borderColor: '#f59e0b',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'P99',
-                            data: p99Latency,
-                            borderColor: '#ef4444',
                             tension: 0.4
                         }
                     ]
