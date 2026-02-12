@@ -1050,47 +1050,23 @@
 
             const labels = data.map(d => new Date(d.timestamp).toLocaleString());
             const avgSpeed = data.map(d => d.avg_tokens_per_second || 0);
-            const p50Speed = data.map(d => d.p50_tokens_per_second || 0);
-            const p95Speed = data.map(d => d.p95_tokens_per_second || 0);
-            const p99Speed = data.map(d => d.p99_tokens_per_second || 0);
 
             // Update existing chart or create new one
             if (streamingSpeedChart) {
                 streamingSpeedChart.data.labels = labels;
                 streamingSpeedChart.data.datasets[0].data = avgSpeed;
-                streamingSpeedChart.data.datasets[1].data = p50Speed;
-                streamingSpeedChart.data.datasets[2].data = p95Speed;
-                streamingSpeedChart.data.datasets[3].data = p99Speed;
                 streamingSpeedChart.update('default'); // Animate to new values
             } else {
                 streamingSpeedChart = createChart('streaming-speed-chart', 'line', {
                     labels: labels,
-                    datasets: [
-                        {
-                            label: 'Average',
-                            data: avgSpeed,
-                            borderColor: '#38bdf8',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'P50',
-                            data: p50Speed,
-                            borderColor: '#10b981',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'P95',
-                            data: p95Speed,
-                            borderColor: '#f59e0b',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'P99',
-                            data: p99Speed,
-                            borderColor: '#ef4444',
-                            tension: 0.4
-                        }
-                    ]
+                    datasets: [{
+                        label: 'Average',
+                        data: avgSpeed,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
                 }, {
                     responsive: true,
                     maintainAspectRatio: false,

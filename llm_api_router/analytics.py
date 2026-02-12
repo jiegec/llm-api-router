@@ -297,8 +297,7 @@ class AnalyticsQuery:
             provider_type: Filter by provider type ('openai', 'anthropic', or None for all)
 
         Returns:
-            List of dicts with 'timestamp', 'avg_tokens_per_second', 'p50_tokens_per_second',
-            'p95_tokens_per_second', 'p99_tokens_per_second' keys
+            List of dicts with 'timestamp', 'avg_tokens_per_second' keys
         """
         # Validate interval (can't be parameterized in date_trunc)
         interval = self._validate_interval(interval)
@@ -338,28 +337,7 @@ class AnalyticsQuery:
                                 output_tokens * 1000.0 / (latency_ms - time_to_first_token_ms)
                             ELSE NULL
                         END
-                    ) AS avg_tokens_per_second,
-                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY
-                        CASE
-                            WHEN (latency_ms - time_to_first_token_ms) > 0 THEN
-                                output_tokens * 1000.0 / (latency_ms - time_to_first_token_ms)
-                            ELSE NULL
-                        END
-                    ) AS p50_tokens_per_second,
-                    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY
-                        CASE
-                            WHEN (latency_ms - time_to_first_token_ms) > 0 THEN
-                                output_tokens * 1000.0 / (latency_ms - time_to_first_token_ms)
-                            ELSE NULL
-                        END
-                    ) AS p95_tokens_per_second,
-                    PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY
-                        CASE
-                            WHEN (latency_ms - time_to_first_token_ms) > 0 THEN
-                                output_tokens * 1000.0 / (latency_ms - time_to_first_token_ms)
-                            ELSE NULL
-                        END
-                    ) AS p99_tokens_per_second
+                    ) AS avg_tokens_per_second
                 FROM read_csv_auto('{self.csv_path}', header=True)
                 WHERE timestamp >= NOW() - INTERVAL {int(hours)} hours
                   AND is_streaming = 'true'
@@ -368,10 +346,7 @@ class AnalyticsQuery:
             )
             SELECT
                 ts.timestamp,
-                ad.avg_tokens_per_second,
-                ad.p50_tokens_per_second,
-                ad.p95_tokens_per_second,
-                ad.p99_tokens_per_second
+                ad.avg_tokens_per_second
             FROM time_series ts
             LEFT JOIN actual_data ad ON ts.timestamp = ad.timestamp
             ORDER BY ts.timestamp
