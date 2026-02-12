@@ -642,7 +642,7 @@
         let currentAnalyticsHours = 24;
         let currentAnalyticsProvider = '';
 
-        function switchTab(tabName) {
+        function switchTab(tabName, updateUrl = true) {
             // Update tab styling
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
@@ -657,6 +657,11 @@
             });
             document.getElementById(tabName + '-tab').classList.add('active');
 
+            // Update URL hash
+            if (updateUrl) {
+                history.pushState(null, null, '#' + tabName);
+            }
+
             // Load analytics data if switching to analytics tab
             if (tabName === 'analytics') {
                 loadAnalytics();
@@ -670,6 +675,20 @@
                     switchTab(tab.dataset.tab);
                 });
             });
+
+            // Handle initial URL hash
+            const hash = window.location.hash.slice(1); // Remove the '#'
+            if (hash === 'status' || hash === 'analytics') {
+                switchTab(hash, false); // Don't update URL, it's already correct
+            }
+        });
+
+        // Handle back/forward navigation
+        window.addEventListener('hashchange', () => {
+            const hash = window.location.hash.slice(1);
+            if (hash === 'status' || hash === 'analytics') {
+                switchTab(hash, false); // Don't update URL, it's already correct
+            }
         });
 
         function createChart(canvasId, type, data, options) {
