@@ -637,7 +637,6 @@
         let requestsChart = null;
         let tokensChart = null;
         let latencyChart = null;
-        let streamingSpeedChart = null;
         let currentAnalyticsInterval = 'hour';
         let currentAnalyticsHours = 24;
         let currentAnalyticsProvider = '';
@@ -716,9 +715,6 @@
             // Load latency data
             loadLatencyChart();
 
-            // Load streaming speed data
-            loadStreamingSpeedChart();
-
             // Load summary
             loadAnalyticsSummary();
         }
@@ -756,18 +752,6 @@
                 })
                 .catch(err => {
                     console.error('Failed to load latency data:', err);
-                });
-        }
-
-        function loadStreamingSpeedChart() {
-            const url = `/analytics/streaming_speed?interval=${currentAnalyticsInterval}&hours=${currentAnalyticsHours}&provider_type=${currentAnalyticsProvider}`;
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    renderStreamingSpeedChart(data);
-                })
-                .catch(err => {
-                    console.error('Failed to load streaming speed data:', err);
                 });
         }
 
@@ -824,12 +808,6 @@
                         <h2>Latency Over Time</h2>
                         <div id="latency-chart-container" class="chart-container">
                             <canvas id="latency-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="analytics-section">
-                        <h2>Streaming Speed Over Time (tokens/s, without TTFT)</h2>
-                        <div id="streaming-speed-chart-container" class="chart-container">
-                            <canvas id="streaming-speed-chart"></canvas>
                         </div>
                     </div>
                     <div class="analytics-section">
@@ -1052,62 +1030,6 @@
                             ticks: { color: '#64748b' },
                             grid: { color: '#334155' },
                             beginAtZero: true
-                        }
-                    }
-                });
-            }
-        }
-
-        function renderStreamingSpeedChart(data) {
-            const container = document.getElementById('streaming-speed-chart-container');
-            if (!container) return;
-
-            if (!data || data.length === 0) {
-                container.innerHTML = '<div class="no-data">No data available</div>';
-                return;
-            }
-
-            const labels = data.map(d => new Date(d.timestamp).toLocaleString());
-            const avgSpeed = data.map(d => d.avg_tokens_per_second || 0);
-
-            // Update existing chart or create new one
-            if (streamingSpeedChart) {
-                streamingSpeedChart.data.labels = labels;
-                streamingSpeedChart.data.datasets[0].data = avgSpeed;
-                streamingSpeedChart.update('default'); // Animate to new values
-            } else {
-                streamingSpeedChart = createChart('streaming-speed-chart', 'line', {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Average',
-                        data: avgSpeed,
-                        borderColor: '#38bdf8',
-                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                }, {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: { color: '#94a3b8' }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: { color: '#64748b' },
-                            grid: { color: '#334155' }
-                        },
-                        y: {
-                            ticks: { color: '#64748b' },
-                            grid: { color: '#334155' },
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'tokens/s',
-                                color: '#94a3b8'
-                            }
                         }
                     }
                 });

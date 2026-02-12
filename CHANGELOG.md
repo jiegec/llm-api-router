@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Sync URL hash with active tab for persistence in web dashboard
-- Streaming token speed (tokens/s without TTFT) analytics
 - Pass client User-Agent header to upstream providers
 - Add client user agent logging to JSON logs
 - `provider_name` examples in config initialization and README
@@ -18,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Reduce analytics SQL logging from info to debug level
-- Simplify streaming speed to only show average
 - Unify version to single source of truth
 - Update LICENSE copyright year to 2025-2026
 
@@ -28,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Remove streaming speed over time analytics (was inaccurate)
 - Remove kimi API workaround for cached tokens
 - Remove unused `expected_provider` argument
 - Remove unused `/analytics/timerange` endpoint
