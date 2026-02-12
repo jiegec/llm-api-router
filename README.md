@@ -111,7 +111,6 @@ The router provides analytics endpoints for monitoring usage (used by the web da
 
 - `GET /analytics/requests?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Request count over time
 - `GET /analytics/tokens?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Token usage over time
-- `GET /analytics/latency?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Latency percentiles over time
 - `GET /analytics/summary?hours={1-720}` - Provider summary statistics
 
 Parameters:

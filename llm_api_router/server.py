@@ -284,7 +284,6 @@ class LLMAPIServer:
                     "web": "/web",
                     "analytics_requests": "/analytics/requests",
                     "analytics_tokens": "/analytics/tokens",
-                    "analytics_latency": "/analytics/latency",
                     "analytics_summary": "/analytics/summary",
                 },
             }
@@ -651,20 +650,6 @@ class LLMAPIServer:
             """
             analytics = AnalyticsQuery()
             return analytics.get_tokens_over_time(interval, hours, provider_type)
-
-        @self.app.get("/analytics/latency")
-        async def analytics_latency(
-            interval: str = "hour", hours: int = 24, provider_type: str | None = None
-        ) -> list[dict[str, Any]]:
-            """Get latency analytics over time.
-
-            Args:
-                interval: Time bucket size - 'minute', 'hour', or 'day'
-                hours: Number of hours to look back
-                provider_type: Optional filter by provider type ('openai', 'anthropic')
-            """
-            analytics = AnalyticsQuery()
-            return analytics.get_latency_over_time(interval, hours, provider_type)
 
         @self.app.get("/analytics/summary")
         async def analytics_summary(hours: int = 24) -> list[dict[str, Any]]:

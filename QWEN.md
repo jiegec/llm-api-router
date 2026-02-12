@@ -108,7 +108,6 @@ The `/web` endpoint provides an analytics dashboard with auto-refreshing time-se
 **Analytics API endpoints**:
 - `/analytics/requests?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Request count over time
 - `/analytics/tokens?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Token usage over time
-- `/analytics/latency?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Latency percentiles over time
 - `/analytics/summary?hours={1-720}` - Provider summary statistics
 
 **Data source**: Reads from `logs/request_stats.csv` using DuckDB's `read_csv_auto()`
@@ -117,7 +116,7 @@ The `/web` endpoint provides an analytics dashboard with auto-refreshing time-se
 - Time-series queries with configurable intervals (minute, hour, day)
 - Provider filtering by type (OpenAI, Anthropic, or all)
 - SQL injection protection via prepared statements and whitelist validation
-- Complete time series generation - missing intervals show as zeros (requests/tokens) or NULL (latency)
+- Complete time series generation - missing intervals show as zeros (requests/tokens)
 
 ## Deployment
 
