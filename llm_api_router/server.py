@@ -682,7 +682,9 @@ class LLMAPIServer:
                 provider_type: Optional filter by provider type ('openai', 'anthropic')
             """
             analytics = AnalyticsQuery()
-            return analytics.get_streaming_speed_over_time(interval, hours, provider_type)
+            return analytics.get_streaming_speed_over_time(
+                interval, hours, provider_type
+            )
 
         @self.app.get("/analytics/summary")
         async def analytics_summary(hours: int = 24) -> list[dict[str, Any]]:
