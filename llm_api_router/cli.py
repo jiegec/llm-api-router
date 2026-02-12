@@ -168,6 +168,7 @@ def init(output: Path) -> None:
                 "api_key": "sk-your-openai-api-key-here",
                 "priority": 1,
                 "base_url": "https://api.openai.com/v1",
+                "provider_name": "openai-1",
                 "timeout": 30,
                 "max_retries": 3,
             },
@@ -175,6 +176,7 @@ def init(output: Path) -> None:
                 "api_key": "sk-your-backup-openai-api-key",
                 "priority": 2,
                 "base_url": "https://api.openai.com/v1",
+                "provider_name": "openai-2",
                 "timeout": 30,
                 "max_retries": 3,
             },
@@ -184,6 +186,7 @@ def init(output: Path) -> None:
                 "api_key": "sk-ant-your-anthropic-api-key",
                 "priority": 1,
                 "base_url": "https://api.anthropic.com",
+                "provider_name": "anthropic-1",
                 "timeout": 30,
                 "max_retries": 3,
             }

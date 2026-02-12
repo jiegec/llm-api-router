@@ -286,7 +286,6 @@ class LLMAPIServer:
                     "analytics_tokens": "/analytics/tokens",
                     "analytics_latency": "/analytics/latency",
                     "analytics_summary": "/analytics/summary",
-                    "analytics_timerange": "/analytics/timerange",
                 },
             }
 
@@ -695,12 +694,6 @@ class LLMAPIServer:
             """
             analytics = AnalyticsQuery()
             return analytics.get_provider_summary(hours)
-
-        @self.app.get("/analytics/timerange")
-        async def analytics_timerange() -> dict[str, Any] | None:
-            """Get the available time range of analytics data."""
-            analytics = AnalyticsQuery()
-            return analytics.get_available_time_range()
 
         @self.app.post("/openai/chat/completions", response_model=None)
         async def openai_chat_completion(

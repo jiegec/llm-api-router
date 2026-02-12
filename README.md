@@ -6,18 +6,19 @@ A FastAPI-based LLM API router server that provides separate endpoints for OpenA
 
 ## Features
 
-- **Separate endpoints**: `/openai/chat/completions` and `/anthropic/v1/messages`
+- **Separate endpoints**: `/openai/chat/completions` and `/anthropic/v1/messages` (also `/anthropic/v1/messages/count_tokens`)
 - **No API format translation**: Each endpoint maintains the native API format. No translation between formats is performed.
 - **Streaming support**: Both endpoints support streaming responses. Streaming responses are passed through transparently while collecting usage statistics.
-- **Multi-provider support per endpoint**: Each endpoint can route to multiple API keys/servers
-- **Priority-based routing**: Configure priority order for API providers within each endpoint
-- **Automatic fallback**: When a high-priority provider fails or is rate-limited, automatically switches to the next available provider
-- **Error handling**: Comprehensive error detection and HTTP error responses
-- **Reasoning model support**: OpenAI reasoning models (o1, o3, etc.) with `reasoning_content` in streaming responses
+- **Multi-provider support per endpoint**: Each endpoint can route to multiple API keys/servers.
+- **Priority-based routing**: Configure priority order for API providers within each endpoint.
+- **Automatic fallback**: When a high-priority provider fails or is rate-limited, automatically switches to the next available provider.
+- **Error handling**: Comprehensive error detection and HTTP error responses.
 
 ## Installation
 
 ```bash
+git clone https://github.com/jiegec/llm-api-router
+cd llm-api-router
 poetry install
 ```
 
@@ -34,13 +35,18 @@ Create a JSON configuration file (e.g. `~/.llm_router_config.json`):
       "api_key": "sk-your-primary-openai-api-key-here",
       "priority": 1,
       "base_url": "https://api.openai.com/v1",
+      "provider_name": "openai-1",
       "timeout": 30,
-      "max_retries": 3
+      "max_retries": 3,
+      "model_mapping": {
+        "abc": "def"
+      }
     },
     {
       "api_key": "sk-your-backup-openai-api-key-here",
       "priority": 2,
       "base_url": "https://api.openai.com/v1",
+      "provider_name": "openai-2",
       "timeout": 30,
       "max_retries": 3
     }
@@ -50,6 +56,7 @@ Create a JSON configuration file (e.g. `~/.llm_router_config.json`):
       "api_key": "sk-ant-your-primary-anthropic-api-key-here",
       "priority": 1,
       "base_url": "https://api.anthropic.com",
+      "provider_name": "anthropic-1",
       "timeout": 30,
       "max_retries": 3
     },
@@ -57,6 +64,7 @@ Create a JSON configuration file (e.g. `~/.llm_router_config.json`):
       "api_key": "sk-ant-your-backup-anthropic-api-key-here",
       "priority": 2,
       "base_url": "https://api.anthropic.com",
+      "provider_name": "anthropic-2",
       "timeout": 30,
       "max_retries": 3
     }
@@ -65,8 +73,6 @@ Create a JSON configuration file (e.g. `~/.llm_router_config.json`):
 ```
 
 ## Running the Server
-
-### Using the CLI (Recommended)
 
 ```bash
 # Show help
@@ -85,7 +91,7 @@ poetry run llm-api-router serve
 poetry run llm-api-router serve --config /path/to/config.json
 ```
 
-The server runs on port **8000** by default.
+The server listens on **127.0.0.1:8000** by default. You can change it via `--host` and `--port` command line arguments.
 
 ## API Endpoints
 
@@ -94,8 +100,10 @@ The server runs on port **8000** by default.
 - `GET /status` - Status endpoint (JSON)
 - `GET /metrics` - Prometheus metrics endpoint
 - `GET /web` - Status dashboard (web UI with auto-refreshing analytics)
+- `GET /analytics/*` - Analytics API for dashboard, see below
 - `POST /openai/chat/completions` - OpenAI-compatible chat completion
 - `POST /anthropic/v1/messages` - Anthropic-compatible chat completion
+- `POST /anthropic/v1/count_tokens` - Anthropic-compatible count tokens
 
 ### Analytics API
 
@@ -107,6 +115,7 @@ The router provides analytics endpoints for monitoring usage (used by the web da
 - `GET /analytics/summary?hours={1-720}` - Provider summary statistics
 
 Parameters:
+
 - `interval`: Time bucket size (`minute`, `hour`, `day`)
 - `hours`: Lookback period in hours (1-720, default 24)
 - `provider_type`: Filter by provider type (`openai`, `anthropic`, or omit for all)
@@ -139,15 +148,9 @@ Configure Claude Code to use this router:
   "env": {
     "ANTHROPIC_AUTH_TOKEN": "RANDOM",
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:8000/anthropic"
-  },
-  "permissions": {
-    "allow": [],
-    "deny": [],
-    "ask": []
   }
 }
 ```
-
 
 ## Web Dashboard
 
@@ -179,9 +182,6 @@ poetry install
 
 # Run tests
 poetry run pytest
-
-# Run tests with coverage
-poetry run pytest --cov=llm_api_router
 
 # Format code
 poetry run black llm_api_router tests

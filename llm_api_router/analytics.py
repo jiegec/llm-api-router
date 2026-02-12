@@ -58,9 +58,9 @@ class AnalyticsQuery:
         """
         # Log SQL query to stderr
         if parameters:
-            logger.info(f"SQL: {query} | Parameters: {parameters}")
+            logger.debug(f"SQL: {query} | Parameters: {parameters}")
         else:
-            logger.info(f"SQL: {query}")
+            logger.debug(f"SQL: {query}")
 
         if not self.csv_path.exists():
             return []
@@ -383,25 +383,3 @@ class AnalyticsQuery:
         """
 
         return self._execute_query(query, parameters=[])
-
-    def get_available_time_range(self) -> dict[str, str] | None:
-        """Get the available time range of data in the CSV.
-
-        Returns:
-            Dict with 'min_timestamp' and 'max_timestamp' keys, or None if no data
-        """
-        if not self.csv_path.exists():
-            return None
-
-        # No user input, no parameters needed
-        query = f"""
-            SELECT
-                MIN(timestamp) AS min_timestamp,
-                MAX(timestamp) AS max_timestamp
-            FROM read_csv_auto('{self.csv_path}', header=True)
-        """
-
-        results = self._execute_query(query)
-        if results and results[0]["min_timestamp"]:
-            return results[0]
-        return None
