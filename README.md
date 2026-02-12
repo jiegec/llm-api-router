@@ -125,16 +125,55 @@ Parameters:
 
 Configure Qwen Code to use this router:
 
+Via OpenAI endpoint:
+
 ```json
 {
+  "env": {
+    "OPENAI_API_KEY": "RANDOM"
+  },
+  "modelProviders": {
+    "openai": [
+      {
+        "id": "model-name-here",
+        "name": "Some Model From Some Vendor",
+        "envKey": "OPENAI_API_KEY",
+        "baseUrl": "http://127.0.0.1:8000/openai"
+      }
+    ]
+  },
   "security": {
     "auth": {
-      "selectedType": "openai",
-      "apiKey": "RANDOM",
-      "baseUrl": "http://127.0.0.1:8000/openai"
+      "selectedType": "openai"
     }
   },
-  "model": "example"
+  "model": "model-name-here"
+}
+```
+
+Via Anthropic endpoint:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "RANDOM"
+  },
+  "modelProviders": {
+    "anthropic": [
+      {
+        "id": "model-name-here",
+        "name": "Some Model From Some Vendor",
+        "envKey": "ANTHROPIC_API_KEY",
+        "baseUrl": "http://127.0.0.1:8000/anthropic"
+      }
+    ]
+  },
+  "security": {
+    "auth": {
+      "selectedType": "anthropic"
+    }
+  },
+  "model": "model-name-here"
 }
 ```
 
