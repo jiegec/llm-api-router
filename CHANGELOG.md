@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Priority-based multi-provider routing with automatic fallback
 - Rate limit detection and cooldown mechanism for failed backends
 - Web dashboard (`/web`) for real-time status monitoring with animated auto-refresh
-- Analytics API endpoints (`/analytics/requests`, `/analytics/tokens`, `/analytics/summary`)
+- Analytics API endpoints (`/analytics/requests`, `/analytics/tokens`, `/analytics/latency`, `/analytics/summary`)
 - Prometheus metrics endpoint (`/metrics`)
 - Health check (`/health`) and status (`/status`) endpoints
 - CSV logging for request statistics (`logs/request_stats.csv`)
