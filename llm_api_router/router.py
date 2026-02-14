@@ -17,7 +17,6 @@ from .exceptions import (
 from .logging import get_logger
 from .models import (
     ProviderConfig,
-    ProviderType,
 )
 from .providers import BaseProvider, create_provider
 from .rate_limiter import RateLimiter
@@ -61,11 +60,7 @@ class LLMRouter:
         # Log configuration
         provider_details = []
         for provider in self.providers:
-            provider_name = (
-                provider.name.value
-                if isinstance(provider.name, ProviderType)
-                else provider.name
-            )
+            provider_name = provider.name.value
             provider_details.append(
                 {
                     "name": provider_name,
@@ -98,9 +93,7 @@ class LLMRouter:
 
     async def _get_provider(self, config: ProviderConfig) -> BaseProvider:
         """Get or create a provider instance."""
-        provider_name = (
-            config.name.value if isinstance(config.name, ProviderType) else config.name
-        )
+        provider_name = config.name.value
         provider_key = f"{provider_name}-{config.priority}"
         if provider_key not in self._provider_instances:
             provider = create_provider(config)
@@ -131,11 +124,7 @@ class LLMRouter:
         # Log the incoming request
         available_providers = []
         for provider_config in self.providers:
-            provider_name = (
-                provider_config.name.value
-                if isinstance(provider_config.name, ProviderType)
-                else provider_config.name
-            )
+            provider_name = provider_config.name.value
             available_providers.append((provider_name, provider_config.priority))
 
         self.logger.log_provider_selection(
@@ -313,11 +302,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = (
-                        next_provider.name.value
-                        if isinstance(next_provider.name, ProviderType)
-                        else next_provider.name
-                    )
+                    next_provider_name = next_provider.name.value
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=self.endpoint,
@@ -362,11 +347,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = (
-                        next_provider.name.value
-                        if isinstance(next_provider.name, ProviderType)
-                        else next_provider.name
-                    )
+                    next_provider_name = next_provider.name.value
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=self.endpoint,
@@ -411,11 +392,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = (
-                        next_provider.name.value
-                        if isinstance(next_provider.name, ProviderType)
-                        else next_provider.name
-                    )
+                    next_provider_name = next_provider.name.value
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=self.endpoint,
@@ -472,11 +449,7 @@ class LLMRouter:
         # Log the incoming request
         available_providers = []
         for provider_config in self.providers:
-            provider_name = (
-                provider_config.name.value
-                if isinstance(provider_config.name, ProviderType)
-                else provider_config.name
-            )
+            provider_name = provider_config.name.value
             available_providers.append((provider_name, provider_config.priority))
 
         self.logger.log_provider_selection(
@@ -633,11 +606,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = (
-                        next_provider.name.value
-                        if isinstance(next_provider.name, ProviderType)
-                        else next_provider.name
-                    )
+                    next_provider_name = next_provider.name.value
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=f"{self.endpoint}/count_tokens",
@@ -682,11 +651,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = (
-                        next_provider.name.value
-                        if isinstance(next_provider.name, ProviderType)
-                        else next_provider.name
-                    )
+                    next_provider_name = next_provider.name.value
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=f"{self.endpoint}/count_tokens",
@@ -731,11 +696,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = (
-                        next_provider.name.value
-                        if isinstance(next_provider.name, ProviderType)
-                        else next_provider.name
-                    )
+                    next_provider_name = next_provider.name.value
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=f"{self.endpoint}/count_tokens",
@@ -786,19 +747,12 @@ class LLMRouter:
 
     def get_available_providers(self) -> list[str]:
         """Get list of available provider names."""
-        return [
-            p.name.value if isinstance(p.name, ProviderType) else p.name
-            for p in self.providers
-        ]
+        return [p.name.value for p in self.providers]
 
     def get_provider_priority(self, provider_name: str) -> int | None:
         """Get priority of a specific provider."""
         for provider in self.providers:
-            provider_name_value = (
-                provider.name.value
-                if isinstance(provider.name, ProviderType)
-                else provider.name
-            )
+            provider_name_value = provider.name.value
             if provider_name_value == provider_name:
                 return provider.priority
         return None

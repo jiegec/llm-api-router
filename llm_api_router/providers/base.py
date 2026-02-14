@@ -345,7 +345,6 @@ class BaseProvider(ABC):
                 # We need to verify provider is available before returning
                 # a streaming generator. We'll make request and check
                 # initial response, then create a generator that streams.
-                import asyncio
 
                 # Create events for coordination
                 check_complete = asyncio.Event()
