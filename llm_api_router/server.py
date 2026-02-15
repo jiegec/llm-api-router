@@ -652,14 +652,28 @@ class LLMAPIServer:
             return analytics.get_tokens_over_time(interval, hours, provider_type)
 
         @self.app.get("/analytics/summary")
-        async def analytics_summary(hours: int = 24) -> list[dict[str, Any]]:
+        async def analytics_summary(
+            hours: int | None = None,
+            from_utc: str | None = None,
+        ) -> list[dict[str, Any]]:
             """Get summary statistics by provider.
 
             Args:
-                hours: Number of hours to look back
+                hours: Number of hours to look back (mutually exclusive with from_utc)
+                from_utc: UTC timestamp lowerbound in ISO 8601 format (e.g., '2024-01-15T10:30:00Z')
+                         (mutually exclusive with hours)
+
+            Raises:
+                HTTPException: 400 error if both hours and from_utc are provided
             """
+            if hours is not None and from_utc is not None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot specify both 'hours' and 'from_utc'. Please provide only one.",
+                )
+
             analytics = AnalyticsQuery()
-            return analytics.get_provider_summary(hours)
+            return analytics.get_provider_summary(hours=hours, from_timestamp=from_utc)
 
         @self.app.post("/openai/chat/completions", response_model=None)
         async def openai_chat_completion(

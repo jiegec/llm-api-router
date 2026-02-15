@@ -1,6 +1,7 @@
 """Analytics module for querying request statistics using DuckDB."""
 
 import logging
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -210,16 +211,33 @@ class AnalyticsQuery:
 
         return self._execute_query(query, parameters=[provider_type])
 
-    def get_provider_summary(self, hours: int = 24) -> list[dict[str, Any]]:
+    def get_provider_summary(
+        self, hours: int | None = None, from_timestamp: str | None = None
+    ) -> list[dict[str, Any]]:
         """Get summary statistics by provider.
 
         Args:
-            hours: Number of hours to look back (default: 24)
+            hours: Number of hours to look back (default: 24 if from_timestamp not provided)
+            from_timestamp: ISO 8601 UTC timestamp lowerbound (e.g., '2024-01-15T10:30:00Z')
 
         Returns:
             List of dicts with provider stats
+
+        Note:
+            Only one of hours or from_timestamp should be provided. If both are None,
+            defaults to 24 hours.
         """
-        # Use prepared statement for hours
+        # Determine the cutoff timestamp
+        if from_timestamp is not None:
+            # Use the provided timestamp (already normalized by caller)
+            cutoff_timestamp = from_timestamp
+        else:
+            # Calculate cutoff from hours (default to 24)
+            hours = hours if hours is not None else 24
+            cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
+            cutoff_timestamp = cutoff_dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+        # Single parameterized query for both cases
         query = f"""
             SELECT
                 provider_type,
@@ -233,9 +251,9 @@ class AnalyticsQuery:
                 SUM(CASE WHEN is_streaming = 'true' THEN 1 ELSE 0 END) AS streaming_count,
                 SUM(CASE WHEN is_streaming = 'false' THEN 1 ELSE 0 END) AS non_streaming_count
             FROM read_csv_auto('{self.csv_path}', header=True)
-            WHERE timestamp >= NOW() - INTERVAL {int(hours)} hours
+            WHERE timestamp >= ?
             GROUP BY provider_type, provider_name
             ORDER BY request_count DESC
         """
 
-        return self._execute_query(query, parameters=[])
+        return self._execute_query(query, parameters=[cutoff_timestamp])
