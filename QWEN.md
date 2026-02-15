@@ -109,6 +109,7 @@ The `/web` endpoint provides an analytics dashboard with auto-refreshing time-se
 - `/analytics/requests?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Request count over time
 - `/analytics/tokens?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Token usage over time
 - `/analytics/summary?hours={1-720}` - Provider summary statistics
+- `/analytics/summary?from_utc={ISO8601}` - Provider summary from specific UTC timestamp (mutually exclusive with `hours`)
 
 **Data source**: Reads from `logs/request_stats.csv` using DuckDB's `read_csv_auto()`
 

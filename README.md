@@ -112,11 +112,13 @@ The router provides analytics endpoints for monitoring usage (used by the web da
 - `GET /analytics/requests?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Request count over time
 - `GET /analytics/tokens?interval={minute,hour,day}&hours={1-720}&provider_type={openai,anthropic}` - Token usage over time
 - `GET /analytics/summary?hours={1-720}` - Provider summary statistics
+- `GET /analytics/summary?from_utc={ISO8601}` - Provider summary from specific UTC timestamp
 
 Parameters:
 
 - `interval`: Time bucket size (`minute`, `hour`, `day`)
 - `hours`: Lookback period in hours (1-720, default 24)
+- `from_utc`: UTC timestamp lowerbound in ISO 8601 format (e.g., `2024-01-15T10:30:00Z`). Mutually exclusive with `hours`.
 - `provider_type`: Filter by provider type (`openai`, `anthropic`, or omit for all)
 
 ## Client Configuration

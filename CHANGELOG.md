@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pass client User-Agent header to upstream providers
 - Add client user agent logging to JSON logs
 - `provider_name` examples in config initialization and README
+- `/analytics/summary` endpoint now accepts `from_utc` parameter as alternative to `hours` for specifying timestamp lowerbound
 
 ### Changed
 
