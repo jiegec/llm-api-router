@@ -249,7 +249,9 @@ class AnalyticsQuery:
                 SUM(cached_tokens) AS cached_tokens,
                 AVG(latency_ms) AS avg_latency_ms,
                 SUM(CASE WHEN is_streaming = 'true' THEN 1 ELSE 0 END) AS streaming_count,
-                SUM(CASE WHEN is_streaming = 'false' THEN 1 ELSE 0 END) AS non_streaming_count
+                SUM(CASE WHEN is_streaming = 'false' THEN 1 ELSE 0 END) AS non_streaming_count,
+                MIN(timestamp) AS min_timestamp,
+                MAX(timestamp) AS max_timestamp
             FROM read_csv_auto('{self.csv_path}', header=True)
             WHERE timestamp >= ?
             GROUP BY provider_type, provider_name
