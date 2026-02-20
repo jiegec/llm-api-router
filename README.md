@@ -192,6 +192,35 @@ Configure Claude Code to use this router:
 }
 ```
 
+### OpenCode (~/.config/opencode/opencode.json)
+
+Configure OpenCode to use this router via OpenAI/Anthropic endpoint:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "anthropic": {
+      "options": {
+        "baseURL": "http://127.0.0.1:8000/anthropic/v1"
+      }
+    },
+    "llm-api-router-openai": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "llm-api-router",
+      "options": {
+        "baseURL": "http://127.0.0.1:8000/openai"
+      },
+      "models": {
+        "my-model-name": {
+          "name": "My Model Display Name"
+        }
+      }
+    }
+  }
+}
+```
+
 ## Web Dashboard
 
 The `/web` endpoint provides a real-time analytics dashboard with:
