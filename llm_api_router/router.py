@@ -1,6 +1,5 @@
 """Main LLM router with priority-based fallback."""
 
-import asyncio
 import time
 import types
 import uuid
@@ -292,12 +291,6 @@ class LLMRouter:
                     error_message=error_msg,
                     retry_after=e.retry_after,
                 )
-
-                if e.retry_after:
-                    # Schedule retry after delay
-                    asyncio.create_task(
-                        self._schedule_provider_retry(provider_config, e.retry_after)
-                    )
 
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
@@ -597,12 +590,6 @@ class LLMRouter:
                     retry_after=e.retry_after,
                 )
 
-                if e.retry_after:
-                    # Schedule retry after delay
-                    asyncio.create_task(
-                        self._schedule_provider_retry(provider_config, e.retry_after)
-                    )
-
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
@@ -733,13 +720,6 @@ class LLMRouter:
     def get_stats(self) -> RouterStats:
         """Get current router statistics."""
         return self.stats.get_stats()
-
-    async def _schedule_provider_retry(
-        self, config: ProviderConfig, retry_after: int
-    ) -> None:
-        """Schedule a provider to be retried after a delay."""
-        await asyncio.sleep(retry_after)
-        # The provider will be retried on the next request
 
     async def close(self) -> None:
         """Close all provider connections."""
