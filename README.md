@@ -200,14 +200,30 @@ Configure OpenCode to use this router via OpenAI/Anthropic endpoint:
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
+    // Option 1: change base url of anthropic provider
     "anthropic": {
       "options": {
         "baseURL": "http://127.0.0.1:8000/anthropic/v1"
       }
     },
+    // Option 2: anthropic-compatible
+    "llm-api-router-anthropic": {
+      "npm": "@ai-sdk/anthropic",
+      "name": "llm-api-router-anthropic",
+      "options": {
+        "baseURL": "http://127.0.0.1:8000/anthropic/v1",
+        "apiKey": "API_KEY_HERE"
+      },
+      "models": {
+        "my-model-name": {
+          "name": "My Model Display Name"
+        }
+      }
+    }
+    // Option 3: openai-compatible
     "llm-api-router-openai": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "llm-api-router",
+      "name": "llm-api-router-openai",
       "options": {
         "baseURL": "http://127.0.0.1:8000/openai"
       },
