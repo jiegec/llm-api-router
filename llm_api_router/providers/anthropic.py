@@ -38,6 +38,7 @@ class AnthropicProvider(BaseProvider):
                 "role": "assistant",
                 "model": data.get("message", {}).get("model", ""),
                 "content": [],
+                "usage": {},
             }
 
         # Merge content from content_block
@@ -67,7 +68,10 @@ class AnthropicProvider(BaseProvider):
             if "stop_reason" in data["delta"]:
                 response_dict["stop_reason"] = data["delta"]["stop_reason"]
             if "usage" in data:
-                response_dict["usage"] = data["usage"]
+                response_dict["usage"] |= data["usage"]
+        elif data["type"] == "message_start":
+            if "usage" in data.get("message", {}):
+                response_dict["usage"] |= data["message"]["usage"]
         return response_dict
 
     def postprocess_response(self, response_dict: dict[str, Any]) -> dict[str, Any]:
