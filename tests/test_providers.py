@@ -34,7 +34,7 @@ async def test_create_provider_invalid():
     # This should fail at the ProviderConfig validation level, not in create_provider
     with pytest.raises(ValueError, match="Input should be 'openai' or 'anthropic'"):
         ProviderConfig(
-            name="invalid",  # type: ignore
+            provider_type="invalid",  # type: ignore
             api_key="test",
             priority=1,
         )

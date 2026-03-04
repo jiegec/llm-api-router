@@ -32,7 +32,7 @@ class RouterConfig:
         for provider_config in configs:
             providers.append(
                 ProviderConfig(
-                    name=provider_type,
+                    provider_type=provider_type,
                     api_key=provider_config["api_key"],
                     priority=provider_config.get("priority", 1),
                     base_url=provider_config.get("base_url"),

@@ -47,7 +47,7 @@ def test_message_with_optional_fields():
 def test_provider_config():
     """Test ProviderConfig model."""
     config = ProviderConfig(
-        name=ProviderType.OPENAI,
+        provider_type=ProviderType.OPENAI,
         api_key="test-key",
         priority=1,
         base_url="https://api.test.com",
@@ -55,7 +55,7 @@ def test_provider_config():
         max_retries=3,
         model_mapping={"gpt-4": "gpt-4-turbo"},
     )
-    assert config.name == ProviderType.OPENAI
+    assert config.provider_type == ProviderType.OPENAI
     assert config.api_key == "test-key"
     assert config.priority == 1
     assert config.base_url == "https://api.test.com"
@@ -67,11 +67,11 @@ def test_provider_config():
 def test_provider_config_defaults():
     """Test ProviderConfig model defaults."""
     config = ProviderConfig(
-        name=ProviderType.ANTHROPIC,
+        provider_type=ProviderType.ANTHROPIC,
         api_key="test-key",
         priority=2,
     )
-    assert config.name == ProviderType.ANTHROPIC
+    assert config.provider_type == ProviderType.ANTHROPIC
     assert config.api_key == "test-key"
     assert config.priority == 2
     assert config.base_url is None
@@ -82,11 +82,11 @@ def test_provider_config_defaults():
 def test_provider_config_priority_validation():
     """Test ProviderConfig priority validation."""
     # Should not raise
-    ProviderConfig(name=ProviderType.OPENAI, api_key="test", priority=1)
+    ProviderConfig(provider_type=ProviderType.OPENAI, api_key="test", priority=1)
 
     # Should raise ValueError for priority < 1
     with pytest.raises(ValueError):
-        ProviderConfig(name=ProviderType.OPENAI, api_key="test", priority=0)
+        ProviderConfig(provider_type=ProviderType.OPENAI, api_key="test", priority=0)
 
 
 def test_chat_completion_request():

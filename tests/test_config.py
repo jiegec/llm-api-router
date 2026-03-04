@@ -42,7 +42,7 @@ def test_router_config_from_dict():
     assert len(config.anthropic_providers) == 1
 
     openai_provider = config.openai_providers[0]
-    assert openai_provider.name == ProviderType.OPENAI
+    assert openai_provider.provider_type == ProviderType.OPENAI
     assert openai_provider.api_key == "test-openai-key-1"
     assert openai_provider.priority == 1
     assert openai_provider.base_url == "https://api.test.com"
@@ -51,7 +51,7 @@ def test_router_config_from_dict():
     assert openai_provider.model_mapping == {"gpt-4": "gpt-4-turbo"}
 
     anthropic_provider = config.anthropic_providers[0]
-    assert anthropic_provider.name == ProviderType.ANTHROPIC
+    assert anthropic_provider.provider_type == ProviderType.ANTHROPIC
     assert anthropic_provider.api_key == "test-anthropic-key-1"
     assert anthropic_provider.priority == 1
     assert anthropic_provider.base_url == "https://api.anthropic.test.com"
@@ -109,11 +109,11 @@ def test_router_config_from_dict_single_provider():
     assert len(config.anthropic_providers) == 1
 
     openai_provider = config.openai_providers[0]
-    assert openai_provider.name == ProviderType.OPENAI
+    assert openai_provider.provider_type == ProviderType.OPENAI
     assert openai_provider.api_key == "test-openai-key"
 
     anthropic_provider = config.anthropic_providers[0]
-    assert anthropic_provider.name == ProviderType.ANTHROPIC
+    assert anthropic_provider.provider_type == ProviderType.ANTHROPIC
     assert anthropic_provider.api_key == "test-anthropic-key"
 
 
@@ -187,11 +187,11 @@ def test_router_config_from_json_file():
         assert len(config.anthropic_providers) == 1
 
         openai_provider = config.openai_providers[0]
-        assert openai_provider.name == ProviderType.OPENAI
+        assert openai_provider.provider_type == ProviderType.OPENAI
         assert openai_provider.api_key == "test-openai-key"
 
         anthropic_provider = config.anthropic_providers[0]
-        assert anthropic_provider.name == ProviderType.ANTHROPIC
+        assert anthropic_provider.provider_type == ProviderType.ANTHROPIC
         assert anthropic_provider.api_key == "test-anthropic-key"
     finally:
         Path(temp_file).unlink()
@@ -225,11 +225,11 @@ def test_router_config_from_json_string():
     assert len(config.anthropic_providers) == 1
 
     openai_provider = config.openai_providers[0]
-    assert openai_provider.name == ProviderType.OPENAI
+    assert openai_provider.provider_type == ProviderType.OPENAI
     assert openai_provider.api_key == "test-openai-key"
 
     anthropic_provider = config.anthropic_providers[0]
-    assert anthropic_provider.name == ProviderType.ANTHROPIC
+    assert anthropic_provider.provider_type == ProviderType.ANTHROPIC
     assert anthropic_provider.api_key == "test-anthropic-key"
 
     with pytest.raises(ConfigurationError):

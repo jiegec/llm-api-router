@@ -29,9 +29,11 @@ async def test_router_initialization_no_providers():
 async def test_router_priority_sorting():
     """Test router sorts providers by priority."""
     configs = [
-        ProviderConfig(name=ProviderType.OPENAI, api_key="key1", priority=3),
-        ProviderConfig(name=ProviderType.ANTHROPIC, api_key="key2", priority=1),
-        ProviderConfig(name=ProviderType.OPENAI, api_key="key3", priority=2),
+        ProviderConfig(provider_type=ProviderType.OPENAI, api_key="key1", priority=3),
+        ProviderConfig(
+            provider_type=ProviderType.ANTHROPIC, api_key="key2", priority=1
+        ),
+        ProviderConfig(provider_type=ProviderType.OPENAI, api_key="key3", priority=2),
     ]
 
     router = LLMRouter(providers=configs, log_dir="/tmp/logs")
@@ -114,7 +116,9 @@ async def test_router_chat_completion_success(
         )
 
         mock_create.side_effect = lambda config: (
-            mock_openai_provider if config.name == ProviderType.OPENAI else AsyncMock()
+            mock_openai_provider
+            if config.provider_type == ProviderType.OPENAI
+            else AsyncMock()
         )
 
         router = LLMRouter(
@@ -202,7 +206,7 @@ async def test_router_fallback_on_failure(
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
-            if config.name == ProviderType.OPENAI
+            if config.provider_type == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 
@@ -300,7 +304,7 @@ async def test_router_fallback_on_rate_limit(
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
-            if config.name == ProviderType.OPENAI
+            if config.provider_type == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 
@@ -398,7 +402,7 @@ async def test_router_fallback_on_authentication_error(
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
-            if config.name == ProviderType.OPENAI
+            if config.provider_type == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 
@@ -438,7 +442,7 @@ async def test_router_all_providers_fail(
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
-            if config.name == ProviderType.OPENAI
+            if config.provider_type == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 
@@ -474,15 +478,15 @@ async def test_router_get_available_providers(openai_config, anthropic_config):
     """Test router get_available_providers method."""
     router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
     providers = router.get_available_providers()
-    assert set(providers) == {"openai", "anthropic"}
+    assert set(providers) == {"openai-priority-1", "anthropic-priority-2"}
 
 
 @pytest.mark.asyncio
 async def test_router_get_provider_priority(openai_config, anthropic_config):
     """Test router get_provider_priority method."""
     router = LLMRouter(providers=[openai_config, anthropic_config], log_dir="/tmp/logs")
-    assert router.get_provider_priority("openai") == 1
-    assert router.get_provider_priority("anthropic") == 2
+    assert router.get_provider_priority("openai-priority-1") == 1
+    assert router.get_provider_priority("anthropic-priority-2") == 2
     assert router.get_provider_priority("unknown") is None
 
 
@@ -562,7 +566,7 @@ async def test_router_count_tokens_fallback_on_failure(
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
-            if config.name == ProviderType.OPENAI
+            if config.provider_type == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 
@@ -611,7 +615,7 @@ async def test_router_count_tokens_fallback_on_rate_limit(
 
         mock_create.side_effect = lambda config: (
             mock_openai_provider
-            if config.name == ProviderType.OPENAI
+            if config.provider_type == ProviderType.OPENAI
             else mock_anthropic_provider
         )
 

@@ -33,7 +33,7 @@ def _validate_message_dict(data: dict) -> Message:
 def _get_provider() -> AnthropicProvider:
     """Create an Anthropic provider instance for testing."""
     config = ProviderConfig(
-        name=ProviderType.ANTHROPIC,
+        provider_type=ProviderType.ANTHROPIC,
         api_key="test-key",
         priority=1,
     )

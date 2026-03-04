@@ -94,7 +94,7 @@ def sample_request(sample_messages):
 def openai_config():
     """OpenAI provider configuration."""
     return ProviderConfig(
-        name=ProviderType.OPENAI,
+        provider_type=ProviderType.OPENAI,
         api_key="test-openai-key",
         priority=1,
         model_mapping={
@@ -112,7 +112,7 @@ def openai_config():
 def anthropic_config():
     """Anthropic provider configuration."""
     return ProviderConfig(
-        name=ProviderType.ANTHROPIC,
+        provider_type=ProviderType.ANTHROPIC,
         api_key="test-anthropic-key",
         priority=2,
         model_mapping={

@@ -208,7 +208,7 @@ async def test_router_statistics_integration():
 
     # Create router with mock provider
     provider_config = ProviderConfig(
-        name=ProviderType.OPENAI,
+        provider_type=ProviderType.OPENAI,
         base_url="https://api.openai.com/v1",
         api_key="test-key",
         priority=1,
@@ -257,7 +257,7 @@ def test_record_tokens_from_response_openai():
     # Create a mock provider
     provider = OpenAIProvider(
         ProviderConfig(
-            name=ProviderType.OPENAI,
+            provider_type=ProviderType.OPENAI,
             api_key="test-key",
             priority=1,
         )
@@ -282,7 +282,7 @@ def test_record_tokens_from_response_anthropic():
     # Create a mock provider
     provider = AnthropicProvider(
         ProviderConfig(
-            name=ProviderType.ANTHROPIC,
+            provider_type=ProviderType.ANTHROPIC,
             api_key="test-key",
             priority=1,
         )
@@ -310,7 +310,7 @@ def test_record_tokens_from_response_invalid():
     # Create a mock provider
     provider = OpenAIProvider(
         ProviderConfig(
-            name=ProviderType.OPENAI,
+            provider_type=ProviderType.OPENAI,
             api_key="test-key",
             priority=1,
         )

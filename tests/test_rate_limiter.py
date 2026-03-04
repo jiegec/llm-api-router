@@ -170,7 +170,7 @@ class TestRateLimiterWithRouter:
         from llm_api_router import LLMRouter, ProviderConfig, ProviderType
 
         config = ProviderConfig(
-            name=ProviderType.OPENAI, api_key="test-key", priority=1
+            provider_type=ProviderType.OPENAI, api_key="test-key", priority=1
         )
         router = LLMRouter([config], endpoint="openai", log_dir="/tmp/logs")
         assert router.rate_limiter is not None
@@ -181,10 +181,10 @@ class TestRateLimiterWithRouter:
         from llm_api_router import LLMRouter, ProviderConfig, ProviderType
 
         config1 = ProviderConfig(
-            name=ProviderType.OPENAI, api_key="test-key", priority=1
+            provider_type=ProviderType.OPENAI, api_key="test-key", priority=1
         )
         config2 = ProviderConfig(
-            name=ProviderType.ANTHROPIC,
+            provider_type=ProviderType.ANTHROPIC,
             api_key="test-key",
             priority=2,
             provider_name="anthropic-backup",

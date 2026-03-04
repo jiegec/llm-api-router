@@ -8,12 +8,12 @@ from .openai import OpenAIProvider
 
 def create_provider(config: ProviderConfig) -> BaseProvider:
     """Create a provider instance based on configuration."""
-    if config.name == ProviderType.OPENAI:
+    if config.provider_type == ProviderType.OPENAI:
         return OpenAIProvider(config)
-    elif config.name == ProviderType.ANTHROPIC:
+    elif config.provider_type == ProviderType.ANTHROPIC:
         return AnthropicProvider(config)
     else:
-        raise ValueError(f"Unsupported provider type: {config.name}")
+        raise ValueError(f"Unsupported provider type: {config.provider_type}")
 
 
 __all__ = [

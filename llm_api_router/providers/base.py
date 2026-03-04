@@ -144,7 +144,7 @@ class BaseProvider(ABC):
                     )
                     raise ProviderError(
                         f"Count tokens failed after {self.config.max_retries + 1} attempts: {str(e)}",
-                        self.config.name.value,
+                        self.config.display_name,
                     ) from e
 
                 # Exponential backoff
@@ -158,7 +158,7 @@ class BaseProvider(ABC):
         # This should never be reached due to the raise statements above
         raise ProviderError(
             "Unexpected error: max retries exhausted without raising exception",
-            self.config.name.value,
+            self.config.display_name,
         )
 
     def _handle_error(self, status_code: int, error_data: dict[str, Any]) -> None:
@@ -166,19 +166,19 @@ class BaseProvider(ABC):
         error_message = error_data.get("error", {}).get("message", "Unknown error")
 
         if status_code == 401:
-            raise AuthenticationError(error_message, self.config.name.value)
+            raise AuthenticationError(error_message, self.config.display_name)
         elif status_code == 429:
             retry_after = error_data.get("error", {}).get("retry_after")
-            raise RateLimitError(error_message, self.config.name.value, retry_after)
+            raise RateLimitError(error_message, self.config.display_name, retry_after)
         elif status_code >= 400:
             error_type = error_data.get("error", {}).get("type", "unknown")
             raise ProviderError(
-                error_message, self.config.name.value, error_type, error_data
+                error_message, self.config.display_name, error_type, error_data
             )
         else:
             raise LLMError(
                 f"HTTP {status_code}: {error_message}",
-                self.config.name.value,
+                self.config.display_name,
                 status_code,
             )
 
@@ -287,7 +287,7 @@ class BaseProvider(ABC):
                     )
                     raise ProviderError(
                         f"Request failed after {self.config.max_retries + 1} attempts: {str(e)}",
-                        self.config.name.value,
+                        self.config.display_name,
                     ) from e
 
                 # Exponential backoff
@@ -301,7 +301,7 @@ class BaseProvider(ABC):
         # This should never be reached due to raise statements above
         raise ProviderError(
             "Unexpected error: max retries exhausted without raising exception",
-            self.config.name.value,
+            self.config.display_name,
         )
 
     async def _chat_completion_stream(
@@ -427,7 +427,7 @@ class BaseProvider(ABC):
                             # Error reading first chunk
                             check_error = ProviderError(
                                 f"Failed to read first chunk: {str(e)}",
-                                self.config.name.value,
+                                self.config.display_name,
                             )
                             check_complete.set()
                             return
@@ -454,7 +454,7 @@ class BaseProvider(ABC):
                         await response_obj.aclose()
                     raise ProviderError(
                         "Streaming request timeout while checking provider availability",
-                        self.config.name.value,
+                        self.config.display_name,
                     ) from None
 
                 # If there was an error during checking, raise it
@@ -489,7 +489,7 @@ class BaseProvider(ABC):
                 return {
                     "_streaming": True,
                     "_provider": self,
-                    "_provider_type": self.config.name,
+                    "_provider_type": self.config.provider_type,
                     "_provider_name": self.provider_name,
                     "_generator": streaming_generator(),
                 }
@@ -514,7 +514,7 @@ class BaseProvider(ABC):
                     )
                     raise ProviderError(
                         f"Streaming request failed after {self.config.max_retries + 1} attempts: {str(e)}",
-                        self.config.name.value,
+                        self.config.display_name,
                     ) from e
 
                 # Exponential backoff
@@ -528,7 +528,7 @@ class BaseProvider(ABC):
         # This should never be reached due to raise statements above
         raise ProviderError(
             "Unexpected error: max retries exhausted without raising exception",
-            self.config.name.value,
+            self.config.display_name,
         )
 
     def _create_error_from_status(
@@ -538,19 +538,19 @@ class BaseProvider(ABC):
         error_message = error_data.get("error", {}).get("message", "Unknown error")
 
         if status_code == 401:
-            return AuthenticationError(error_message, self.config.name.value)
+            return AuthenticationError(error_message, self.config.display_name)
         elif status_code == 429:
             retry_after = error_data.get("error", {}).get("retry_after")
-            return RateLimitError(error_message, self.config.name.value, retry_after)
+            return RateLimitError(error_message, self.config.display_name, retry_after)
         elif status_code >= 400:
             error_type = error_data.get("error", {}).get("type", "unknown")
             return ProviderError(
-                error_message, self.config.name.value, error_type, error_data
+                error_message, self.config.display_name, error_type, error_data
             )
         else:
             return LLMError(
                 f"HTTP {status_code}: {error_message}",
-                self.config.name.value,
+                self.config.display_name,
                 status_code,
             )
 

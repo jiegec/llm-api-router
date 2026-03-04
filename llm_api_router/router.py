@@ -59,10 +59,9 @@ class LLMRouter:
         # Log configuration
         provider_details = []
         for provider in self.providers:
-            provider_name = provider.name.value
             provider_details.append(
                 {
-                    "name": provider_name,
+                    "type": provider.provider_type,
                     "priority": provider.priority,
                     "model_mapping_count": len(provider.model_mapping),
                 }
@@ -92,8 +91,7 @@ class LLMRouter:
 
     async def _get_provider(self, config: ProviderConfig) -> BaseProvider:
         """Get or create a provider instance."""
-        provider_name = config.name.value
-        provider_key = f"{provider_name}-{config.priority}"
+        provider_key = f"{config.provider_type}-{config.priority}"
         if provider_key not in self._provider_instances:
             provider = create_provider(config)
             self._provider_instances[provider_key] = provider
@@ -123,8 +121,9 @@ class LLMRouter:
         # Log the incoming request
         available_providers = []
         for provider_config in self.providers:
-            provider_name = provider_config.name.value
-            available_providers.append((provider_name, provider_config.priority))
+            available_providers.append(
+                (provider_config.display_name, provider_config.priority)
+            )
 
         self.logger.log_provider_selection(
             request_id=request_id,
@@ -442,8 +441,9 @@ class LLMRouter:
         # Log the incoming request
         available_providers = []
         for provider_config in self.providers:
-            provider_name = provider_config.name.value
-            available_providers.append((provider_name, provider_config.priority))
+            available_providers.append(
+                (provider_config.display_name, provider_config.priority)
+            )
 
         self.logger.log_provider_selection(
             request_id=request_id,
@@ -726,14 +726,13 @@ class LLMRouter:
         await self._exit_stack.aclose()
 
     def get_available_providers(self) -> list[str]:
-        """Get list of available provider names."""
-        return [p.name.value for p in self.providers]
+        """Get list of available provider display names."""
+        return [p.display_name for p in self.providers]
 
     def get_provider_priority(self, provider_name: str) -> int | None:
         """Get priority of a specific provider."""
         for provider in self.providers:
-            provider_name_value = provider.name.value
-            if provider_name_value == provider_name:
+            if provider.display_name == provider_name:
                 return provider.priority
         return None
 

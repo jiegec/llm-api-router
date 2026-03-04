@@ -19,7 +19,7 @@ def _validate_chat_completion_dict(data: dict) -> ChatCompletion:
 def _get_provider() -> OpenAIProvider:
     """Create an OpenAI provider instance for testing."""
     config = ProviderConfig(
-        name=ProviderType.OPENAI,
+        provider_type=ProviderType.OPENAI,
         api_key="test-key",
         priority=1,
     )

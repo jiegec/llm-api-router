@@ -15,7 +15,7 @@ class ProviderType(str, Enum):
 class ProviderConfig(BaseModel):
     """Configuration for an LLM provider."""
 
-    name: ProviderType
+    provider_type: ProviderType
     api_key: str
     priority: int = Field(ge=1, description="Lower number = higher priority")
     base_url: str | None = None
@@ -36,7 +36,7 @@ class ProviderConfig(BaseModel):
         """Get the display name for the provider."""
         if self.provider_name:
             return self.provider_name
-        return f"{self.name.value}-priority-{self.priority}"
+        return f"{self.provider_type.value}-priority-{self.priority}"
 
 
 class Usage(BaseModel):

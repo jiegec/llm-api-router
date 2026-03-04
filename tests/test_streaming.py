@@ -13,7 +13,7 @@ async def test_router_streaming_response():
     """Test that router correctly handles streaming responses."""
     # Create a mock provider config
     config = ProviderConfig(
-        name=ProviderType.OPENAI,
+        provider_type=ProviderType.OPENAI,
         api_key="test-key",
         priority=1,
     )
@@ -62,13 +62,13 @@ async def test_router_streaming_fallback():
     """Test that router fallback works with streaming requests."""
     # Create mock provider configs
     config1 = ProviderConfig(
-        name=ProviderType.OPENAI,
+        provider_type=ProviderType.OPENAI,
         api_key="test-key-1",
         priority=1,
     )
 
     config2 = ProviderConfig(
-        name=ProviderType.OPENAI,
+        provider_type=ProviderType.OPENAI,
         api_key="test-key-2",
         priority=2,
     )
