@@ -295,7 +295,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = next_provider.name.value
+                    next_provider_name = next_provider.display_name
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=self.endpoint,
@@ -340,7 +340,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = next_provider.name.value
+                    next_provider_name = next_provider.display_name
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=self.endpoint,
@@ -385,7 +385,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = next_provider.name.value
+                    next_provider_name = next_provider.display_name
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=self.endpoint,
@@ -593,7 +593,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = next_provider.name.value
+                    next_provider_name = next_provider.display_name
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=f"{self.endpoint}/count_tokens",
@@ -638,7 +638,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = next_provider.name.value
+                    next_provider_name = next_provider.display_name
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=f"{self.endpoint}/count_tokens",
@@ -683,7 +683,7 @@ class LLMRouter:
                 # Log fallback if there are more providers
                 if attempt < len(self.providers):
                     next_provider = self.providers[attempt]
-                    next_provider_name = next_provider.name.value
+                    next_provider_name = next_provider.display_name
                     self.logger.log_fallback(
                         request_id=request_id,
                         endpoint=f"{self.endpoint}/count_tokens",
