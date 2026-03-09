@@ -1,14 +1,20 @@
 """FastAPI server for LLM API Router."""
 
+import asyncio
 import json
 import time
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+
+from llm_api_router.models import ProviderConfig
 
 from . import __version__
 from .analytics import AnalyticsQuery
@@ -238,12 +244,6 @@ class LLMAPIServer:
     """LLM API Server with separate endpoints for each provider type."""
 
     def __init__(self, config: RouterConfig | None = None):
-        self.app = FastAPI(
-            title="LLM API Router",
-            description="Router for OpenAI and Anthropic APIs with provider fallback",
-            version=__version__,
-        )
-
         # Load configuration
         loaded_config = config or load_default_config()
         if loaded_config is None:
@@ -262,6 +262,23 @@ class LLMAPIServer:
         # Initialize routers for each provider type
         self.openai_router: LLMRouter | None = None
         self.anthropic_router: LLMRouter | None = None
+
+        # Setup lifespan context manager for startup/shutdown events
+        @asynccontextmanager
+        async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+            """Lifespan context manager for startup and shutdown events."""
+            # Startup: fetch Anthropic models asynchronously
+            if self.config.anthropic_providers:
+                asyncio.create_task(self._fetch_all_anthropic_models())
+            yield
+            # Shutdown: cleanup if needed
+
+        self.app = FastAPI(
+            title="LLM API Router",
+            description="Router for OpenAI and Anthropic APIs with provider fallback",
+            version=__version__,
+            lifespan=lifespan,
+        )
 
         self._setup_routes()
         self._setup_middleware()
@@ -721,6 +738,90 @@ class LLMAPIServer:
             self.app.mount(
                 "/web", StaticFiles(directory=str(static_dir), html=True), name="static"
             )
+
+    async def _fetch_all_anthropic_models(self) -> None:
+        """Fetch models from all Anthropic providers and pretty print results."""
+        logger = get_logger()
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            tasks = [
+                self._fetch_anthropic_models_for_provider(client, provider)
+                for provider in self.config.anthropic_providers
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for provider, result in zip(
+            self.config.anthropic_providers, results, strict=True
+        ):
+            provider_name = provider.display_name
+
+            if isinstance(result, Exception):
+                logger.logger.info(
+                    f"Failed to fetch models from {provider_name}: {result}"
+                )
+                print(
+                    f"\n[Anthropic: {provider_name}] Failed to fetch models: {result}"
+                )
+                continue
+
+            # Safe to unpack now that we know it's not an Exception
+            models_data, error = cast(tuple[dict[str, Any] | None, str | None], result)
+
+            if error:
+                logger.logger.info(
+                    f"Failed to fetch models from {provider_name}: {error}"
+                )
+                print(f"\n[Anthropic: {provider_name}] Failed to fetch models: {error}")
+                continue
+
+            # Pretty print results
+            print(f"\n{'=' * 60}")
+            print(f"Available Models from Anthropic: {provider_name}")
+            print(f"{'=' * 60}")
+
+            if models_data and "data" in models_data:
+                models = models_data["data"]
+                for model in models:
+                    model_id = model.get("id", "N/A")
+                    display_name = model.get("display_name", "N/A")
+                    created_at = model.get("created_at", "N/A")
+                    print(f"  • {model_id}")
+                    print(f"    Display Name: {display_name}")
+                    print(f"    Created: {created_at}")
+                    print()
+
+                print(f"Total models: {len(models)}")
+            else:
+                print("  No models available or unexpected response format")
+
+            print(f"{'=' * 60}\n")
+
+    async def _fetch_anthropic_models_for_provider(
+        self, client: httpx.AsyncClient, provider: ProviderConfig
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Fetch models from a single Anthropic provider.
+
+        Returns:
+            Tuple of (models_data, error_message)
+        """
+        base_url = provider.base_url
+        url = f"{base_url}/v1/models"
+
+        headers = {
+            "anthropic-version": "2023-06-01",
+            "x-api-key": provider.api_key,
+        }
+
+        try:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json(), None
+        except httpx.HTTPStatusError as e:
+            return None, f"HTTP {e.response.status_code}: {e.response.text}"
+        except httpx.RequestError as e:
+            return None, f"Request error: {e}"
+        except Exception as e:
+            return None, f"Error: {e}"
 
     def _setup_middleware(self) -> None:
         """Setup middleware for error handling."""
