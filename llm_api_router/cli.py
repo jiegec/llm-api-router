@@ -1,6 +1,9 @@
 """CLI for LLM API Router."""
 
 import json
+import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -279,6 +282,141 @@ def check(config: Path | None) -> None:
         click.echo()
         click.echo("✅ Configuration check passed!")
 
+    except Exception as e:
+        click.echo(f"❌ Error: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--config",
+    "-c",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Path to configuration file (JSON) to pass to the serve command",
+)
+@click.option(
+    "--unit-name",
+    default="llm-api-router",
+    show_default=True,
+    help="systemd user unit name (without .service suffix)",
+)
+def install(config: Path | None, unit_name: str) -> None:
+    """Install llm-api-router as a systemd user service."""
+    try:
+        poetry_path = shutil.which("poetry")
+        if poetry_path is None:
+            click.echo("❌ poetry not found in PATH.", err=True)
+            sys.exit(1)
+
+        project_dir = Path.cwd().resolve()
+        serve_cmd = f"{poetry_path} run llm-api-router serve"
+        if config:
+            serve_cmd += f" --config {config}"
+
+        service_content = f"""[Unit]
+Description=LLM API Router
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={project_dir}
+ExecStart={serve_cmd}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target"""
+
+        xdg_config = Path.home() / ".config" / "systemd" / "user"
+        service_file = xdg_config / f"{unit_name}.service"
+
+        if service_file.exists():
+            click.echo(f"⚠️  Service file already exists: {service_file}")
+            if not click.confirm("Overwrite?"):
+                click.echo("Cancelled.")
+                return
+
+        click.echo(f"This will install a systemd user unit: {unit_name}.service")
+        click.echo(f"Working directory: {project_dir}")
+        click.echo(f"Service file:      {service_file}")
+        click.echo()
+        click.echo("The following steps will be performed:")
+        click.echo("  1. Write the systemd user unit file")
+        click.echo("  2. Reload systemd daemon")
+        click.echo("  3. Enable lingering for the current user")
+        click.echo("  4. Enable the service to start on boot")
+        click.echo("  5. Start the service now")
+        click.echo()
+        if not click.confirm("Proceed?"):
+            click.echo("Cancelled.")
+            return
+
+        xdg_config.mkdir(parents=True, exist_ok=True)
+        service_file.write_text(service_content)
+        click.echo(f"✅ Wrote service file: {service_file}")
+
+        click.echo("Reloading systemd daemon...")
+        subprocess.run(
+            ["systemctl", "--user", "daemon-reload"],
+            check=True,
+        )
+        click.echo("✅ Reloaded systemd daemon")
+
+        click.echo("Enabling lingering...")
+        loginctl_result = subprocess.run(
+            ["sudo", "loginctl", "enable-linger", os.getlogin()],
+            capture_output=True,
+            text=True,
+        )
+        if loginctl_result.returncode != 0:
+            click.echo(
+                f"⚠️  Could not enable lingering (sudo required): {loginctl_result.stderr.strip()}",
+                err=True,
+            )
+            click.echo(
+                "   The service will not start at boot until lingering is enabled."
+            )
+            click.echo(
+                f"   Run manually: sudo loginctl enable-linger {os.getlogin()}"
+            )
+            if not click.confirm("Continue without lingering?"):
+                service_file.unlink()
+                click.echo("Rolled back. Cancelled.")
+                return
+        else:
+            click.echo("✅ Enabled lingering")
+
+        click.echo(f"Enabling service {unit_name}...")
+        subprocess.run(
+            ["systemctl", "--user", "enable", f"{unit_name}.service"],
+            check=True,
+        )
+        click.echo(f"✅ Enabled service {unit_name}")
+
+        click.echo(f"Starting service {unit_name}...")
+        subprocess.run(
+            ["systemctl", "--user", "start", f"{unit_name}.service"],
+            check=True,
+        )
+        click.echo(f"✅ Started service {unit_name}")
+
+        click.echo()
+        click.echo("=" * 60)
+        click.echo("🎉 Installation complete!")
+        click.echo("=" * 60)
+        click.echo()
+        click.echo("Useful commands:")
+        click.echo(f"  Status:   systemctl --user status {unit_name}")
+        click.echo(f"  Logs:     journalctl --user -u {unit_name} -f")
+        click.echo(f"  Stop:     systemctl --user stop {unit_name}")
+        click.echo(f"  Restart:  systemctl --user restart {unit_name}")
+        click.echo(f"  Disable:  systemctl --user disable {unit_name}")
+        click.echo(f"  Remove:   rm {service_file}")
+
+    except subprocess.CalledProcessError as e:
+        click.echo(f"❌ Command failed: {e}", err=True)
+        sys.exit(1)
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
         sys.exit(1)
