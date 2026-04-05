@@ -11,6 +11,7 @@ import click
 import uvicorn
 
 from .config import RouterConfig, load_default_config
+from .log_compression import compress_old_logs
 from .server import create_app
 
 
@@ -209,6 +210,30 @@ def init(output: Path) -> None:
 
     except Exception as e:
         click.echo(f"❌ Error creating config file: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--log-dir",
+    "-l",
+    default="logs",
+    show_default=True,
+    type=click.Path(path_type=Path),
+    help="Directory containing log files",
+)
+def compress_logs(log_dir: Path) -> None:
+    """Compress log files that are at least 7 days old with zstd."""
+    try:
+        compressed = compress_old_logs(log_dir)
+        if compressed:
+            for f in compressed:
+                click.echo(f"Compressed: {f}")
+            click.echo(f"Compressed {len(compressed)} file(s)")
+        else:
+            click.echo("No files to compress")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 

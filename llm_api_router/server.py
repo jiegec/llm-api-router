@@ -27,6 +27,7 @@ from .exceptions import (
     ProviderError,
     RateLimitError,
 )
+from .log_compression import compress_old_logs
 from .logging import get_logger
 from .providers import BaseProvider
 from .router import LLMRouter
@@ -267,6 +268,8 @@ class LLMAPIServer:
         @asynccontextmanager
         async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             """Lifespan context manager for startup and shutdown events."""
+            # Startup: compress old logs
+            compress_old_logs()
             # Startup: fetch Anthropic models asynchronously
             if self.config.anthropic_providers:
                 asyncio.create_task(self._fetch_all_anthropic_models())
