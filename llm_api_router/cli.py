@@ -377,9 +377,7 @@ WantedBy=default.target"""
             click.echo(
                 "   The service will not start at boot until lingering is enabled."
             )
-            click.echo(
-                f"   Run manually: sudo loginctl enable-linger {os.getlogin()}"
-            )
+            click.echo(f"   Run manually: sudo loginctl enable-linger {os.getlogin()}")
             if not click.confirm("Continue without lingering?"):
                 service_file.unlink()
                 click.echo("Rolled back. Cancelled.")
