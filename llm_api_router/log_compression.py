@@ -3,15 +3,13 @@
 Compresses log files that are at least 7 days old using zstd.
 """
 
-import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import zstandard as zstd
 
-logger = logging.getLogger("llm_api_router")
-
+from .logging import get_logger
 
 COMPRESS_AGE_DAYS = 7
 
@@ -32,6 +30,7 @@ def compress_old_logs(log_dir: str | Path = "logs") -> list[str]:
     if not log_path.is_dir():
         return []
 
+    logger = get_logger(str(log_dir))
     cutoff = datetime.now(timezone.utc) - timedelta(days=COMPRESS_AGE_DAYS)
     compressed_files: list[str] = []
 
@@ -57,9 +56,9 @@ def compress_old_logs(log_dir: str | Path = "logs") -> list[str]:
                 _compress_file(log_file, zst_path)
                 log_file.unlink()
                 compressed_files.append(str(zst_path))
-                logger.info(f"Compressed old log: {log_file} -> {zst_path}")
+                logger.logger.info(f"Compressed old log: {log_file} -> {zst_path}")
             except Exception as e:
-                logger.warning(f"Failed to compress {log_file}: {e}")
+                logger.logger.warning(f"Failed to compress {log_file}: {e}")
 
     return compressed_files
 
