@@ -58,7 +58,9 @@ def compress_old_logs(log_dir: str | Path = "logs") -> list[str]:
                 compressed_size = zst_path.stat().st_size
                 log_file.unlink()
                 compressed_files.append(str(zst_path))
-                ratio = (1 - compressed_size / original_size) * 100 if original_size else 0
+                ratio = (
+                    (1 - compressed_size / original_size) * 100 if original_size else 0
+                )
                 logger.logger.info(
                     f"Compressed old log: {log_file} -> {zst_path} "
                     f"({original_size} -> {compressed_size} bytes, {ratio:.1f}% reduction)"
