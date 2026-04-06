@@ -53,10 +53,16 @@ def compress_old_logs(log_dir: str | Path = "logs") -> list[str]:
                 continue
 
             try:
+                original_size = log_file.stat().st_size
                 _compress_file(log_file, zst_path)
+                compressed_size = zst_path.stat().st_size
                 log_file.unlink()
                 compressed_files.append(str(zst_path))
-                logger.logger.info(f"Compressed old log: {log_file} -> {zst_path}")
+                ratio = (1 - compressed_size / original_size) * 100 if original_size else 0
+                logger.logger.info(
+                    f"Compressed old log: {log_file} -> {zst_path} "
+                    f"({original_size} -> {compressed_size} bytes, {ratio:.1f}% reduction)"
+                )
             except Exception as e:
                 logger.logger.warning(f"Failed to compress {log_file}: {e}")
 
