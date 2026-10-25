@@ -1,11 +1,11 @@
 """Data models for LLM API Router."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class ProviderType(str, Enum):
+class ProviderType(StrEnum):
     """Supported LLM provider types."""
 
     OPENAI = "openai"

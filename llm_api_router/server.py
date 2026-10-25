@@ -5,7 +5,7 @@ import json
 import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -45,7 +45,7 @@ def _format_timestamp(timestamp: float | None) -> str | None:
     """
     if timestamp is None:
         return None
-    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(timestamp, tz=UTC).isoformat()
 
 
 def _format_providers(providers: list[Any]) -> list[dict[str, Any]]:

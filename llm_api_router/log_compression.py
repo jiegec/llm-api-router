@@ -4,7 +4,7 @@ Compresses log files that are at least 7 days old using zstd.
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import zstandard as zstd
@@ -31,7 +31,7 @@ def compress_old_logs(log_dir: str | Path = "logs") -> list[str]:
         return []
 
     logger = get_logger(str(log_dir))
-    cutoff = datetime.now(timezone.utc) - timedelta(days=COMPRESS_AGE_DAYS)
+    cutoff = datetime.now(UTC) - timedelta(days=COMPRESS_AGE_DAYS)
     compressed_files: list[str] = []
 
     for log_file in sorted(log_path.iterdir()):
@@ -43,7 +43,7 @@ def compress_old_logs(log_dir: str | Path = "logs") -> list[str]:
             continue
 
         try:
-            mtime = datetime.fromtimestamp(log_file.stat().st_mtime, tz=timezone.utc)
+            mtime = datetime.fromtimestamp(log_file.stat().st_mtime, tz=UTC)
         except OSError:
             continue
 

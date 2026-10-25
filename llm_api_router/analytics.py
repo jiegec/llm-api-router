@@ -1,7 +1,7 @@
 """Analytics module for querying request statistics using DuckDB."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -234,7 +234,7 @@ class AnalyticsQuery:
         else:
             # Calculate cutoff from hours (default to 24)
             hours = hours if hours is not None else 24
-            cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
+            cutoff_dt = datetime.now(UTC) - timedelta(hours=hours)
             cutoff_timestamp = cutoff_dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
         # Single parameterized query for both cases

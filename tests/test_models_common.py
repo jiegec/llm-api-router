@@ -1,6 +1,6 @@
 """Test models for LLM API Router."""
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel
@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from llm_api_router.models import Usage
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     """Message role enumeration."""
 
     SYSTEM = "system"

@@ -447,7 +447,7 @@ class BaseProvider(ABC):
                     await asyncio.wait_for(
                         check_complete.wait(), timeout=self.config.timeout
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     check_task.cancel()
                     # Try to close the response if it was opened
                     if response_obj:

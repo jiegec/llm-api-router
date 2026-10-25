@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce analytics SQL logging from info to debug level
 - Unify version to single source of truth
 - Update LICENSE copyright year to 2025-2026
+- Bump dependencies to latest versions and require Python 3.11+
 
 ### Fixed
 

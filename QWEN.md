@@ -33,7 +33,7 @@ llm_api_router/
 └── analytics.py        # Analytics queries with DuckDB
 ```
 
-**Stack**: Python 3.10+, Poetry, FastAPI/uvicorn, httpx, openai/anthropic clients, Pydantic, pytest, black, ruff, mypy
+**Stack**: Python 3.11+, Poetry, FastAPI/uvicorn, httpx, openai/anthropic clients, Pydantic, pytest, black, ruff, mypy
 
 ## Configuration
 

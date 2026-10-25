@@ -1,7 +1,7 @@
 """Tests for log compression."""
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -25,7 +25,7 @@ class TestCompressOldLogs:
     def test_compresses_old_jsonl(self, log_dir: Path) -> None:
         f = log_dir / "router_old.jsonl"
         f.write_text('{"test": true}\n')
-        _set_mtime(f, datetime.now(timezone.utc) - timedelta(days=10))
+        _set_mtime(f, datetime.now(UTC) - timedelta(days=10))
 
         result = compress_old_logs(log_dir)
         assert len(result) == 1
@@ -36,7 +36,7 @@ class TestCompressOldLogs:
     def test_skips_csv_files(self, log_dir: Path) -> None:
         f = log_dir / "request_stats.csv"
         f.write_text("a,b\n1,2\n")
-        _set_mtime(f, datetime.now(timezone.utc) - timedelta(days=8))
+        _set_mtime(f, datetime.now(UTC) - timedelta(days=8))
 
         result = compress_old_logs(log_dir)
         assert result == []
@@ -53,7 +53,7 @@ class TestCompressOldLogs:
     def test_skips_non_log_files(self, log_dir: Path) -> None:
         f = log_dir / "readme.txt"
         f.write_text("hello")
-        _set_mtime(f, datetime.now(timezone.utc) - timedelta(days=30))
+        _set_mtime(f, datetime.now(UTC) - timedelta(days=30))
 
         result = compress_old_logs(log_dir)
         assert result == []
@@ -62,7 +62,7 @@ class TestCompressOldLogs:
     def test_skips_already_compressed(self, log_dir: Path) -> None:
         f = log_dir / "router_old.jsonl.zst"
         f.write_bytes(b"\x28\xb5\x2f\xfd")
-        _set_mtime(f, datetime.now(timezone.utc) - timedelta(days=30))
+        _set_mtime(f, datetime.now(UTC) - timedelta(days=30))
 
         result = compress_old_logs(log_dir)
         assert result == []
@@ -70,7 +70,7 @@ class TestCompressOldLogs:
     def test_skips_existing_zst(self, log_dir: Path) -> None:
         src = log_dir / "router_old.jsonl"
         src.write_text('{"test": true}\n')
-        _set_mtime(src, datetime.now(timezone.utc) - timedelta(days=10))
+        _set_mtime(src, datetime.now(UTC) - timedelta(days=10))
 
         zst = log_dir / "router_old.jsonl.zst"
         zst.write_bytes(b"\x28\xb5\x2f\xfd")
@@ -85,7 +85,7 @@ class TestCompressOldLogs:
         content = '{"key": "value"}\n{"another": "line"}\n'
         f = log_dir / "router_old.jsonl"
         f.write_text(content)
-        _set_mtime(f, datetime.now(timezone.utc) - timedelta(days=10))
+        _set_mtime(f, datetime.now(UTC) - timedelta(days=10))
 
         result = compress_old_logs(log_dir)
         assert len(result) == 1
@@ -106,14 +106,14 @@ class TestCompressOldLogs:
     def test_mixed_files(self, log_dir: Path) -> None:
         old_jsonl = log_dir / "router_old.jsonl"
         old_jsonl.write_text("old\n")
-        _set_mtime(old_jsonl, datetime.now(timezone.utc) - timedelta(days=10))
+        _set_mtime(old_jsonl, datetime.now(UTC) - timedelta(days=10))
 
         recent_jsonl = log_dir / "router_recent.jsonl"
         recent_jsonl.write_text("recent\n")
 
         txt_file = log_dir / "notes.txt"
         txt_file.write_text("notes\n")
-        _set_mtime(txt_file, datetime.now(timezone.utc) - timedelta(days=20))
+        _set_mtime(txt_file, datetime.now(UTC) - timedelta(days=20))
 
         result = compress_old_logs(log_dir)
         assert len(result) == 1

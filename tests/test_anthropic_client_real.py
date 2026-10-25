@@ -8,6 +8,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import httpx
+import httpx2
 from anthropic import Anthropic
 from fastapi.testclient import TestClient
 
@@ -67,11 +68,11 @@ def test_real_anthropic_client_with_testclient():
 
         # Create Anthropic client pointing to our TestClient
         # We need to use a custom transport to route through TestClient
-        class TestClientTransport(httpx.BaseTransport):
+        class TestClientTransport(httpx2.BaseTransport):
             def __init__(self, test_client: TestClient):
                 self.test_client = test_client
 
-            def handle_request(self, request: httpx.Request) -> httpx.Response:
+            def handle_request(self, request: httpx2.Request) -> httpx2.Response:
                 # Convert httpx request to TestClient request
                 method = request.method
                 url = str(request.url)
@@ -95,7 +96,7 @@ def test_real_anthropic_client_with_testclient():
                 )
 
                 # Convert TestClient response to httpx response
-                return httpx.Response(
+                return httpx2.Response(
                     status_code=response.status_code,
                     headers=dict(response.headers),
                     content=response.content,
@@ -107,7 +108,7 @@ def test_real_anthropic_client_with_testclient():
             client = Anthropic(
                 api_key="any-key-works-since-we-mock",
                 base_url="http://testserver/anthropic",
-                http_client=httpx.Client(transport=TestClientTransport(test_client)),
+                http_client=httpx2.Client(transport=TestClientTransport(test_client)),
             )
 
             # Make a request using the real Anthropic client
@@ -209,11 +210,11 @@ def test_real_anthropic_client_fallback():
         mock_client.post.side_effect = [rate_limit_response, success_response]
 
         # Create Anthropic client with custom transport
-        class TestClientTransport(httpx.BaseTransport):
+        class TestClientTransport(httpx2.BaseTransport):
             def __init__(self, test_client: TestClient):
                 self.test_client = test_client
 
-            def handle_request(self, request: httpx.Request) -> httpx.Response:
+            def handle_request(self, request: httpx2.Request) -> httpx2.Response:
                 method = request.method
                 url = str(request.url)
                 headers = dict(request.headers)
@@ -234,7 +235,7 @@ def test_real_anthropic_client_fallback():
                     content=content,
                 )
 
-                return httpx.Response(
+                return httpx2.Response(
                     status_code=response.status_code,
                     headers=dict(response.headers),
                     content=response.content,
@@ -244,7 +245,7 @@ def test_real_anthropic_client_fallback():
             client = Anthropic(
                 api_key="any-key",
                 base_url="http://testserver/anthropic",
-                http_client=httpx.Client(transport=TestClientTransport(test_client)),
+                http_client=httpx2.Client(transport=TestClientTransport(test_client)),
             )
 
             # Make a request - should trigger fallback
@@ -288,11 +289,11 @@ def test_real_anthropic_client_with_system_message():
         )
         mock_client.post.return_value = mock_response
 
-        class TestClientTransport(httpx.BaseTransport):
+        class TestClientTransport(httpx2.BaseTransport):
             def __init__(self, test_client: TestClient):
                 self.test_client = test_client
 
-            def handle_request(self, request: httpx.Request) -> httpx.Response:
+            def handle_request(self, request: httpx2.Request) -> httpx2.Response:
                 method = request.method
                 url = str(request.url)
                 headers = dict(request.headers)
@@ -313,7 +314,7 @@ def test_real_anthropic_client_with_system_message():
                     content=content,
                 )
 
-                return httpx.Response(
+                return httpx2.Response(
                     status_code=response.status_code,
                     headers=dict(response.headers),
                     content=response.content,
@@ -323,7 +324,7 @@ def test_real_anthropic_client_with_system_message():
             client = Anthropic(
                 api_key="any-key",
                 base_url="http://testserver/anthropic",
-                http_client=httpx.Client(transport=TestClientTransport(test_client)),
+                http_client=httpx2.Client(transport=TestClientTransport(test_client)),
             )
 
             # Make a request with system message

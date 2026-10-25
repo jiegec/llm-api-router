@@ -4,7 +4,7 @@ import csv
 import json
 import logging
 import logging.handlers
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -45,7 +45,7 @@ class RouterLogger:
         self.session_id = str(uuid4())[:8]
 
         # Get current datetime for filename
-        self.start_time = datetime.now(timezone.utc)
+        self.start_time = datetime.now(UTC)
         self.datetime_str = self.start_time.strftime("%Y%m%d_%H%M%S")
 
         # Set up structured logging
@@ -185,7 +185,7 @@ class RouterLogger:
         stream = request.get("stream", False)
 
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "type": "request",
             "session_id": self.session_id,
             "request_id": request_id,
@@ -240,9 +240,7 @@ class RouterLogger:
             # count_tokens response format: {"input_tokens": 42}
             input_tokens = response.get("input_tokens", 0)
             log_entry = {
-                "timestamp": datetime.now(timezone.utc)
-                .isoformat()
-                .replace("+00:00", "Z"),
+                "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 "type": "response",
                 "session_id": self.session_id,
                 "request_id": request_id,
@@ -293,7 +291,7 @@ class RouterLogger:
         full_response = response
 
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "type": "response",
             "session_id": self.session_id,
             "request_id": request_id,
@@ -332,7 +330,7 @@ class RouterLogger:
         )
 
         # Log statistics to CSV (skip count_tokens which was handled above)
-        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         self._log_stats_to_csv(
             timestamp=timestamp,
             provider_type=provider_type,
@@ -359,7 +357,7 @@ class RouterLogger:
     ) -> None:
         """Log a retry attempt."""
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "type": "retry",
             "session_id": self.session_id,
             "request_id": request_id,
@@ -396,7 +394,7 @@ class RouterLogger:
     ) -> None:
         """Log an error."""
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "type": "error",
             "session_id": self.session_id,
             "request_id": request_id,
@@ -430,7 +428,7 @@ class RouterLogger:
     ) -> None:
         """Log a fallback to another provider."""
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "type": "fallback",
             "session_id": self.session_id,
             "request_id": request_id,
@@ -460,7 +458,7 @@ class RouterLogger:
     ) -> None:
         """Log provider selection."""
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "type": "provider_selection",
             "session_id": self.session_id,
             "request_id": request_id,
@@ -492,7 +490,7 @@ class RouterLogger:
     ) -> None:
         """Log configuration details."""
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "type": "configuration",
             "session_id": self.session_id,
             "config_type": config_type,
